@@ -68,6 +68,10 @@ Future<void> _showVoiceSettings() async {
     // Preview the selected voice with a short sample.
     final previewTts = FlutterTts();
     await previewTts.setLanguage(selectedVoice.code);
+    // Attempt to set the specific voice identifier.
+    try {
+      await previewTts.setVoice({'name': selectedVoice.id});
+    } catch (_) {}
     await previewTts.setPitch(selectedVoice.pitch);
     await previewTts.setSpeechRate(0.5);
     await previewTts.setVolume(1.0);

@@ -49,9 +49,16 @@ class TtsSettingsService {
     await prefs.setString(_voiceIdKey, voiceId);
   }
 
-  Future<void> applyTo(FlutterTts flutterTts) async {
+Future<void> applyTo(FlutterTts flutterTts) async {
     final voice = await getSelectedVoice();
+    // Set language, voice, and speech parameters.
     await flutterTts.setLanguage(voice.code);
+    // Use the voice's unique identifier if supported by the platform.
+    try {
+      await flutterTts.setVoice({'name': voice.id});
+    } catch (_) {
+      // Some platforms ignore setVoice; continue without failing.
+    }
     await flutterTts.setPitch(voice.pitch);
     await flutterTts.setSpeechRate(0.5);
     await flutterTts.setVolume(1.0);
