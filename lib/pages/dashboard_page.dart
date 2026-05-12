@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:async';
 
 import 'review_page.dart';
@@ -60,9 +61,19 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Future<void> _showVoiceSettings() async {
+Future<void> _showVoiceSettings() async {
     final selectedVoice = await _ttsSettings.showVoiceSelector(context);
     if (!mounted || selectedVoice == null) return;
+
+    // Preview the selected voice with a short sample.
+    final previewTts = FlutterTts();
+    await previewTts.setLanguage(selectedVoice.code);
+    await previewTts.setPitch(selectedVoice.pitch);
+    await previewTts.setSpeechRate(0.5);
+    await previewTts.setVolume(1.0);
+    // Play a generic phrase for the preview.
+    await previewTts.speak('This is a voice preview');
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Voice changed to ${selectedVoice.name}')),
     );
