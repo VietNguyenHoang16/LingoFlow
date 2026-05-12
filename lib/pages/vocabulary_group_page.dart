@@ -50,14 +50,47 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
   Future<void> _createNewList() async {
     if (_isCreatingList) return;
 
+    // Prompt user for list name, prefilled with an auto‑generated suggestion.
+    final defaultName = _buildAutoListName();
+    final nameController = TextEditingController(text: defaultName);
+    final enteredName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create New List'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            hintText: 'Enter list name',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    // If user cancelled or entered an empty name, abort creation.
+    if (enteredName == null || enteredName.isEmpty) return;
+
     setState(() => _isCreatingList = true);
-    final listName = _buildAutoListName();
     try {
-      await _db.createVocabularySet(widget.userId, listName, groupId: widget.groupId);
+      await _db.createVocabularySet(widget.userId, enteredName, groupId: widget.groupId);
       await _loadLists();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Created $listName')),
+          SnackBar(content: Text('Created $enteredName')),
         );
       }
     } catch (e) {

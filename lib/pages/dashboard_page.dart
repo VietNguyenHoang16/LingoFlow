@@ -105,35 +105,66 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> _createNewGroup() async {
-    try {
-      int listNumber = 1;
-      for (var group in _vocabularyGroups) {
-        final name = group['name'] as String;
-        if (name.startsWith('4000 Word List ')) {
-          final numPart = int.tryParse(name.replaceAll('4000 Word List ', ''));
-          if (numPart != null && numPart >= listNumber) {
-            listNumber = numPart + 1;
+Future<void> _createNewGroup() async {
+      try {
+        // Determine default group name based on existing groups.
+        int nextNumber = 1;
+        for (var group in _vocabularyGroups) {
+          final name = group['name'] as String;
+          if (name.startsWith('4000 Word List ')) {
+            final numPart = int.tryParse(name.replaceAll('4000 Word List ', ''));
+            if (numPart != null && numPart >= nextNumber) {
+              nextNumber = numPart + 1;
+            }
           }
         }
-      }
-      
-      final newGroupName = '4000 Word List $listNumber';
-      await _db.createVocabularyGroup(widget.userId, newGroupName);
-      await _loadData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Created "$newGroupName"')),
+        final defaultName = '4000 Word List $nextNumber';
+        // Prompt user for group name, pre‑filled with the default suggestion.
+        final nameController = TextEditingController(text: defaultName);
+        final enteredName = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Create New Group'),
+            content: TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                hintText: 'Enter group name',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  if (name.isNotEmpty) {
+                    Navigator.pop(context, name);
+                  }
+                },
+                child: const Text('Create'),
+              ),
+            ],
+          ),
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        // Abort if user cancelled or entered empty name.
+        if (enteredName == null || enteredName.isEmpty) return;
+        await _db.createVocabularyGroup(widget.userId, enteredName);
+        await _loadData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Created "$enteredName"')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
       }
     }
-  }
 
   Future<void> _deleteGroup(int groupId) async {
     final confirm = await showDialog<bool>(
