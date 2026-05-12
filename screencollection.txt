@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LingoFlow - Travel Essentials</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Be+Vietnam+Pro:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#000000",
+                        "primary-fixed": "#9795ff",
+                        "on-secondary-fixed": "#433500",
+                        "on-secondary": "#fff2d3",
+                        "outline": "#7b719c",
+                        "secondary-fixed": "#fed01b",
+                        "primary-fixed-dim": "#8885ff",
+                        "primary": "#4a40e0",
+                        "error-container": "#f74b6d",
+                        "tertiary-fixed": "#fd8bca",
+                        "on-error": "#ffefef",
+                        "on-primary-container": "#14007e",
+                        "inverse-primary": "#8582ff",
+                        "on-error-container": "#510017",
+                        "error": "#b41340",
+                        "tertiary-dim": "#892a65",
+                        "tertiary": "#983772",
+                        "surface": "#faf4ff",
+                        "surface-tint": "#4a40e0",
+                        "secondary-dim": "#614d00",
+                        "on-tertiary-container": "#610244",
+                        "on-secondary-fixed-variant": "#645000",
+                        "error-dim": "#a70138",
+                        "tertiary-fixed-dim": "#ee7ebc",
+                        "on-primary": "#f4f1ff",
+                        "surface-container-low": "#f5eeff",
+                        "surface-bright": "#faf4ff",
+                        "background": "#faf4ff",
+                        "primary-dim": "#3d30d4",
+                        "surface-container-high": "#e8deff",
+                        "on-surface": "#32294f",
+                        "inverse-surface": "#10062d",
+                        "surface-variant": "#e2d7ff",
+                        "primary-container": "#9795ff",
+                        "outline-variant": "#b2a6d5",
+                        "on-background": "#32294f",
+                        "secondary": "#6f5900",
+                        "secondary-container": "#fed01b",
+                        "tertiary-container": "#fd8bca",
+                        "surface-container-highest": "#e2d7ff",
+                        "inverse-on-surface": "#a296c4",
+                        "on-tertiary": "#ffeff4",
+                        "surface-dim": "#dacdff",
+                        "on-surface-variant": "#5f557f",
+                        "on-tertiary-fixed": "#360024",
+                        "secondary-fixed-dim": "#eec200",
+                        "on-secondary-container": "#594700",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#ede4ff",
+                        "on-primary-fixed-variant": "#1a0099",
+                        "on-tertiary-fixed-variant": "#6d104e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Be Vietnam Pro"],
+                        "label": ["Be Vietnam Pro"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-nav {
+            backdrop-filter: blur(24px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- TopAppBar -->
+<header class="w-full sticky top-0 z-50 no-border bg-[#f5eeff] dark:bg-slate-900 flex items-center justify-between px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 duration-200 text-[#4a40e0] hover:bg-[#ede4ff] transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-bold text-lg text-[#4a40e0]">Vocabulary Set</h1>
+</div>
+<div class="flex items-center">
+<button class="active:scale-95 duration-200 text-[#4a40e0] hover:bg-[#ede4ff] transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</header>
+<main class="max-w-2xl mx-auto px-6 pb-32">
+<!-- Hero Section: Overview -->
+<section class="mt-8 mb-10">
+<div class="relative overflow-hidden bg-gradient-to-br from-primary to-primary-container p-8 rounded-xl text-on-primary">
+<div class="relative z-10">
+<span class="font-headline font-extrabold text-sm tracking-wider uppercase opacity-80">Collection</span>
+<h2 class="font-headline font-extrabold text-3xl mt-1 mb-6">Travel Essentials</h2>
+<div class="bg-white/10 backdrop-blur-md rounded-lg p-6 mb-8">
+<div class="flex justify-between items-end mb-2">
+<span class="font-headline font-bold text-lg">Overall Progress</span>
+<span class="font-headline font-black text-2xl text-secondary-container">75%</span>
+</div>
+<div class="w-full h-3 bg-white/20 rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-[75%] rounded-full"></div>
+</div>
+<p class="text-sm mt-4 opacity-90">18 of 24 words mastered. Keep going!</p>
+</div>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="flex-1 bg-secondary-container text-on-secondary-container py-4 px-6 rounded-full font-headline font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-black/5 active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                            Start Learning
+                        </button>
+<button class="flex-1 bg-white/20 hover:bg-white/30 text-on-primary py-4 px-6 rounded-full font-headline font-bold text-base flex items-center justify-center gap-2 backdrop-blur-sm transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="style">style</span>
+                            Flashcards
+                        </button>
+</div>
+</div>
+<!-- Abstract Decorative Image -->
+<div class="absolute -right-12 -bottom-12 w-64 h-64 opacity-20 rotate-12">
+<img alt="" class="w-full h-full object-contain" data-alt="minimalist 3d icon of a paper airplane with soft shadows and glowing trail on a purple gradient background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCK2EYBKhKAW4mpUw_R5RzV0pVTlMWN8TDl6sLj2vBv3pdfnNTbMPfMZdLqDwVN9SjBl6LCnPgGm0XhT6667qkfyd0eW4AkotAAHCKdT9lSkE3ckjIpu2PshYDE2qwPj5Yu-DTewh9RDvq0hCHlxDbL33vCpkzo0PblxgrFAWdLwKexj46ERaA7lHqKJSJCMLSVaQXVa9xkwcdIU-0PUWEppsE5zs9CZ6awJAEJtYqZrSeBt8OkaZL5lxZPEbkdE2ziZsy87lhNMqLJ"/>
+</div>
+</div>
+</section>
+<!-- Vocabulary List -->
+<section class="space-y-6">
+<div class="flex items-center justify-between px-2">
+<h3 class="font-headline font-bold text-xl text-on-surface">Word List (24)</h3>
+<button class="text-primary font-bold text-sm flex items-center gap-1">
+                    Sort by
+                    <span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+</button>
+</div>
+<!-- List Grid -->
+<div class="grid grid-cols-1 gap-4">
+<!-- Word Card 1 (Mastered) -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between group hover:shadow-xl hover:shadow-primary/5 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="passport">travel</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="font-headline font-bold text-lg">Passport</h4>
+<span class="bg-secondary-container/20 text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Mastered</span>
+</div>
+<p class="text-on-surface-variant font-medium text-sm">/ˈpæspɔːrt/ • Hộ chiếu</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" data-icon="volume_up">volume_up</span>
+</button>
+<div class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_8px_rgba(254,208,27,0.8)]"></div>
+</div>
+</div>
+<!-- Word Card 2 (In Progress) -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between group hover:shadow-xl hover:shadow-primary/5 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="flight_takeoff">flight_takeoff</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="font-headline font-bold text-lg">Airport</h4>
+<span class="bg-surface-container-high text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Learning</span>
+</div>
+<p class="text-on-surface-variant font-medium text-sm">/ˈerpɔːrt/ • Sân bay</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" data-icon="volume_up">volume_up</span>
+</button>
+<div class="w-2 h-2 rounded-full bg-outline-variant opacity-30"></div>
+</div>
+</div>
+<!-- Word Card 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between group hover:shadow-xl hover:shadow-primary/5 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="luggage">luggage</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="font-headline font-bold text-lg">Baggage</h4>
+<span class="bg-secondary-container/20 text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Mastered</span>
+</div>
+<p class="text-on-surface-variant font-medium text-sm">/ˈbæɡɪdʒ/ • Hành lý</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" data-icon="volume_up">volume_up</span>
+</button>
+<div class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_8px_rgba(254,208,27,0.8)]"></div>
+</div>
+</div>
+<!-- Word Card 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between group hover:shadow-xl hover:shadow-primary/5 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="confirmation_number">confirmation_number</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="font-headline font-bold text-lg">Ticket</h4>
+<span class="bg-secondary-container/20 text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Mastered</span>
+</div>
+<p class="text-on-surface-variant font-medium text-sm">/ˈtɪkɪt/ • Vé</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" data-icon="volume_up">volume_up</span>
+</button>
+<div class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_8px_rgba(254,208,27,0.8)]"></div>
+</div>
+</div>
+<!-- Word Card 5 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between group hover:shadow-xl hover:shadow-primary/5 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="hotel">hotel</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="font-headline font-bold text-lg">Reservation</h4>
+<span class="bg-surface-container-high text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Learning</span>
+</div>
+<p class="text-on-surface-variant font-medium text-sm">/ˌrezərˈveɪʃn/ • Sự đặt chỗ</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" data-icon="volume_up">volume_up</span>
+</button>
+<div class="w-2 h-2 rounded-full bg-outline-variant opacity-30"></div>
+</div>
+</div>
+<!-- Empty state visual filler / Bento hint -->
+<div class="bg-surface-container-low border-2 border-dashed border-outline-variant/30 p-10 rounded-lg flex flex-col items-center justify-center text-center opacity-60">
+<span class="material-symbols-outlined text-4xl mb-2" data-icon="auto_stories">auto_stories</span>
+<p class="font-bold">19 words remaining in this set</p>
+<p class="text-xs">Scroll to explore more Travel Essentials</p>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#faf4ff]/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-[0px_-4px_24px_rgba(50,41,79,0.06)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-[#5f557f] hover:text-[#4a40e0] active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="school">school</span>
+<span class="font-['Be_Vietnam_Pro'] text-[10px] font-medium">Learn</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#fed01b] text-[#4a40e0] rounded-full p-2 h-12 w-12 shadow-lg shadow-secondary-container/20 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span class="font-['Be_Vietnam_Pro'] text-[10px] font-medium hidden">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#5f557f] hover:text-[#4a40e0] active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-['Be_Vietnam_Pro'] text-[10px] font-medium">Practice</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#5f557f] hover:text-[#4a40e0] active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Be_Vietnam_Pro'] text-[10px] font-medium">Profile</span>
+</a>
+</nav>
+</body></html>

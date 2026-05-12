@@ -1,0 +1,1439 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import '../services/database_service.dart';
+// import '../services/translation_service.dart'; // Deprecated: Manual import of meanings removed
+// import '../services/dictionary_service.dart'; // Deprecated: Manual import of dictionary removed
+import '../services/srs_service.dart';
+import '../services/tts_settings_service.dart';
+import 'practice_page.dart';
+import 'review_page.dart';
+import 'placeholder_page.dart';
+
+class VocabularySetPage extends StatefulWidget {
+  final int setId;
+  final String setName;
+  final int userId;
+  
+  const VocabularySetPage({
+    super.key,
+    required this.setId,
+    required this.setName,
+    required this.userId,
+  });
+
+  @override
+  State<VocabularySetPage> createState() => _VocabularySetPageState();
+}
+
+class _VocabularySetPageState extends State<VocabularySetPage> {
+  final DatabaseService _db = DatabaseService();
+   // final TranslationService _translator = TranslationService(); // removed
+   // final DictionaryService _dictionary = DictionaryService(); // removed
+  final FlutterTts _flutterTts = FlutterTts();
+  final SrsService _srs = SrsService();
+  final TtsSettingsService _ttsSettings = TtsSettingsService();
+  bool _isImporting = false;
+  List<Map<String, dynamic>> _words = [];
+  bool _isLoading = true;
+  int _progress = 0;
+  int _totalWords = 0;
+  int _dueCount = 0;
+  Map<int, int> _masteryBreakdown = {};
+  int _currentNavIndex = 1;
+  bool _isSelectionMode = false;
+  int _filterLevel = -1; // -1 = all
+  final Set<int> _selectedWords = {};
+  final Set<int> _flippedWords = {};
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedWords.clear();
+      }
+    });
+  }
+
+  void _toggleWordSelection(int wordId) {
+    setState(() {
+      if (_selectedWords.contains(wordId)) {
+        _selectedWords.remove(wordId);
+      } else {
+        _selectedWords.add(wordId);
+      }
+    });
+  }
+
+  void _toggleWordFlip(int wordId) {
+    setState(() {
+      if (_flippedWords.contains(wordId)) {
+        _flippedWords.remove(wordId);
+      } else {
+        _flippedWords.add(wordId);
+      }
+    });
+  }
+
+  void _flipAll() {
+    final displayIds = _filteredWords.map((w) => w['id'] as int).toSet();
+    if (displayIds.isEmpty) return;
+    final allFlipped = displayIds.every((id) => _flippedWords.contains(id));
+    setState(() {
+      if (allFlipped) {
+        _flippedWords.removeAll(displayIds);
+      } else {
+        _flippedWords.addAll(displayIds);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedWords() async {
+    if (_selectedWords.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Words'),
+        content: Text('Are you sure you want to delete ${_selectedWords.length} selected words?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final countToDelete = _selectedWords.length;
+      try {
+        for (int wordId in _selectedWords) {
+          await _db.deleteVocabularyWord(wordId);
+        }
+        await _loadWords();
+        setState(() {
+          _selectedWords.clear();
+          _isSelectionMode = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Deleted $countToDelete words')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  void _onNavTapped(int index) {
+    if (index == _currentNavIndex) return;
+    setState(() => _currentNavIndex = index);
+    
+    if (index == 0) {
+      Navigator.pop(context);
+    } else if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PlaceholderPage(title: 'Practice', icon: Icons.fitness_center)),
+      );
+    } else if (index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PlaceholderPage(title: 'Profile', icon: Icons.person)),
+      );
+    }
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadWords();
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    await _ttsSettings.applyTo(_flutterTts);
+    var voices = await _flutterTts.getVoices;
+    if (voices != null) {
+      debugPrint('Available voices: $voices');
+    }
+  }
+
+  Future<void> _speak(String text) async {
+    try {
+      await _flutterTts.stop();
+      await _ttsSettings.applyTo(_flutterTts);
+      await _flutterTts.speak(text);
+    } catch (e) {
+      debugPrint('TTS Error: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _loadWords() async {
+    try {
+      final words = await _db.getVocabularyWords(widget.setId);
+      final total = words.length;
+      final mastered = words.where((w) => (w['mastery_level'] ?? 0) >= 3).length;
+      final progress = total > 0 ? ((mastered / total) * 100).round() : 0;
+      final now = DateTime.now();
+      final localDueCount = words.where((w) {
+        final dynamic rawDate = w['next_review_date'];
+        if (rawDate == null) return true;
+        final dueDate = rawDate is DateTime ? rawDate : DateTime.tryParse(rawDate.toString());
+        if (dueDate == null) return true;
+        return !dueDate.isAfter(now);
+      }).length;
+
+      // Mastery breakdown
+      final breakdown = <int, int>{};
+      for (final w in words) {
+        final level = w['mastery_level'] as int? ?? 0;
+        breakdown[level] = (breakdown[level] ?? 0) + 1;
+      }
+
+      setState(() {
+        _words = words;
+        _totalWords = total;
+        _progress = progress;
+        _dueCount = localDueCount;
+        _masteryBreakdown = breakdown;
+        final validIds = words.map((w) => w['id'] as int).toSet();
+        _flippedWords.removeWhere((id) => !validIds.contains(id));
+        _isLoading = false;
+      });
+
+      // Refresh due count in background using the same DB query as the review page.
+      _refreshDueCount();
+
+      // Update set progress
+      await _db.updateVocabularySetProgress(widget.setId, progress, total);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshDueCount() async {
+    try {
+      final dueWords = await _db.getWordsDueForReview(widget.setId);
+      if (!mounted) return;
+      setState(() => _dueCount = dueWords.length);
+    } catch (e) {
+      debugPrint('Due count refresh failed: $e');
+    }
+  }
+
+  Future<void> _addWord() async {
+    final wordsController = TextEditingController();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Words (Bulk)'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter words (one per line)',
+                style: TextStyle(fontSize: 14, color: Color(0xFF5f557f)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: wordsController,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                                      hintText: 'fair: (adj) công bằng, hợp lý; (n) hội chợ; (adv) khá, tương đối\n...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (wordsController.text.trim().isNotEmpty) {
+                Navigator.pop(context, wordsController.text);
+              }
+            },
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.trim().isNotEmpty) {
+      setState(() => _isImporting = true);
+
+      try {
+        final lines = result.split('\n').where((line) => line.trim().isNotEmpty).toList();
+        
+        if (lines.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No words to import')),
+            );
+          }
+          return;
+        }
+
+        // Manual word import: expects lines in the format "word: meaning; optional details"
+        final orderedLines = lines.reversed.toList();
+        
+        for (String rawLine in orderedLines) {
+          String line = rawLine.trim();
+          if (line.isEmpty) continue;
+          
+          // Split on first colon to separate word from the rest
+          int colonIdx = line.indexOf(':');
+          String word;
+          String remainder;
+          if (colonIdx != -1) {
+            word = line.substring(0, colonIdx).trim();
+            remainder = line.substring(colonIdx + 1).trim();
+          } else {
+            // No colon: treat the whole line as the word with empty meaning
+            word = line;
+            remainder = '';
+          }
+          
+          // Split remainder on first semicolon to get meaning and optional full details
+          String meaning = '';
+          String fullDetails = '';
+          if (remainder.isNotEmpty) {
+            int semicolonIdx = remainder.indexOf(';');
+            if (semicolonIdx != -1) {
+              meaning = remainder.substring(0, semicolonIdx).trim();
+              fullDetails = remainder.substring(semicolonIdx + 1).trim();
+            } else {
+              meaning = remainder;
+            }
+          }
+          
+          await _db.addVocabularyWord(
+            widget.setId,
+            word,
+            '', // pronunciation left empty for manual entry
+            meaning,
+            fullDetails: fullDetails,
+          );
+        }
+
+        await _loadWords();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Added ${lines.length} words!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isImporting = false);
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteWord(int wordId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Word'),
+        content: const Text('Are you sure you want to delete this word?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _db.deleteVocabularyWord(wordId);
+        await _loadWords();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _editWord({
+    required int wordId,
+    required String word,
+    required String meaning,
+    required String pronunciation,
+    required String fullDetails,
+  }) async {
+    final meaningController = TextEditingController(text: meaning);
+    final pronunciationController = TextEditingController(text: pronunciation);
+    final detailsController = TextEditingController(text: fullDetails);
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit "$word"'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Meaning',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: meaningController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter the meaning you want',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Pronunciation',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: pronunciationController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Optional pronunciation',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Notes / Word type details',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: detailsController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Optional details or part of speech',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (meaningController.text.trim().isEmpty) return;
+              Navigator.pop(context, true);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) return;
+
+    try {
+      final wasFlipped = _flippedWords.contains(wordId);
+      await _db.updateVocabularyWordDetails(
+        wordId: wordId,
+        meaning: meaningController.text,
+        pronunciation: pronunciationController.text,
+        fullDetails: detailsController.text,
+      );
+      await _loadWords();
+      if (wasFlipped && mounted) {
+        setState(() {
+          _flippedWords.add(wordId);
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Updated "$word"')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFFfaf4ff),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Level',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF32294f),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildFilterOption(-1, 'All Words', Icons.list, Colors.grey, _words.length),
+            _buildFilterOption(0, 'New', Icons.fiber_new, Colors.grey, _masteryBreakdown[0] ?? 0),
+            _buildFilterOption(1, 'Learning', Icons.menu_book, const Color(0xFF1e88e5), _masteryBreakdown[1] ?? 0),
+            _buildFilterOption(2, 'Reviewing', Icons.refresh, const Color(0xFFfb8c00), _masteryBreakdown[2] ?? 0),
+            _buildFilterOption(3, 'Mastered', Icons.star, const Color(0xFF43a047), _masteryBreakdown[3] ?? 0),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterOption(int level, String label, IconData icon, Color color, int count) {
+    final isSelected = _filterLevel == level;
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '$count',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: color,
+            fontSize: 13,
+          ),
+        ),
+      ),
+      selected: isSelected,
+      onTap: () {
+        setState(() => _filterLevel = level);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> get _filteredWords {
+    if (_filterLevel == -1) return _words;
+    return _words.where((w) => (w['mastery_level'] ?? 0) == _filterLevel).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primary = Color(0xFF4a40e0);
+    const Color primaryContainer = Color(0xFF9795ff);
+    const Color surface = Color(0xFFfaf4ff);
+    const Color surfaceContainerLow = Color(0xFFf5eeff);
+    const Color onSurface = Color(0xFF32294f);
+    const Color onSurfaceVariant = Color(0xFF5f557f);
+    const Color secondaryContainer = Color(0xFFfed01b);
+    const Color onSecondaryFixed = Color(0xFF433500);
+
+    final displayWords = _filteredWords;
+
+    return Scaffold(
+      backgroundColor: surface,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back, color: primary),
+                      ),
+                      const Text(
+                        'Vocabulary List',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _toggleSelectionMode,
+                        icon: Icon(
+                          _isSelectionMode ? Icons.close : Icons.delete_outline,
+                          color: primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 24),
+                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                          // HERO SECTION
+                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [primary, primaryContainer],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'List',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.setName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                // Progress section
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            'Mastery Progress',
+                                            style: TextStyle(
+                                              fontFamily: 'Plus Jakarta Sans',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          Text(
+                                            '$_progress%',
+                                            style: const TextStyle(
+                                              fontFamily: 'Plus Jakarta Sans',
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900,
+                                              color: secondaryContainer,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Multi-color mastery bar
+                                      if (_totalWords > 0)
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: SizedBox(
+                                            height: 12,
+                                            child: Row(
+                                              children: [
+                                                _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, const Color(0xFF4ade80)),
+                                                _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, const Color(0xFFffa726)),
+                                                _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, const Color(0xFF42a5f5)),
+                                                _buildBarSegment(_masteryBreakdown[0] ?? 0, _totalWords, Colors.white24),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        Container(
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(999),
+                                          ),
+                                        ),
+                                      const SizedBox(height: 12),
+                                      // Breakdown legend
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          _buildLegend('New', Colors.white54, _masteryBreakdown[0] ?? 0),
+                                          _buildLegend('Learning', const Color(0xFF42a5f5), _masteryBreakdown[1] ?? 0),
+                                          _buildLegend('Reviewing', const Color(0xFFffa726), _masteryBreakdown[2] ?? 0),
+                                          _buildLegend('Mastered', const Color(0xFF4ade80), _masteryBreakdown[3] ?? 0),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Due for review alert
+                                if (_dueCount > 0) ...[
+                                  const SizedBox(height: 12),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ReviewPage(
+                                            userId: widget.userId,
+                                            setId: widget.setId,
+                                            setName: widget.setName,
+                                          ),
+                                        ),
+                                      );
+                                      if (result == true) await _loadWords();
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFff6b35).withValues(alpha: 0.3),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFff6b35).withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.notifications_active, color: Colors.white, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '$_dueCount words due for review!',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                          // ACTION BUTTONS
+                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PracticePage(
+                                          setId: widget.setId,
+                                          setName: widget.setName,
+                                          userId: widget.userId,
+                                        ),
+                                      ),
+                                    );
+                                    if (result == true) await _loadWords();
+                                  },
+                                  icon: const Icon(Icons.play_arrow, color: onSecondaryFixed),
+                                  label: const Text(
+                                    'Practice',
+                                    style: TextStyle(
+                                      color: onSecondaryFixed,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: secondaryContainer,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ReviewPage(
+                                          userId: widget.userId,
+                                          setId: widget.setId,
+                                          setName: widget.setName,
+                                        ),
+                                      ),
+                                    );
+                                    if (result == true) await _loadWords();
+                                  },
+                                  icon: const Icon(Icons.refresh, color: Colors.white),
+                                  label: Text(
+                                    'Review ($_dueCount)',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFff6b35),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                          // WORD LIST HEADER
+                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Word List (${displayWords.length})',
+                                style: const TextStyle(
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: onSurface,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  if (_isSelectionMode && _selectedWords.isNotEmpty)
+                                    GestureDetector(
+                                      onTap: _deleteSelectedWords,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        margin: const EdgeInsets.only(right: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.delete, color: Colors.white, size: 18),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Delete',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  if (!_isSelectionMode && displayWords.isNotEmpty)
+                                    GestureDetector(
+                                      onTap: _flipAll,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        margin: const EdgeInsets.only(right: 8),
+                                        decoration: BoxDecoration(
+                                          color: primary.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              displayWords.every((w) => _flippedWords.contains(w['id']))
+                                                  ? Icons.flip_to_back
+                                                  : Icons.flip_to_front,
+                                              color: primary,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              displayWords.every((w) => _flippedWords.contains(w['id']))
+                                                  ? 'Unflip All'
+                                                  : 'Flip All',
+                                              style: const TextStyle(
+                                                fontFamily: 'Be Vietnam Pro',
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: primary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  GestureDetector(
+                                    onTap: _showFilterSheet,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: _filterLevel >= 0
+                                            ? primary.withValues(alpha: 0.1)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            _filterLevel >= 0
+                                                ? SrsService.masteryName(_filterLevel)
+                                                : 'Filter',
+                                            style: TextStyle(
+                                              fontFamily: 'Be Vietnam Pro',
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: primary,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            _filterLevel >= 0 ? Icons.filter_alt : Icons.filter_list,
+                                            color: primary,
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          if (displayWords.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(32),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.auto_stories, size: 64, color: onSurfaceVariant.withValues(alpha: 0.5)),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _filterLevel >= 0 ? 'No ${SrsService.masteryName(_filterLevel)} words' : 'No words yet',
+                                      style: const TextStyle(
+                                        fontFamily: 'Be Vietnam Pro',
+                                        fontSize: 16,
+                                        color: onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _filterLevel >= 0
+                                          ? 'Try changing the filter'
+                                          : 'Add your first word to get started!',
+                                      style: const TextStyle(
+                                        fontFamily: 'Be Vietnam Pro',
+                                        fontSize: 14,
+                                        color: onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            else
+                            ...List.generate(displayWords.length, (index) {
+                              final word = displayWords[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildWordCard(
+                                  id: word['id'],
+                                  word: word['word'],
+                                  pronunciation: word['pronunciation'] ?? '',
+                                  meaning: word['meaning'],
+                                  fullDetails: word['full_details'] ?? '',
+                                  isMastered: word['is_mastered'] ?? false,
+                                  masteryLevel: word['mastery_level'] ?? 0,
+                                  nextReviewDate: word['next_review_date'],
+                                  intervalDays: word['interval_days'] ?? 0,
+                                  correctStreak: word['correct_streak'] ?? 0,
+                                ),
+                              );
+                            }),
+                          const SizedBox(height: 100),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _isImporting ? null : _addWord,
+        backgroundColor: primary,
+        child: _isImporting
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.add, color: Colors.white),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: surface.withValues(alpha: 0.8),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF32294f).withValues(alpha: 0.06),
+              blurRadius: 32,
+              offset: const Offset(0, -12),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            GestureDetector(
+              onTap: () => _onNavTapped(0),
+              child: _buildNavItem(Icons.school_outlined, 'Learn', isActive: _currentNavIndex == 0),
+            ),
+            GestureDetector(
+              onTap: () => _onNavTapped(1),
+              child: _buildNavItem(Icons.menu_book, 'Library', isActive: _currentNavIndex == 1),
+            ),
+            GestureDetector(
+              onTap: () => _onNavTapped(2),
+              child: _buildNavItem(Icons.fitness_center_outlined, 'Practice', isActive: _currentNavIndex == 2),
+            ),
+            GestureDetector(
+              onTap: () => _onNavTapped(3),
+              child: _buildNavItem(Icons.person_outline, 'Profile', isActive: _currentNavIndex == 3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarSegment(int count, int total, Color color) {
+    if (count == 0 || total == 0) return const SizedBox.shrink();
+    return Expanded(
+      flex: count,
+      child: Container(color: color),
+    );
+  }
+
+  Widget _buildLegend(String label, Color color, int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$count',
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.white70,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWordCard({
+    required int id,
+    required String word,
+    required String pronunciation,
+    required String meaning,
+    required String fullDetails,
+    required bool isMastered,
+    required int masteryLevel,
+    DateTime? nextReviewDate,
+    required int intervalDays,
+    required int correctStreak,
+  }) {
+    const Color primary = Color(0xFF4a40e0);
+    const Color onSurface = Color(0xFF32294f);
+    const Color onSurfaceVariant = Color(0xFF5f557f);
+    const Color surfaceContainerLowest = Color(0xFFffffff);
+    const Color primaryContainer = Color(0xFF9795ff);
+
+    final isSelected = _selectedWords.contains(id);
+    final isFlipped = _flippedWords.contains(id);
+    final isMasteredOrHigh = isMastered || masteryLevel >= 3;
+    final masteryConfig = _getMasteryConfig(masteryLevel);
+    final reviewText = _srs.timeUntilReview(nextReviewDate);
+    final isDue = _srs.isDueForReview(nextReviewDate);
+
+    return GestureDetector(
+      onTap: _isSelectionMode ? () => _toggleWordSelection(id) : () => _toggleWordFlip(id),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryContainer.withValues(alpha: 0.2) : surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected
+              ? Border.all(color: primary, width: 2)
+              : Border.all(
+                  color: isDue ? const Color(0xFFff6b35) : (masteryConfig['color'] as Color).withValues(alpha: 0.6),
+                  width: isDue ? 2.0 : 1.5,
+                ),
+        ),
+        child: Row(
+          children: [
+            if (_isSelectionMode)
+              Container(
+                width: 24,
+                height: 24,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? primary : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected ? primary : onSurfaceVariant,
+                    width: 2,
+                  ),
+                ),
+                child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+              ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                child: isFlipped
+                    ? Column(
+                        key: ValueKey('back-$id'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  word,
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: onSurface,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (masteryConfig['color'] as Color).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      masteryConfig['icon'] as IconData,
+                                      size: 12,
+                                      color: masteryConfig['color'] as Color,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      masteryConfig['label'] as String,
+                                      style: TextStyle(
+                                        fontFamily: 'Be Vietnam Pro',
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: masteryConfig['color'] as Color,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (pronunciation.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '/$pronunciation/',
+                              style: const TextStyle(
+                                fontFamily: 'Be Vietnam Pro',
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                                color: onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          Text(
+                            meaning,
+                            style: const TextStyle(
+                              fontFamily: 'Be Vietnam Pro',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: primary,
+                            ),
+                          ),
+                          if (fullDetails.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              fullDetails,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Be Vietnam Pro',
+                                fontSize: 12,
+                                color: onSurface,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: _isSelectionMode
+                                    ? null
+                                    : () => _editWord(
+                                          wordId: id,
+                                          word: word,
+                                          meaning: meaning,
+                                          pronunciation: pronunciation,
+                                          fullDetails: fullDetails,
+                                        ),
+                                icon: const Icon(Icons.edit_outlined, size: 16),
+                                label: const Text('Edit meaning'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: primary,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  minimumSize: Size.zero,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (!_isSelectionMode)
+                                IconButton(
+                                  onPressed: () => _speak(word),
+                                  icon: const Icon(Icons.volume_up, color: primary),
+                                ),
+                            ],
+                          ),
+                          if (masteryLevel > 0 || nextReviewDate != null) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  isDue ? Icons.notifications_active : Icons.schedule,
+                                  size: 13,
+                                  color: isDue ? const Color(0xFFff6b35) : onSurfaceVariant.withValues(alpha: 0.7),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    reviewText,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'Be Vietnam Pro',
+                                      fontSize: 11,
+                                      fontWeight: isDue ? FontWeight.bold : FontWeight.normal,
+                                      color: isDue ? const Color(0xFFff6b35) : onSurfaceVariant.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ),
+                                if (intervalDays > 0)
+                                  Text(
+                                    '${intervalDays}d',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: onSurfaceVariant.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                if (correctStreak > 0) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Streak $correctStreak',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: onSurfaceVariant.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ],
+                      )
+                    : Column(
+                        key: ValueKey('front-$id'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  word,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: onSurface,
+                                  ),
+                                ),
+                              ),
+                              if (isMasteredOrHigh)
+                                const Icon(Icons.star, color: Color(0xFF43a047), size: 18),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap card to flip',
+                            style: TextStyle(
+                              fontFamily: 'Be Vietnam Pro',
+                              fontSize: 12,
+                              color: onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            if (!isFlipped)
+              IconButton(
+                onPressed: _isSelectionMode ? null : () => _speak(word),
+                icon: const Icon(Icons.volume_up, color: primary),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, dynamic> _getMasteryConfig(int level) {
+    switch (level) {
+      case 0:
+        return {'label': 'New', 'color': Colors.grey, 'icon': Icons.fiber_new};
+      case 1:
+        return {'label': 'Learning', 'color': const Color(0xFF1e88e5), 'icon': Icons.menu_book};
+      case 2:
+        return {'label': 'Reviewing', 'color': const Color(0xFFfb8c00), 'icon': Icons.refresh};
+      case 3:
+        return {'label': 'Mastered', 'color': const Color(0xFF43a047), 'icon': Icons.star};
+      default:
+        return {'label': 'Unknown', 'color': Colors.grey, 'icon': Icons.help};
+    }
+  }
+
+  Widget _buildNavItem(IconData icon, String label, {required bool isActive}) {
+    if (isActive) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFfed01b),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFF433500)),
+          ),
+        ],
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: const Color(0xFF5f557f)),
+      ],
+    );
+  }
+}
+
