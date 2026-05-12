@@ -11,16 +11,10 @@ class DatabaseService {
   bool _isInitialized = false;
   static const String _mobileApiBaseUrl = String.fromEnvironment(
     'LINGOFLOW_API_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://vocab-virid.vercel.app',
   );
   static String get _endpoint {
     if (kIsWeb) return '/api/lingoflow';
-    if (_mobileApiBaseUrl.isEmpty) {
-      throw StateError(
-        'Missing LINGOFLOW_API_BASE_URL. Build mobile with '
-        '--dart-define=LINGOFLOW_API_BASE_URL=https://your-vercel-url',
-      );
-    }
     return '$_mobileApiBaseUrl/api/lingoflow';
   }
 
