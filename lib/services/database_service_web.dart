@@ -9,7 +9,6 @@ class DatabaseService {
   DatabaseService._internal();
 
   bool _isInitialized = false;
-  final http.Client _client = http.Client();
 
   static const String _mobileApiBaseUrl = String.fromEnvironment(
     'LINGOFLOW_API_BASE_URL',
@@ -30,7 +29,7 @@ class DatabaseService {
     String action, {
     Map<String, dynamic> data = const {},
   }) async {
-    final response = await _client.post(
+    final response = await http.post(
       Uri.parse(_endpoint),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({'action': action, 'data': data}),
