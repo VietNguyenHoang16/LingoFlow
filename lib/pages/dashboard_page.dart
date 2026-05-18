@@ -246,13 +246,17 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: Icon(Icons.person, color: theme.colorScheme.onSurface),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        'Vocabulary Library',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
-                          color: theme.colorScheme.onSurface,
+                      Expanded(
+                        child: Text(
+                          'Vocabulary Library',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ],
@@ -396,15 +400,18 @@ class _DashboardPageState extends State<DashboardPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 30),
       ),
-      bottomNavigationBar: LingoBottomNavBar(
-        currentIndex: _currentIndex,
-        items: const [
-          NavItem(icon: Icons.home_outlined, label: 'Home'),
-          NavItem(icon: Icons.menu_book, label: 'Library'),
-          NavItem(icon: Icons.query_stats_outlined, label: 'Progress'),
-          NavItem(icon: Icons.person_outline, label: 'Profile'),
-        ],
-        onTap: _onTabTapped,
+      bottomNavigationBar: SafeArea(
+        bottom: true,
+        child: LingoBottomNavBar(
+          currentIndex: _currentIndex,
+          items: const [
+            NavItem(icon: Icons.home_outlined, label: 'Home'),
+            NavItem(icon: Icons.menu_book, label: 'Library'),
+            NavItem(icon: Icons.query_stats_outlined, label: 'Progress'),
+            NavItem(icon: Icons.person_outline, label: 'Profile'),
+          ],
+          onTap: _onTabTapped,
+        ),
       ),
     );
   }

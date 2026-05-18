@@ -1107,7 +1107,9 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                     )
                   : Icon(Icons.add, color: theme.colorScheme.onPrimary),
             ),
-      bottomNavigationBar: LingoBottomNavBar(
+      bottomNavigationBar: SafeArea(
+        bottom: true,
+        child: LingoBottomNavBar(
         currentIndex: _currentNavIndex,
         items: const [
           NavItem(icon: Icons.school_outlined, label: 'Learn'),
@@ -1116,6 +1118,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
           NavItem(icon: Icons.person_outline, label: 'Profile'),
         ],
         onTap: _onNavTapped,
+        ),
       ),
     );
   }
