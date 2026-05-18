@@ -173,9 +173,7 @@ class SrsService {
     if (diff.inMinutes < 60) return 'Due in ${diff.inMinutes}m';
     if (diff.inHours < 24) return 'Due in ${diff.inHours}h';
     if (diff.inDays == 1) return 'Due tomorrow';
-    if (diff.inDays < 7) return 'In ${diff.inDays} days';
-    if (diff.inDays < 30) return 'In ${(diff.inDays / 7).round()} weeks';
-    return 'In ${(diff.inDays / 30).round()} months';
+    return 'In ${diff.inDays} days';
   }
 
   /// Kiểm tra xem từ có cần ôn hôm nay không

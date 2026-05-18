@@ -5,6 +5,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/mastery_badge.dart';
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -38,11 +40,13 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
   bool _showAnswer = false;
   bool _isCompleted = false;
 
-  // Session stats
   int _totalReviewed = 0;
   int _masteryUps = 0;
   int _masteryDowns = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
+  final List<Future<void>> _pendingUpdates = [];
+
+  Map<int, String> _calculatedIntervals = {};
 
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
@@ -75,8 +79,14 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
     }
   }
 
+  Future<void> _flushUpdates() async {
+    if (_pendingUpdates.isEmpty) return;
+    await Future.wait(List<Future<void>>.from(_pendingUpdates));
+  }
+
   @override
   void dispose() {
+    unawaited(_flushUpdates());
     _answerController.dispose();
     _answerFocusNode.dispose();
     _flipController.dispose();
@@ -108,7 +118,24 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _rateWord(int quality) async {
+  void _queueUpdate(int wordId, SrsResult result) {
+    final future = _db.updateWordReview(
+      wordId: wordId,
+      reviewCount: result.newReviewCount,
+      correctStreak: result.newCorrectStreak,
+      easeFactor: result.newEaseFactor,
+      intervalDays: result.newInterval,
+      nextReviewDate: result.nextReviewDate,
+      masteryLevel: result.newMasteryLevel,
+    ).catchError((e) {
+      debugPrint('Failed to update word review: $e');
+    });
+    
+    _pendingUpdates.add(future);
+    future.whenComplete(() => _pendingUpdates.remove(future));
+  }
+
+  void _rateWord(int quality) {
     if (_dueWords.isEmpty || _currentIndex >= _dueWords.length) return;
 
     final word = _dueWords[_currentIndex];
@@ -122,18 +149,8 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       reviewCount: word['review_count'] as int,
     );
 
-    // Update database
-    await _db.updateWordReview(
-      wordId: word['id'] as int,
-      reviewCount: result.newReviewCount,
-      correctStreak: result.newCorrectStreak,
-      easeFactor: result.newEaseFactor,
-      intervalDays: result.newInterval,
-      nextReviewDate: result.nextReviewDate,
-      masteryLevel: result.newMasteryLevel,
-    );
+    _queueUpdate(word['id'] as int, result);
 
-    // Track session stats
     _totalReviewed++;
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
     if (result.newMasteryLevel < oldMastery) _masteryDowns++;
@@ -146,10 +163,8 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       'nextInterval': result.newInterval,
     });
 
-    // Move to next word
     setState(() {
       if (quality == SrsService.qualityAgain) {
-        // Thêm từ vào cuối danh sách để ôn lại ngay trong phiên này
         _dueWords.add(word);
       }
 
@@ -157,9 +172,11 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       _isAnswerCorrect = null;
       _answerController.clear();
       _flipController.reset();
+      _calculatedIntervals = {};
+      
       if (_currentIndex < _dueWords.length - 1) {
         _currentIndex++;
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.microtask(() {
           if (mounted) _answerFocusNode.requestFocus();
         });
       } else {
@@ -169,46 +186,69 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
   }
 
   void _showAnswerCard() {
+    if (_dueWords.isEmpty || _currentIndex >= _dueWords.length) return;
+    
     _answerFocusNode.unfocus();
+    
+    final word = _dueWords[_currentIndex];
+    final intervals = <int, String>{};
+    for (final q in [SrsService.qualityAgain, SrsService.qualityHard, SrsService.qualityGood, SrsService.qualityEasy]) {
+      final res = _srs.calculateNextReview(
+        quality: q,
+        currentInterval: word['interval_days'] as int,
+        easeFactor: (word['ease_factor'] as num).toDouble(),
+        correctStreak: word['correct_streak'] as int,
+        reviewCount: word['review_count'] as int,
+      );
+      intervals[q] = res.newInterval == 0 ? '< 1m' : '${res.newInterval}d';
+    }
+
     setState(() {
       _showAnswer = true;
       _isAnswerCorrect = _answerController.text.trim().toLowerCase() == (_dueWords[_currentIndex]['word'] ?? '').toString().toLowerCase();
+      _calculatedIntervals = intervals;
     });
+    
     _flipController.forward();
-    if (_dueWords.isNotEmpty && _currentIndex < _dueWords.length) {
-      unawaited(_speak((_dueWords[_currentIndex]['word'] ?? '').toString()));
+    unawaited(_speak((_dueWords[_currentIndex]['word'] ?? '').toString()));
+  }
+
+  String _getMaskedWord(String word) {
+    if (word.length <= 2) return word; 
+    String masked = '';
+    for (int i = 0; i < word.length; i++) {
+      if (i == 0 || i == word.length - 1 || word[i] == ' ') {
+        masked += word[i];
+      } else {
+        masked += ' _ ';
+      }
     }
+    return masked.replaceAll('  ', ' ').trim();
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color primaryContainer = Color(0xFF9795ff);
-    const Color surface = Color(0xFFfaf4ff);
-    const Color surfaceContainerLow = Color(0xFFf5eeff);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
-    const Color secondaryContainer = Color(0xFFfed01b);
-    const Color onSecondaryFixed = Color(0xFF433500);
+    final theme = Theme.of(context);
+    final colors = context.lingoColors;
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: surface,
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: theme.colorScheme.surface,
+        body: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
       );
     }
 
     if (_dueWords.isEmpty) {
       return Scaffold(
-        backgroundColor: surface,
+        backgroundColor: theme.colorScheme.surface,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: primary),
+            icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text('Review', style: TextStyle(color: onSurface)),
+          title: Text('Review', style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         body: Center(
           child: Padding(
@@ -219,28 +259,21 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
+                    color: Colors.green.withAlpha(25),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_circle, size: 72, color: Colors.green),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'All caught up! 🎉',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: onSurface,
-                  ),
+                Text(
+                  'All caught up!',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'No words are due for review right now.\nKeep learning new words!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: onSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -250,32 +283,24 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
     }
 
     if (_isCompleted) {
-      return _buildCompletedScreen(
-        primary: primary,
-        surface: surface,
-        onSurface: onSurface,
-        onSurfaceVariant: onSurfaceVariant,
-        secondaryContainer: secondaryContainer,
-        onSecondaryFixed: onSecondaryFixed,
-        surfaceContainerLow: surfaceContainerLow,
-      );
+      return _buildCompletedScreen();
     }
 
     final currentWord = _dueWords[_currentIndex];
     final progress = (_currentIndex + 1) / _dueWords.length;
 
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primary),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
           onPressed: () => Navigator.pop(context, true),
         ),
         title: Text(
           widget.setName ?? 'Daily Review',
-          style: const TextStyle(color: onSurface, fontWeight: FontWeight.bold),
+          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
         ),
         actions: [
           Padding(
@@ -284,15 +309,12 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: primaryContainer.withValues(alpha: 0.2),
+                  color: theme.colorScheme.primaryContainer.withAlpha(51),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   '${_currentIndex + 1} / ${_dueWords.length}',
-                  style: const TextStyle(
-                    color: primary,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -310,8 +332,8 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: primaryContainer.withValues(alpha: 0.2),
-                  valueColor: const AlwaysStoppedAnimation<Color>(primary),
+                  backgroundColor: theme.colorScheme.primaryContainer.withAlpha(51),
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                   minHeight: 6,
                 ),
               ),
@@ -322,29 +344,30 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                 child: Column(
                   children: [
                     const SizedBox(height: 8),
-                    _buildMasteryBadge(currentWord['mastery_level'] as int),
+                    MasteryBadge(level: currentWord['mastery_level'] as int),
                     const SizedBox(height: 16),
                     AnimatedBuilder(
                       animation: _flipAnimation,
                       builder: (context, child) {
+                        final showColors = _showAnswer
+                            ? (_isAnswerCorrect == true 
+                                ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
+                                : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(179)])
+                            : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
                         return Container(
                           width: double.infinity,
                           constraints: const BoxConstraints(minHeight: 180, maxHeight: 300),
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: _showAnswer
-                                  ? (_isAnswerCorrect == true 
-                                      ? [const Color(0xFF2d8f4e), const Color(0xFF4ade80)]
-                                      : [const Color(0xFFe53935), const Color(0xFFef5350)])
-                                  : [primary, primaryContainer],
+                              colors: showColors,
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: (_showAnswer ? (_isAnswerCorrect == true ? Colors.green : Colors.red) : primary).withValues(alpha: 0.3),
+                                color: (showColors[0]).withAlpha(76),
                                 blurRadius: 24,
                                 offset: const Offset(0, 12),
                               ),
@@ -356,21 +379,39 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                               if (!_showAnswer) ...[
                                 const Icon(Icons.translate, color: Colors.white54, size: 32),
                                 const SizedBox(height: 8),
-                                const Text('What is the English word?', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                                Text('What is the English word?', style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(179), fontSize: 14)),
                                 const SizedBox(height: 10),
                                 Text(
                                   currentWord['meaning'] ?? '',
                                   textAlign: TextAlign.center,
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5),
+                                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 22, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary, letterSpacing: 0.5),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withAlpha(25),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _getMaskedWord(currentWord['word'] ?? ''),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      letterSpacing: 2,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onPrimary,
+                                    ),
+                                  ),
                                 ),
                                 if (currentWord['set_name'] != null) ...[
                                   const SizedBox(height: 10),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                                    child: Text(currentWord['set_name'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                                    decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(38), borderRadius: BorderRadius.circular(12)),
+                                    child: Text(currentWord['set_name'], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(153), fontSize: 12)),
                                   ),
                                 ],
                                 const SizedBox(height: 20),
@@ -379,12 +420,12 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                                   focusNode: _answerFocusNode,
                                   autofocus: true,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary),
                                   decoration: InputDecoration(
                                     hintText: 'Type English word...',
-                                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                                    hintStyle: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(128)),
                                     filled: true,
-                                    fillColor: Colors.black.withValues(alpha: 0.2),
+                                    fillColor: Colors.black.withAlpha(51),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       borderSide: BorderSide.none,
@@ -396,27 +437,25 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                               ] else ...[
                                 Icon(_isAnswerCorrect == true ? Icons.check_circle : Icons.cancel, color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent, size: 40),
                                 const SizedBox(height: 8),
-                                Text(currentWord['word'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
+                                Text(currentWord['word'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 28, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
                                 if ((currentWord['pronunciation'] ?? '').isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text('/${currentWord['pronunciation']}/', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: Colors.white70, fontStyle: FontStyle.italic)),
+                                  Text('/${currentWord['pronunciation']}/', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
                                 ],
                                 const SizedBox(height: 8),
-                                Container(width: 60, height: 2, color: Colors.white30),
+                                Container(width: 60, height: 2, color: theme.colorScheme.onPrimary.withAlpha(76)),
                                 const SizedBox(height: 10),
-                                Text(currentWord['meaning'] ?? '', textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 19, fontWeight: FontWeight.w600, color: Colors.white)),
-                                
+                                Text(currentWord['meaning'] ?? '', textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 19, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
                                 if (_answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
                                   const SizedBox(height: 10),
-                                  Text('You typed: ${_answerController.text}', style: const TextStyle(fontSize: 14, color: Colors.white70, fontStyle: FontStyle.italic)),
+                                  Text('You typed: ${_answerController.text}', style: TextStyle(fontSize: 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
                                 ],
-
                                 if ((currentWord['full_details'] ?? '').isNotEmpty) ...[
                                   const SizedBox(height: 10),
                                   Container(
                                     padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                                    child: Text(currentWord['full_details'], textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.4)),
+                                    decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(38), borderRadius: BorderRadius.circular(12)),
+                                    child: Text(currentWord['full_details'], textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: theme.colorScheme.onPrimary.withAlpha(179), height: 1.4)),
                                   ),
                                 ],
                               ],
@@ -432,13 +471,13 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                         height: 52,
                         child: ElevatedButton.icon(
                           onPressed: _showAnswerCard,
-                          icon: const Icon(Icons.check, color: Colors.white),
-                          label: const Text('Check Answer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                          style: ElevatedButton.styleFrom(backgroundColor: primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 4),
+                          icon: Icon(Icons.check, color: theme.colorScheme.onPrimary),
+                          label: Text('Check Answer', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+                          style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 4),
                         ),
                       ),
                     ] else ...[
-                      const Text('How well did you remember?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: onSurface)),
+                      Text('How well did you remember?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
                       const SizedBox(height: 12),
                       LayoutBuilder(
                         builder: (context, buttonConstraints) {
@@ -448,22 +487,22 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Again', emoji: 'A', subtitle: _previewInterval(SrsService.qualityAgain), color: const Color(0xFFe53935), onTap: () => _rateWord(SrsService.qualityAgain))),
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Hard', emoji: 'H', subtitle: _previewInterval(SrsService.qualityHard), color: const Color(0xFFfb8c00), onTap: () => _rateWord(SrsService.qualityHard))),
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Good', emoji: 'G', subtitle: _previewInterval(SrsService.qualityGood), color: const Color(0xFF43a047), onTap: () => _rateWord(SrsService.qualityGood))),
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Easy', emoji: 'E', subtitle: _previewInterval(SrsService.qualityEasy), color: const Color(0xFF1e88e5), onTap: () => _rateWord(SrsService.qualityEasy))),
+                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Again', emoji: 'A', subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '', color: theme.colorScheme.error, onTap: () => _rateWord(SrsService.qualityAgain))),
+                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Hard', emoji: 'H', subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '', color: colors.masteryReviewing, onTap: () => _rateWord(SrsService.qualityHard))),
+                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Good', emoji: 'G', subtitle: _calculatedIntervals[SrsService.qualityGood] ?? '', color: colors.masteryMastered, onTap: () => _rateWord(SrsService.qualityGood))),
+                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Easy', emoji: 'E', subtitle: _calculatedIntervals[SrsService.qualityEasy] ?? '', color: colors.masteryLearning, onTap: () => _rateWord(SrsService.qualityEasy))),
                               ],
                             );
                           }
                           return Row(
                             children: [
-                              Expanded(child: _buildRateButton(label: 'Again', emoji: '😣', subtitle: _previewInterval(SrsService.qualityAgain), color: const Color(0xFFe53935), onTap: () => _rateWord(SrsService.qualityAgain))),
+                              Expanded(child: _buildRateButton(label: 'Again', emoji: '😣', subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '', color: theme.colorScheme.error, onTap: () => _rateWord(SrsService.qualityAgain))),
                               const SizedBox(width: 8),
-                              Expanded(child: _buildRateButton(label: 'Hard', emoji: '🤔', subtitle: _previewInterval(SrsService.qualityHard), color: const Color(0xFFfb8c00), onTap: () => _rateWord(SrsService.qualityHard))),
+                              Expanded(child: _buildRateButton(label: 'Hard', emoji: '🤔', subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '', color: colors.masteryReviewing, onTap: () => _rateWord(SrsService.qualityHard))),
                               const SizedBox(width: 8),
-                              Expanded(child: _buildRateButton(label: 'Good', emoji: '👍', subtitle: _previewInterval(SrsService.qualityGood), color: const Color(0xFF43a047), onTap: () => _rateWord(SrsService.qualityGood))),
+                              Expanded(child: _buildRateButton(label: 'Good', emoji: '👍', subtitle: _calculatedIntervals[SrsService.qualityGood] ?? '', color: colors.masteryMastered, onTap: () => _rateWord(SrsService.qualityGood))),
                               const SizedBox(width: 8),
-                              Expanded(child: _buildRateButton(label: 'Easy', emoji: '🌟', subtitle: _previewInterval(SrsService.qualityEasy), color: const Color(0xFF1e88e5), onTap: () => _rateWord(SrsService.qualityEasy))),
+                              Expanded(child: _buildRateButton(label: 'Easy', emoji: '🌟', subtitle: _calculatedIntervals[SrsService.qualityEasy] ?? '', color: colors.masteryLearning, onTap: () => _rateWord(SrsService.qualityEasy))),
                             ],
                           );
                         },
@@ -479,24 +518,6 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
     );
   }
 
-  String _previewInterval(int quality) {
-    if (_dueWords.isEmpty || _currentIndex >= _dueWords.length) return '';
-    final word = _dueWords[_currentIndex];
-    final result = _srs.calculateNextReview(
-      quality: quality,
-      currentInterval: word['interval_days'] as int,
-      easeFactor: (word['ease_factor'] as num).toDouble(),
-      correctStreak: word['correct_streak'] as int,
-      reviewCount: word['review_count'] as int,
-    );
-    final days = result.newInterval;
-    if (days == 0) return '< 1m';
-    if (days == 1) return '1d';
-    if (days < 7) return '${days}d';
-    if (days < 30) return '${(days / 7).round()}w';
-    return '${(days / 30).round()}mo';
-  }
-
   Widget _buildRateButton({
     required String label,
     required String emoji,
@@ -509,8 +530,8 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
+          color: color.withAlpha(25),
+          border: Border.all(color: color.withAlpha(76), width: 2),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -518,68 +539,26 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
             Text(emoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 2),
             Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: color.withAlpha(179))),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMasteryBadge(int level) {
-    final config = _getMasteryConfig(level);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: config['color'].withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: config['color'].withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(config['icon'] as IconData, size: 16, color: config['color'] as Color),
-          const SizedBox(width: 6),
-          Text(config['label'] as String, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: config['color'] as Color)),
-        ],
-      ),
-    );
-  }
-
-  Map<String, dynamic> _getMasteryConfig(int level) {
-    switch (level) {
-      case 0:
-        return {'label': 'New', 'color': Colors.grey, 'icon': Icons.fiber_new};
-      case 1:
-        return {'label': 'Learning', 'color': const Color(0xFF1e88e5), 'icon': Icons.menu_book};
-      case 2:
-        return {'label': 'Reviewing', 'color': const Color(0xFFfb8c00), 'icon': Icons.refresh};
-      case 3:
-        return {'label': 'Mastered', 'color': const Color(0xFF43a047), 'icon': Icons.star};
-      default:
-        return {'label': 'Unknown', 'color': Colors.grey, 'icon': Icons.help};
-    }
-  }
-
-  Widget _buildCompletedScreen({
-    required Color primary,
-    required Color surface,
-    required Color onSurface,
-    required Color onSurfaceVariant,
-    required Color secondaryContainer,
-    required Color onSecondaryFixed,
-    required Color surfaceContainerLow,
-  }) {
+  Widget _buildCompletedScreen() {
+    final theme = Theme.of(context);
     final percentage = _totalReviewed > 0
         ? ((_sessionResults.where((r) => (r['quality'] as int) >= 3).length / _totalReviewed) * 100).round()
         : 0;
 
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Color(0xFF4a40e0)),
+          icon: Icon(Icons.close, color: theme.colorScheme.primary),
           onPressed: () => Navigator.pop(context, true),
         ),
       ),
@@ -590,21 +569,21 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [primary, const Color(0xFF9795ff)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 12))],
+                boxShadow: [BoxShadow(color: theme.colorScheme.primary.withAlpha(76), blurRadius: 24, offset: const Offset(0, 12))],
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.emoji_events, size: 64, color: Color(0xFFfed01b)),
+                  Icon(Icons.emoji_events, size: 64, color: theme.colorScheme.secondary),
                   const SizedBox(height: 12),
-                  const Text('Review Complete!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Text('Review Complete!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatItem('Reviewed', '$_totalReviewed', Colors.white),
-                      _buildStatItem('Accuracy', '$percentage%', Colors.white),
+                      _buildStatItem('Reviewed', '$_totalReviewed', theme.colorScheme.onPrimary),
+                      _buildStatItem('Accuracy', '$percentage%', theme.colorScheme.onPrimary),
                       _buildStatItem('Level Up', '+$_masteryUps', Colors.greenAccent),
                     ],
                   ),
@@ -613,7 +592,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
             ),
             const SizedBox(height: 24),
             if (_sessionResults.isNotEmpty) ...[
-              Align(alignment: Alignment.centerLeft, child: Text('Session Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: onSurface))),
+              Align(alignment: Alignment.centerLeft, child: Text('Session Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface))),
               const SizedBox(height: 12),
               ...List.generate(_sessionResults.length, (index) {
                 final r = _sessionResults[index];
@@ -626,27 +605,26 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: quality >= 3 ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2))),
+                  decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerLowest, borderRadius: BorderRadius.circular(12), border: Border.all(color: quality >= 3 ? Colors.green.withAlpha(51) : theme.colorScheme.error.withAlpha(51))),
                   child: Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(color: quality >= 3 ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), shape: BoxShape.circle),
-                        child: Center(child: Icon(quality >= 3 ? Icons.check : Icons.replay, color: quality >= 3 ? Colors.green : Colors.red, size: 20)),
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(color: quality >= 3 ? Colors.green.withAlpha(25) : theme.colorScheme.error.withAlpha(25), shape: BoxShape.circle),
+                        child: Center(child: Icon(quality >= 3 ? Icons.check : Icons.replay, color: quality >= 3 ? Colors.green : theme.colorScheme.error, size: 20)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(r['word'] as String, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: onSurface)),
+                            Text(r['word'] as String, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                             if (levelChanged)
-                              Text('${SrsService.masteryName(oldLevel)} → ${SrsService.masteryName(newLevel)}', style: TextStyle(fontSize: 12, color: newLevel > oldLevel ? Colors.green : Colors.orange, fontWeight: FontWeight.w600)),
+                              Text('${SrsService.masteryName(oldLevel)} -> ${SrsService.masteryName(newLevel)}', style: TextStyle(fontSize: 12, color: newLevel > oldLevel ? Colors.green : Colors.orange, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
-                      Text('Next: ${interval}d', style: TextStyle(fontSize: 12, color: onSurfaceVariant)),
+                      Text('Next: ${interval}d', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 );
@@ -658,8 +636,8 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
               height: 54,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                child: Text('Done', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
               ),
             ),
           ],
@@ -673,7 +651,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       children: [
         Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: color)),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8))),
+        Text(label, style: TextStyle(fontSize: 12, color: color.withAlpha(204))),
       ],
     );
   }

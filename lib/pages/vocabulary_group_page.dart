@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import 'vocabulary_set_page.dart';
 
@@ -50,7 +50,6 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
   Future<void> _createNewList() async {
     if (_isCreatingList) return;
 
-    // Prompt user for list name, prefilled with an auto‑generated suggestion.
     final defaultName = _buildAutoListName();
     final nameController = TextEditingController(text: defaultName);
     final enteredName = await showDialog<String>(
@@ -81,7 +80,6 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
       ),
     );
 
-    // If user cancelled or entered an empty name, abort creation.
     if (enteredName == null || enteredName.isEmpty) return;
 
     setState(() => _isCreatingList = true);
@@ -164,14 +162,10 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color primaryContainer = Color(0xFF9795ff);
-    const Color surface = Color(0xFFfaf4ff);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -181,18 +175,18 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: primary),
+                    icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
                   ),
                   Expanded(
                     child: Text(
                       widget.groupName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
-                        color: onSurface,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   ),
@@ -201,7 +195,7 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
@@ -212,8 +206,11 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [primary, primaryContainer],
+                              gradient: LinearGradient(
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.primaryContainer,
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -222,18 +219,18 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Group',
                                   style: TextStyle(
-                                    color: Colors.white70,
+                                    color: theme.colorScheme.onPrimary.withAlpha(179),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   widget.groupName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimary,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 24,
                                   ),
@@ -241,8 +238,8 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                                 const SizedBox(height: 12),
                                 Text(
                                   '${_lists.length} list',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimary,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -250,13 +247,13 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          const Text(
+                          Text(
                             'Lists',
                             style: TextStyle(
                               fontFamily: 'Plus Jakarta Sans',
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
-                              color: onSurface,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -265,16 +262,16 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(28),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: theme.colorScheme.surfaceContainerLowest,
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: const Column(
+                              child: Column(
                                 children: [
-                                  Icon(Icons.menu_book_outlined, size: 56, color: onSurfaceVariant),
-                                  SizedBox(height: 12),
+                                  Icon(Icons.menu_book_outlined, size: 56, color: theme.colorScheme.onSurfaceVariant),
+                                  const SizedBox(height: 12),
                                   Text(
                                     'No lists in this group yet',
-                                    style: TextStyle(color: onSurfaceVariant),
+                                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                                   ),
                                 ],
                               ),
@@ -306,9 +303,9 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                                   margin: const EdgeInsets.only(bottom: 12),
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: theme.colorScheme.surfaceContainerLowest,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: const Color(0xFFebe4ff)),
+                                    border: Border.all(color: theme.colorScheme.outlineVariant),
                                   ),
                                   child: Row(
                                     children: [
@@ -316,10 +313,10 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                                         width: 42,
                                         height: 42,
                                         decoration: BoxDecoration(
-                                          color: primary.withValues(alpha: 0.1),
+                                          color: theme.colorScheme.primary.withAlpha(25),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
-                                        child: const Icon(Icons.list_alt, color: primary),
+                                        child: Icon(Icons.list_alt, color: theme.colorScheme.primary),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
@@ -330,18 +327,18 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                                               setName,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontFamily: 'Plus Jakarta Sans',
                                                 fontWeight: FontWeight.w700,
                                                 fontSize: 16,
-                                                color: onSurface,
+                                                color: theme.colorScheme.onSurface,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
                                               '$wordCount words | Due: $dueCount',
-                                              style: const TextStyle(
-                                                color: onSurfaceVariant,
+                                              style: TextStyle(
+                                                color: theme.colorScheme.onSurfaceVariant,
                                                 fontSize: 13,
                                               ),
                                             ),
@@ -351,8 +348,8 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
                                               child: LinearProgressIndicator(
                                                 value: progress / 100,
                                                 minHeight: 6,
-                                                backgroundColor: const Color(0xFFf1ecff),
-                                                valueColor: const AlwaysStoppedAnimation<Color>(primary),
+                                                backgroundColor: theme.colorScheme.surfaceContainerLow,
+                                                valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                                               ),
                                             ),
                                           ],
@@ -377,17 +374,17 @@ class _VocabularyGroupPageState extends State<VocabularyGroupPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _isCreatingList ? null : _createNewList,
-        backgroundColor: primary,
+        backgroundColor: theme.colorScheme.primary,
         child: _isCreatingList
-            ? const SizedBox(
+            ? SizedBox(
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
-                  color: Colors.white,
+                  color: theme.colorScheme.onPrimary,
                   strokeWidth: 2.2,
                 ),
               )
-            : const Icon(Icons.add, color: Colors.white),
+            : Icon(Icons.add, color: theme.colorScheme.onPrimary),
       ),
     );
   }

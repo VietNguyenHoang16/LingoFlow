@@ -28,6 +28,7 @@ function mapWordRow(row) {
     meaning: row.meaning || '',
     full_details: row.full_details || '',
     is_mastered: Boolean(row.is_mastered),
+    is_difficult: Boolean(row.is_difficult),
     review_count: asInt(row.review_count),
     correct_streak: asInt(row.correct_streak),
     ease_factor: Number(row.ease_factor ?? 2.5),
@@ -134,6 +135,7 @@ async function ensureSchema() {
       `);
 
       await addColumnIfNotExists('vocabulary_words', 'full_details', 'TEXT');
+      await addColumnIfNotExists('vocabulary_words', 'is_difficult', 'BOOLEAN DEFAULT FALSE');
       await addColumnIfNotExists('vocabulary_words', 'review_count', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'correct_streak', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'ease_factor', 'REAL DEFAULT 2.5');
@@ -321,7 +323,7 @@ async function handleAction(action, data) {
 
     case 'getVocabularyWords': {
       const rows = await query(
-        `SELECT id, word, pronunciation, meaning, full_details, is_mastered,
+        `SELECT id, word, pronunciation, meaning, full_details, is_mastered, is_difficult,
                 review_count, correct_streak, ease_factor, interval_days,
                 next_review_date, last_reviewed_at, mastery_level
          FROM vocabulary_words
@@ -331,6 +333,13 @@ async function handleAction(action, data) {
       );
       return rows.map(mapWordRow);
     }
+
+    case 'updateWordDifficult':
+      await query('UPDATE vocabulary_words SET is_difficult = $1 WHERE id = $2', [
+        data.isDifficult,
+        data.wordId,
+      ]);
+      return null;
 
     case 'updateWordMastered':
       await query('UPDATE vocabulary_words SET is_mastered = $1 WHERE id = $2', [
@@ -386,7 +395,7 @@ async function handleAction(action, data) {
 
     case 'getWordsDueForReview': {
       const rows = await query(
-        `SELECT id, word, pronunciation, meaning, full_details, is_mastered,
+        `SELECT id, word, pronunciation, meaning, full_details, is_mastered, is_difficult,
                 review_count, correct_streak, ease_factor, interval_days,
                 next_review_date, last_reviewed_at, mastery_level
          FROM vocabulary_words
@@ -400,7 +409,7 @@ async function handleAction(action, data) {
 
     case 'getAllWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level,
                 vs.name AS set_name, vs.id AS set_id

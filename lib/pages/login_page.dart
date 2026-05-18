@@ -122,16 +122,10 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color onPrimary = Color(0xFFf4f1ff);
-    const Color surface = Color(0xFFfaf4ff);
-    const Color surfaceContainerLowest = Color(0xFFffffff);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
-    const Color outlineVariant = Color(0xFFb2a6d5);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -144,26 +138,26 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       IconButton(
                         onPressed: () {},
-                        icon: const Icon(Icons.arrow_back, color: primary),
+                        icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
                       ),
                       Text(
                         _isRegisterMode ? 'Register' : 'Login',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
-                          color: onSurface,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
                   ),
-                  const Text(
+                  Text(
                     'LingoFlow',
                     style: TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
                       fontWeight: FontWeight.w900,
                       fontSize: 20,
-                      color: onSurface,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -182,7 +176,7 @@ class _LoginPageState extends State<LoginPage> {
                           width: 280,
                           height: 280,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFf5eeff),
+                            color: theme.colorScheme.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: ClipRRect(
@@ -191,11 +185,11 @@ class _LoginPageState extends State<LoginPage> {
                               'https://lh3.googleusercontent.com/aida-public/AB6AXuDyrEXAFZSt7L2Hpmk8m9LBzxgTL8I88j9aMxrpp4_EG8BQ_pxBAx4FWfmsgRc4HsoTiNZcqbxcpy5_kg6cDpRW0BHeMkULm3KG7NepCxVKMVt1DeVKcvInJ1k23-_IrAVBbCUzw75lTgcaauq2i5qFQuTY-KWyWCSnZfGbmYj-w3moYQETSrVcHsLKpdwP1U1D6HN3YD8ihLfwpO7AhsqslIZmmfZ86DvAYzxpKq1N8O9RkETBlz2w5q9JjqU2JBkPUIrDi59TUtun',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return const Center(
+                                return Center(
                                   child: Icon(
                                     Icons.image,
                                     size: 80,
-                                    color: outlineVariant,
+                                    color: theme.colorScheme.outlineVariant,
                                   ),
                                 );
                               },
@@ -208,12 +202,12 @@ class _LoginPageState extends State<LoginPage> {
                               ? 'Create Account'
                               : 'Welcome to LingoFlow',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Plus Jakarta Sans',
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
-                            color: onSurface,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -222,102 +216,93 @@ class _LoginPageState extends State<LoginPage> {
                               ? 'Enter your phone number to create account'
                               : 'Master English with the most personalized cognitive lounge experience.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Be Vietnam Pro',
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: onSurfaceVariant,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 32),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Padding(
-                              padding: EdgeInsets.only(left: 16, bottom: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, bottom: 8),
                               child: Text(
                                 'Phone Number',
                                 style: TextStyle(
                                   fontFamily: 'Be Vietnam Pro',
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: onSurfaceVariant,
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ),
                             Container(
                               height: 64,
                               decoration: BoxDecoration(
-                                color: surfaceContainerLowest,
+                                color: theme.colorScheme.surfaceContainerLowest,
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: outlineVariant.withValues(alpha: 0.3),
+                                  color: theme.colorScheme.outlineVariant.withAlpha(76),
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
                                     decoration: BoxDecoration(
                                       border: Border(
                                         right: BorderSide(
-                                          color: outlineVariant.withValues(
-                                            alpha: 0.3,
-                                          ),
+                                          color: theme.colorScheme.outlineVariant.withAlpha(76),
                                         ),
                                       ),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          '🇻🇳',
-                                          style: TextStyle(fontSize: 18),
-                                        ),
-                                        SizedBox(width: 4),
+                                        const Text('🇻🇳', style: TextStyle(fontSize: 18)),
+                                        const SizedBox(width: 4),
                                         Text(
                                           '+84',
                                           style: TextStyle(
                                             fontFamily: 'Be Vietnam Pro',
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
-                                            color: onSurface,
+                                            color: theme.colorScheme.onSurface,
                                           ),
                                         ),
-                                        SizedBox(width: 4),
+                                        const SizedBox(width: 4),
                                         Icon(
                                           Icons.expand_more,
                                           size: 18,
-                                          color: onSurfaceVariant,
+                                          color: theme.colorScheme.onSurfaceVariant,
                                         ),
                                       ],
                                     ),
                                   ),
                                   Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
                                       child: TextField(
                                         controller: _phoneController,
                                         keyboardType: TextInputType.phone,
                                         maxLength: 9,
-                                        decoration: const InputDecoration(
+                                        decoration: InputDecoration(
                                           hintText: 'Enter your number',
                                           counterText: '',
                                           hintStyle: TextStyle(
                                             fontFamily: 'Be Vietnam Pro',
                                             fontWeight: FontWeight.normal,
-                                            color: Color(0xFF7b719c),
+                                            color: theme.colorScheme.onSurfaceVariant.withAlpha(128),
                                           ),
                                           border: InputBorder.none,
                                         ),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontFamily: 'Be Vietnam Pro',
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
-                                          color: onSurface,
+                                          color: theme.colorScheme.onSurface,
                                         ),
                                       ),
                                     ),
@@ -334,20 +319,19 @@ class _LoginPageState extends State<LoginPage> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _handleSubmit,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: primary,
-                              foregroundColor: onPrimary,
+                              backgroundColor: theme.colorScheme.primary,
+                              foregroundColor: theme.colorScheme.onPrimary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               elevation: 0,
-                              shadowColor: primary.withValues(alpha: 0.1),
                             ),
                             child: _isLoading
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 24,
                                     height: 24,
                                     child: CircularProgressIndicator(
-                                      color: onPrimary,
+                                      color: theme.colorScheme.onPrimary,
                                       strokeWidth: 2,
                                     ),
                                   )
@@ -369,25 +353,25 @@ class _LoginPageState extends State<LoginPage> {
                             Expanded(
                               child: Container(
                                 height: 1,
-                                color: outlineVariant.withValues(alpha: 0.2),
+                                color: theme.colorScheme.outlineVariant.withAlpha(51),
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
                                 'Or login with',
                                 style: TextStyle(
                                   fontFamily: 'Be Vietnam Pro',
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: onSurfaceVariant,
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ),
                             Expanded(
                               child: Container(
                                 height: 1,
-                                color: outlineVariant.withValues(alpha: 0.2),
+                                color: theme.colorScheme.outlineVariant.withAlpha(51),
                               ),
                             ),
                           ],
@@ -415,11 +399,11 @@ class _LoginPageState extends State<LoginPage> {
                           },
                           child: RichText(
                             text: TextSpan(
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Be Vietnam Pro',
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: onSurfaceVariant,
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                               children: [
                                 TextSpan(
@@ -431,9 +415,9 @@ class _LoginPageState extends State<LoginPage> {
                                   text: _isRegisterMode
                                       ? 'Login'
                                       : 'Create an account',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: primary,
+                                    color: theme.colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -454,13 +438,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildSocialButton(String imageUrl) {
-    const Color surfaceContainer = Color(0xFFede4ff);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
+    final theme = Theme.of(context);
     return Container(
       width: 64,
       height: 64,
       decoration: BoxDecoration(
-        color: surfaceContainer,
+        color: theme.colorScheme.surfaceContainer,
         shape: BoxShape.circle,
       ),
       child: ClipOval(
@@ -470,7 +453,7 @@ class _LoginPageState extends State<LoginPage> {
           height: 28,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            return const Icon(Icons.image, size: 28, color: onSurfaceVariant);
+            return Icon(Icons.image, size: 28, color: theme.colorScheme.onSurfaceVariant);
           },
         ),
       ),

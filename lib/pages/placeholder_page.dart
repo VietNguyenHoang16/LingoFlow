@@ -12,19 +12,16 @@ class PlaceholderPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color surface = Color(0xFFfaf4ff);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(title, style: const TextStyle(color: onSurface)),
+        title: Text(title, style: TextStyle(color: theme.colorScheme.onSurface)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primary),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -32,26 +29,19 @@ class PlaceholderPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 80, color: onSurfaceVariant.withValues(alpha: 0.5)),
+            Icon(icon, size: 80, color: theme.colorScheme.onSurfaceVariant.withAlpha(128)),
             const SizedBox(height: 16),
             Text(
               '$title Page',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: onSurface,
-              ),
+              style: theme.textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
                 'This page is under development.\nComing soon!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
           ],

@@ -20,6 +20,8 @@ class TtsVoiceOption {
 
 class TtsSettingsService {
   static const String _voiceIdKey = 'tts_voice_id';
+  static const String _voiceNameKey = 'tts_voice_real_name';
+  static const String _voiceLocaleKey = 'tts_voice_real_locale';
   static const String _defaultVoiceId = 'en-US-female';
 
   static const List<TtsVoiceOption> voices = [
@@ -35,6 +37,67 @@ class TtsSettingsService {
     TtsVoiceOption(id: 'en-IN-male', code: 'en-IN', name: 'English India Male', gender: 'Male', pitch: 0.8),
   ];
 
+  List<Map<String, String>>? _cachedVoices;
+  bool _voicesLoaded = false;
+
+  Future<List<Map<String, String>>> _getSystemVoices() async {
+    if (_voicesLoaded && _cachedVoices != null) return _cachedVoices!;
+    try {
+      final flutterTts = FlutterTts();
+      final raw = await flutterTts.getVoices;
+      if (raw is List) {
+        _cachedVoices = raw
+            .whereType<Map>()
+            .map((v) => {
+                  'name': (v['name'] ?? '').toString(),
+                  'locale': (v['locale'] ?? v['lang'] ?? '').toString(),
+                })
+            .toList();
+      } else {
+        _cachedVoices = [];
+      }
+    } catch (_) {
+      _cachedVoices = [];
+    }
+    _voicesLoaded = true;
+    return _cachedVoices!;
+  }
+
+  Map<String, String>? _findRealVoice(String localeCode, String gender) {
+    if (_cachedVoices == null || _cachedVoices!.isEmpty) return null;
+    final normalizedLocale = localeCode.toLowerCase().replaceAll('_', '-');
+
+    final matches = _cachedVoices!.where((v) {
+      final vLocale = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-');
+      return vLocale.startsWith(normalizedLocale);
+    }).toList();
+
+    if (matches.isEmpty) return null;
+
+    final genderLower = gender.toLowerCase();
+    for (final v in matches) {
+      final nameLower = (v['name'] ?? '').toLowerCase();
+      if (genderLower == 'female' && _isFemaleName(nameLower)) return v;
+      if (genderLower == 'male' && !_isFemaleName(nameLower)) return v;
+    }
+
+    return matches.first;
+  }
+
+  bool _isFemaleName(String name) {
+    final femaleMarkers = [
+      'female', 'woman', 'girl', 'zira', 'samantha', 'karen', 'catherine',
+      'susan', 'linda', 'mary', 'patricia', 'jennifer', 'lisa', 'nancy',
+      'betty', 'sandra', 'dorothy', 'helen', 'donna', 'carol', 'ruth',
+      'sharon', 'michelle', 'laura', 'sarah', 'kimberly', 'deborah',
+      'jessica', 'cynthia', 'angela', 'melissa', 'brenda', 'amy',
+      'anna', 'rebecca', 'virginia', 'kathleen', 'pamela', 'martha',
+      'debra', 'amanda', 'stephanie', 'carolyn', 'christine', 'marie',
+      'janet', 'fiona', 'moira', 'veena', 'tessa', 'alice', 'emma',
+    ];
+    return femaleMarkers.any((m) => name.contains(m));
+  }
+
   Future<TtsVoiceOption> getSelectedVoice() async {
     final prefs = await SharedPreferences.getInstance();
     final savedId = prefs.getString(_voiceIdKey) ?? _defaultVoiceId;
@@ -49,22 +112,43 @@ class TtsSettingsService {
     await prefs.setString(_voiceIdKey, voiceId);
   }
 
-Future<void> applyTo(FlutterTts flutterTts) async {
+  Future<String?> getSavedRealVoiceName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_voiceNameKey);
+  }
+
+  Future<String?> getSavedRealVoiceLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_voiceLocaleKey);
+  }
+
+  Future<void> _saveRealVoice(String name, String locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_voiceNameKey, name);
+    await prefs.setString(_voiceLocaleKey, locale);
+  }
+
+  Future<void> applyTo(FlutterTts flutterTts) async {
     final voice = await getSelectedVoice();
-    // Set language, voice, and speech parameters.
     await flutterTts.setLanguage(voice.code);
-    // Use the voice's unique identifier if supported by the platform.
-    try {
-      await flutterTts.setVoice({'name': voice.id});
-    } catch (_) {
-      // Some platforms ignore setVoice; continue without failing.
-    }
     await flutterTts.setPitch(voice.pitch);
     await flutterTts.setSpeechRate(0.5);
     await flutterTts.setVolume(1.0);
+
+    await _getSystemVoices();
+    final realVoice = _findRealVoice(voice.code, voice.gender);
+    if (realVoice != null) {
+      try {
+        await flutterTts.setVoice({
+          'name': realVoice['name']!,
+          'locale': realVoice['locale']!,
+        });
+      } catch (_) {}
+    }
   }
 
   Future<TtsVoiceOption?> showVoiceSelector(BuildContext context) async {
+    await _getSystemVoices();
     final selectedVoice = await getSelectedVoice();
     if (!context.mounted) return null;
 
@@ -100,6 +184,7 @@ Future<void> applyTo(FlutterTts flutterTts) async {
                   itemBuilder: (context, index) {
                     final voice = voices[index];
                     final isSelected = voice.id == selectedVoice.id;
+                    final realVoice = _findRealVoice(voice.code, voice.gender);
                     return ListTile(
                       leading: Icon(
                         Icons.record_voice_over,
@@ -112,10 +197,13 @@ Future<void> applyTo(FlutterTts flutterTts) async {
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
-                      subtitle: Text(voice.gender),
+                      subtitle: Text(realVoice != null ? realVoice['name']! : voice.gender),
                       selected: isSelected,
                       onTap: () async {
                         await saveSelectedVoice(voice.id);
+                        if (realVoice != null) {
+                          await _saveRealVoice(realVoice['name']!, realVoice['locale']!);
+                        }
                         if (!context.mounted) return;
                         Navigator.pop(context, voice);
                       },

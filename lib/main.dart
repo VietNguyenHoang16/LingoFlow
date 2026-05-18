@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'theme/app_theme.dart';
 import 'pages/login_page.dart';
 import 'pages/dashboard_page.dart';
 import 'services/database_service.dart';
@@ -56,16 +57,26 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'LingoFlow',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4a40e0)),
-        useMaterial3: true,
+    return ScrollConfiguration(
+      behavior: const BouncyScrollBehavior(),
+      child: MaterialApp(
+        title: 'LingoFlow',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.system,
+        home: _initialScreen ?? const _LaunchScreen(),
       ),
-      home: _initialScreen ?? const _LaunchScreen(),
     );
   }
+}
+
+class BouncyScrollBehavior extends ScrollBehavior {
+  const BouncyScrollBehavior();
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => const BouncingScrollPhysics();
 }
 
 class _LaunchScreen extends StatelessWidget {
@@ -73,12 +84,11 @@ class _LaunchScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFfaf4ff),
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       body: Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF4a40e0),
-        ),
+        child: CircularProgressIndicator(color: theme.colorScheme.primary),
       ),
     );
   }

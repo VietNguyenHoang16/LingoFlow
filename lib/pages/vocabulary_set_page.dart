@@ -1,10 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
-// import '../services/translation_service.dart'; // Deprecated: Manual import of meanings removed
-// import '../services/dictionary_service.dart'; // Deprecated: Manual import of dictionary removed
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/mastery_utils.dart';
+import '../widgets/mastery_badge.dart';
+import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
 import 'review_page.dart';
 import 'placeholder_page.dart';
@@ -27,8 +29,6 @@ class VocabularySetPage extends StatefulWidget {
 
 class _VocabularySetPageState extends State<VocabularySetPage> {
   final DatabaseService _db = DatabaseService();
-   // final TranslationService _translator = TranslationService(); // removed
-   // final DictionaryService _dictionary = DictionaryService(); // removed
   final FlutterTts _flutterTts = FlutterTts();
   final SrsService _srs = SrsService();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
@@ -41,9 +41,27 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
   Map<int, int> _masteryBreakdown = {};
   int _currentNavIndex = 1;
   bool _isSelectionMode = false;
-  int _filterLevel = -1; // -1 = all
+  int _filterLevel = -1;
   final Set<int> _selectedWords = {};
   final Set<int> _flippedWords = {};
+
+  Future<void> _toggleHardWord(int wordId, bool currentStatus) async {
+    try {
+      await _db.updateWordDifficult(wordId, !currentStatus);
+      setState(() {
+        final index = _words.indexWhere((w) => w['id'] == wordId);
+        if (index != -1) {
+          _words[index] = {..._words[index], 'is_difficult': !currentStatus};
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
 
   void _toggleSelectionMode() {
     setState(() {
@@ -52,6 +70,79 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
         _selectedWords.clear();
       }
     });
+  }
+
+  void _showWordOptions({
+    required int wordId,
+    required String word,
+    required String meaning,
+    required String pronunciation,
+    required String fullDetails,
+    required bool isDifficult,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              word,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: Icon(isDifficult ? Icons.flag : Icons.flag_outlined, color: isDifficult ? Colors.red : null),
+            title: Text(isDifficult ? 'Unmark Hard' : 'Mark Hard'),
+            onTap: () {
+              Navigator.pop(context);
+              _toggleHardWord(wordId, isDifficult);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text('Edit'),
+            onTap: () {
+              Navigator.pop(context);
+              _editWord(
+                wordId: wordId,
+                word: word,
+                meaning: meaning,
+                pronunciation: pronunciation,
+                fullDetails: fullDetails,
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete, color: Colors.red),
+            title: const Text('Delete'),
+            onTap: () {
+              Navigator.pop(context);
+              _deleteWord(wordId);
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
   }
 
   void _toggleWordSelection(int wordId) {
@@ -200,7 +291,6 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
         return !dueDate.isAfter(now);
       }).length;
 
-      // Mastery breakdown
       final breakdown = <int, int>{};
       for (final w in words) {
         final level = w['mastery_level'] as int? ?? 0;
@@ -218,10 +308,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
         _isLoading = false;
       });
 
-      // Refresh due count in background using the same DB query as the review page.
       _refreshDueCount();
-
-      // Update set progress
       await _db.updateVocabularySetProgress(widget.setId, progress, total);
     } catch (e) {
       setState(() => _isLoading = false);
@@ -256,16 +343,16 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Enter words (one per line)',
-                style: TextStyle(fontSize: 14, color: Color(0xFF5f557f)),
+                style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: wordsController,
                 maxLines: 10,
                 decoration: const InputDecoration(
-                                      hintText: 'fair: (adj) công bằng, hợp lý; (n) hội chợ; (adv) khá, tương đối\n...',
+                  hintText: 'fair: (adj) công bằng, hợp lý; (n) hội chợ; (adv) khá, tương đối\n...',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -304,14 +391,12 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
           return;
         }
 
-        // Manual word import: expects lines in the format "word: meaning; optional details"
         final orderedLines = lines.reversed.toList();
         
         for (String rawLine in orderedLines) {
           String line = rawLine.trim();
           if (line.isEmpty) continue;
           
-          // Split on first colon to separate word from the rest
           int colonIdx = line.indexOf(':');
           String word;
           String remainder;
@@ -319,12 +404,10 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
             word = line.substring(0, colonIdx).trim();
             remainder = line.substring(colonIdx + 1).trim();
           } else {
-            // No colon: treat the whole line as the word with empty meaning
             word = line;
             remainder = '';
           }
           
-          // Split remainder on first semicolon to get meaning and optional full details
           String meaning = '';
           String fullDetails = '';
           if (remainder.isNotEmpty) {
@@ -340,7 +423,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
           await _db.addVocabularyWord(
             widget.setId,
             word,
-            '', // pronunciation left empty for manual entry
+            '',
             meaning,
             fullDetails: fullDetails,
           );
@@ -423,10 +506,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Meaning',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Meaning', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: meaningController,
@@ -437,10 +517,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Pronunciation',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Pronunciation', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: pronunciationController,
@@ -450,10 +527,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Notes / Word type details',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Notes / Word type details', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: detailsController,
@@ -516,7 +590,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFFfaf4ff),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -526,20 +600,20 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Filter by Level',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF32294f),
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
             _buildFilterOption(-1, 'All Words', Icons.list, Colors.grey, _words.length),
             _buildFilterOption(0, 'New', Icons.fiber_new, Colors.grey, _masteryBreakdown[0] ?? 0),
-            _buildFilterOption(1, 'Learning', Icons.menu_book, const Color(0xFF1e88e5), _masteryBreakdown[1] ?? 0),
-            _buildFilterOption(2, 'Reviewing', Icons.refresh, const Color(0xFFfb8c00), _masteryBreakdown[2] ?? 0),
-            _buildFilterOption(3, 'Mastered', Icons.star, const Color(0xFF43a047), _masteryBreakdown[3] ?? 0),
+            _buildFilterOption(1, 'Learning', Icons.menu_book, context.lingoColors.masteryLearning, _masteryBreakdown[1] ?? 0),
+            _buildFilterOption(2, 'Reviewing', Icons.refresh, context.lingoColors.masteryReviewing, _masteryBreakdown[2] ?? 0),
+            _buildFilterOption(3, 'Mastered', Icons.star, context.lingoColors.masteryMastered, _masteryBreakdown[3] ?? 0),
             const SizedBox(height: 8),
           ],
         ),
@@ -555,7 +629,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
       trailing: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
+          color: color.withAlpha(25),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -582,19 +656,13 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color primaryContainer = Color(0xFF9795ff);
-    const Color surface = Color(0xFFfaf4ff);
-    const Color surfaceContainerLow = Color(0xFFf5eeff);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
-    const Color secondaryContainer = Color(0xFFfed01b);
-    const Color onSecondaryFixed = Color(0xFF433500);
+    final theme = Theme.of(context);
+    final colors = context.lingoColors;
 
     final displayWords = _filteredWords;
 
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -607,15 +675,15 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back, color: primary),
+                        icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
                       ),
-                      const Text(
+                      Text(
                         'Vocabulary List',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
-                          color: primary,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ],
@@ -626,7 +694,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                         onPressed: _toggleSelectionMode,
                         icon: Icon(
                           _isSelectionMode ? Icons.close : Icons.delete_outline,
-                          color: primary,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ],
@@ -636,22 +704,19 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 24),
-                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                          // HERO SECTION
-                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [primary, primaryContainer],
+                              gradient: LinearGradient(
+                                colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -660,31 +725,30 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'List',
                                   style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.white70,
+                                    color: theme.colorScheme.onPrimary.withAlpha(179),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   widget.setName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 28,
                                     fontWeight: FontWeight.w800,
-                                    color: Colors.white,
+                                    color: theme.colorScheme.onPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                // Progress section
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.1),
+                                    color: theme.colorScheme.onPrimary.withAlpha(25),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Column(
@@ -692,28 +756,27 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Text(
+                                          Text(
                                             'Mastery Progress',
                                             style: TextStyle(
                                               fontFamily: 'Plus Jakarta Sans',
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                              color: theme.colorScheme.onPrimary,
                                             ),
                                           ),
                                           Text(
                                             '$_progress%',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontFamily: 'Plus Jakarta Sans',
                                               fontSize: 24,
                                               fontWeight: FontWeight.w900,
-                                              color: secondaryContainer,
+                                              color: theme.colorScheme.secondary,
                                             ),
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 12),
-                                      // Multi-color mastery bar
                                       if (_totalWords > 0)
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(6),
@@ -721,10 +784,10 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                             height: 12,
                                             child: Row(
                                               children: [
-                                                _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, const Color(0xFF4ade80)),
-                                                _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, const Color(0xFFffa726)),
-                                                _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, const Color(0xFF42a5f5)),
-                                                _buildBarSegment(_masteryBreakdown[0] ?? 0, _totalWords, Colors.white24),
+                                                _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, colors.masteryMastered),
+                                                _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, colors.masteryReviewing),
+                                                _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, colors.masteryLearning),
+                                                _buildBarSegment(_masteryBreakdown[0] ?? 0, _totalWords, theme.colorScheme.onPrimary.withAlpha(60)),
                                               ],
                                             ),
                                           ),
@@ -733,25 +796,23 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                         Container(
                                           height: 12,
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.2),
+                                            color: theme.colorScheme.onPrimary.withAlpha(51),
                                             borderRadius: BorderRadius.circular(999),
                                           ),
                                         ),
                                       const SizedBox(height: 12),
-                                      // Breakdown legend
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          _buildLegend('New', Colors.white54, _masteryBreakdown[0] ?? 0),
-                                          _buildLegend('Learning', const Color(0xFF42a5f5), _masteryBreakdown[1] ?? 0),
-                                          _buildLegend('Reviewing', const Color(0xFFffa726), _masteryBreakdown[2] ?? 0),
-                                          _buildLegend('Mastered', const Color(0xFF4ade80), _masteryBreakdown[3] ?? 0),
+                                          _buildLegend('New', theme.colorScheme.onPrimary.withAlpha(138), _masteryBreakdown[0] ?? 0),
+                                          _buildLegend('Learning', colors.masteryLearning, _masteryBreakdown[1] ?? 0),
+                                          _buildLegend('Reviewing', colors.masteryReviewing, _masteryBreakdown[2] ?? 0),
+                                          _buildLegend('Mastered', colors.masteryMastered, _masteryBreakdown[3] ?? 0),
                                         ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                // Due for review alert
                                 if (_dueCount > 0) ...[
                                   const SizedBox(height: 12),
                                   GestureDetector(
@@ -771,26 +832,24 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFff6b35).withValues(alpha: 0.3),
+                                        color: colors.reviewBannerDue[0].withAlpha(76),
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: const Color(0xFFff6b35).withValues(alpha: 0.5),
-                                        ),
+                                        border: Border.all(color: colors.reviewBannerDue[0].withAlpha(128)),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.notifications_active, color: Colors.white, size: 18),
+                                          Icon(Icons.notifications_active, color: theme.colorScheme.onPrimary, size: 18),
                                           const SizedBox(width: 8),
                                           Text(
                                             '$_dueCount words due for review!',
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: theme.colorScheme.onPrimary,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 13,
                                             ),
                                           ),
                                           const Spacer(),
-                                          const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                                          Icon(Icons.arrow_forward_ios, color: theme.colorScheme.onPrimary.withAlpha(179), size: 14),
                                         ],
                                       ),
                                     ),
@@ -800,9 +859,6 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                          // ACTION BUTTONS
-                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                           Row(
                             children: [
                               Expanded(
@@ -820,19 +876,17 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                     );
                                     if (result == true) await _loadWords();
                                   },
-                                  icon: const Icon(Icons.play_arrow, color: onSecondaryFixed),
-                                  label: const Text(
+                                  icon: Icon(Icons.play_arrow, color: theme.colorScheme.onSecondary),
+                                  label: Text(
                                     'Practice',
                                     style: TextStyle(
-                                      color: onSecondaryFixed,
+                                      color: theme.colorScheme.onSecondary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: secondaryContainer,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
+                                    backgroundColor: theme.colorScheme.secondary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                   ),
                                 ),
@@ -862,10 +916,8 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                     ),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFff6b35),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
+                                    backgroundColor: colors.reviewBannerDue[0],
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                   ),
                                 ),
@@ -873,19 +925,16 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                          // WORD LIST HEADER
-                          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Word List (${displayWords.length})',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: onSurface,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                               Row(
@@ -904,13 +953,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                           children: [
                                             Icon(Icons.delete, color: Colors.white, size: 18),
                                             SizedBox(width: 4),
-                                            Text(
-                                              'Delete',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                            Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
                                       ),
@@ -922,7 +965,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         margin: const EdgeInsets.only(right: 8),
                                         decoration: BoxDecoration(
-                                          color: primary.withValues(alpha: 0.1),
+                                          color: theme.colorScheme.primary.withAlpha(25),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Row(
@@ -931,19 +974,18 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                               displayWords.every((w) => _flippedWords.contains(w['id']))
                                                   ? Icons.flip_to_back
                                                   : Icons.flip_to_front,
-                                              color: primary,
+                                              color: theme.colorScheme.primary,
                                               size: 18,
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
                                               displayWords.every((w) => _flippedWords.contains(w['id']))
-                                                  ? 'Unflip All'
-                                                  : 'Flip All',
-                                              style: const TextStyle(
+                                                  ? 'Unflip All' : 'Flip All',
+                                              style: TextStyle(
                                                 fontFamily: 'Be Vietnam Pro',
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.bold,
-                                                color: primary,
+                                                color: theme.colorScheme.primary,
                                               ),
                                             ),
                                           ],
@@ -955,28 +997,24 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: _filterLevel >= 0
-                                            ? primary.withValues(alpha: 0.1)
-                                            : Colors.transparent,
+                                        color: _filterLevel >= 0 ? theme.colorScheme.primary.withAlpha(25) : Colors.transparent,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
                                         children: [
                                           Text(
-                                            _filterLevel >= 0
-                                                ? SrsService.masteryName(_filterLevel)
-                                                : 'Filter',
+                                            _filterLevel >= 0 ? SrsService.masteryName(_filterLevel) : 'Filter',
                                             style: TextStyle(
                                               fontFamily: 'Be Vietnam Pro',
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
-                                              color: primary,
+                                              color: theme.colorScheme.primary,
                                             ),
                                           ),
                                           const SizedBox(width: 4),
                                           Icon(
                                             _filterLevel >= 0 ? Icons.filter_alt : Icons.filter_list,
-                                            color: primary,
+                                            color: theme.colorScheme.primary,
                                             size: 20,
                                           ),
                                         ],
@@ -994,32 +1032,30 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                               child: Center(
                                 child: Column(
                                   children: [
-                                    Icon(Icons.auto_stories, size: 64, color: onSurfaceVariant.withValues(alpha: 0.5)),
+                                    Icon(Icons.auto_stories, size: 64, color: theme.colorScheme.onSurfaceVariant.withAlpha(128)),
                                     const SizedBox(height: 16),
                                     Text(
                                       _filterLevel >= 0 ? 'No ${SrsService.masteryName(_filterLevel)} words' : 'No words yet',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontFamily: 'Be Vietnam Pro',
                                         fontSize: 16,
-                                        color: onSurfaceVariant,
+                                        color: theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      _filterLevel >= 0
-                                          ? 'Try changing the filter'
-                                          : 'Add your first word to get started!',
-                                      style: const TextStyle(
+                                      _filterLevel >= 0 ? 'Try changing the filter' : 'Add your first word to get started!',
+                                      style: TextStyle(
                                         fontFamily: 'Be Vietnam Pro',
                                         fontSize: 14,
-                                        color: onSurfaceVariant,
+                                        color: theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                             )
-                            else
+                          else
                             ...List.generate(displayWords.length, (index) {
                               final word = displayWords[index];
                               return Padding(
@@ -1031,6 +1067,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                   meaning: word['meaning'],
                                   fullDetails: word['full_details'] ?? '',
                                   isMastered: word['is_mastered'] ?? false,
+                                  isDifficult: word['is_difficult'] ?? false,
                                   masteryLevel: word['mastery_level'] ?? 0,
                                   nextReviewDate: word['next_review_date'],
                                   intervalDays: word['interval_days'] ?? 0,
@@ -1046,81 +1083,59 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isImporting ? null : _addWord,
-        backgroundColor: primary,
-        child: _isImporting
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Icon(Icons.add, color: Colors.white),
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: surface.withValues(alpha: 0.8),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF32294f).withValues(alpha: 0.06),
-              blurRadius: 32,
-              offset: const Offset(0, -12),
+      floatingActionButton: _isSelectionMode && _selectedWords.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _deleteSelectedWords,
+              backgroundColor: Colors.red,
+              icon: const Icon(Icons.delete, color: Colors.white),
+              label: Text(
+                'Delete ${_selectedWords.length}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            )
+          : FloatingActionButton(
+              onPressed: _isImporting ? null : _addWord,
+              backgroundColor: theme.colorScheme.primary,
+              child: _isImporting
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: theme.colorScheme.onPrimary,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Icon(Icons.add, color: theme.colorScheme.onPrimary),
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            GestureDetector(
-              onTap: () => _onNavTapped(0),
-              child: _buildNavItem(Icons.school_outlined, 'Learn', isActive: _currentNavIndex == 0),
-            ),
-            GestureDetector(
-              onTap: () => _onNavTapped(1),
-              child: _buildNavItem(Icons.menu_book, 'Library', isActive: _currentNavIndex == 1),
-            ),
-            GestureDetector(
-              onTap: () => _onNavTapped(2),
-              child: _buildNavItem(Icons.fitness_center_outlined, 'Practice', isActive: _currentNavIndex == 2),
-            ),
-            GestureDetector(
-              onTap: () => _onNavTapped(3),
-              child: _buildNavItem(Icons.person_outline, 'Profile', isActive: _currentNavIndex == 3),
-            ),
-          ],
-        ),
+      bottomNavigationBar: LingoBottomNavBar(
+        currentIndex: _currentNavIndex,
+        items: const [
+          NavItem(icon: Icons.school_outlined, label: 'Learn'),
+          NavItem(icon: Icons.menu_book, label: 'Library'),
+          NavItem(icon: Icons.fitness_center_outlined, label: 'Practice'),
+          NavItem(icon: Icons.person_outline, label: 'Profile'),
+        ],
+        onTap: _onNavTapped,
       ),
     );
   }
 
   Widget _buildBarSegment(int count, int total, Color color) {
     if (count == 0 || total == 0) return const SizedBox.shrink();
-    return Expanded(
-      flex: count,
-      child: Container(color: color),
-    );
+    return Expanded(flex: count, child: Container(color: color));
   }
 
   Widget _buildLegend(String label, Color color, int count) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 4),
         Text(
           '$count',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: Colors.white70,
+            color: Theme.of(context).colorScheme.onPrimary.withAlpha(179),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -1135,35 +1150,40 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     required String meaning,
     required String fullDetails,
     required bool isMastered,
+    required bool isDifficult,
     required int masteryLevel,
     DateTime? nextReviewDate,
     required int intervalDays,
     required int correctStreak,
   }) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
-    const Color surfaceContainerLowest = Color(0xFFffffff);
-    const Color primaryContainer = Color(0xFF9795ff);
+    final theme = Theme.of(context);
+    final colors = context.lingoColors;
 
     final isSelected = _selectedWords.contains(id);
     final isFlipped = _flippedWords.contains(id);
     final isMasteredOrHigh = isMastered || masteryLevel >= 3;
-    final masteryConfig = _getMasteryConfig(masteryLevel);
+    final mConfig = masteryConfig(masteryLevel, context);
     final reviewText = _srs.timeUntilReview(nextReviewDate);
     final isDue = _srs.isDueForReview(nextReviewDate);
 
     return GestureDetector(
       onTap: _isSelectionMode ? () => _toggleWordSelection(id) : () => _toggleWordFlip(id),
+      onLongPress: _isSelectionMode
+          ? null
+          : () => _showWordOptions(
+                wordId: id, word: word, meaning: meaning,
+                pronunciation: pronunciation, fullDetails: fullDetails,
+                isDifficult: isDifficult,
+              ),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? primaryContainer.withValues(alpha: 0.2) : surfaceContainerLowest,
+          color: isSelected ? theme.colorScheme.primaryContainer.withAlpha(51) : theme.colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(12),
           border: isSelected
-              ? Border.all(color: primary, width: 2)
+              ? Border.all(color: theme.colorScheme.primary, width: 2)
               : Border.all(
-                  color: isDue ? const Color(0xFFff6b35) : (masteryConfig['color'] as Color).withValues(alpha: 0.6),
+                  color: isDue ? colors.reviewBannerDue[0] : (mConfig['color'] as Color).withAlpha(153),
                   width: isDue ? 2.0 : 1.5,
                 ),
         ),
@@ -1171,14 +1191,13 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
           children: [
             if (_isSelectionMode)
               Container(
-                width: 24,
-                height: 24,
+                width: 24, height: 24,
                 margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? primary : Colors.transparent,
+                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
                   border: Border.all(
-                    color: isSelected ? primary : onSurfaceVariant,
+                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
                     width: 2,
                   ),
                 ),
@@ -1201,64 +1220,38 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                               Expanded(
                                 child: Text(
                                   word,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: onSurface,
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: (masteryConfig['color'] as Color).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      masteryConfig['icon'] as IconData,
-                                      size: 12,
-                                      color: masteryConfig['color'] as Color,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      masteryConfig['label'] as String,
-                                      style: TextStyle(
-                                        fontFamily: 'Be Vietnam Pro',
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: masteryConfig['color'] as Color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              MasteryBadge(level: masteryLevel),
                             ],
                           ),
                           if (pronunciation.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(
                               '/$pronunciation/',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Be Vietnam Pro',
                                 fontSize: 14,
                                 fontStyle: FontStyle.italic,
-                                color: onSurfaceVariant,
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                           const SizedBox(height: 6),
                           Text(
                             meaning,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Be Vietnam Pro',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: primary,
+                              color: theme.colorScheme.primary,
                             ),
                           ),
                           if (fullDetails.isNotEmpty) ...[
@@ -1267,10 +1260,10 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                               fullDetails,
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Be Vietnam Pro',
                                 fontSize: 12,
-                                color: onSurface,
+                                color: theme.colorScheme.onSurface,
                                 height: 1.4,
                               ),
                             ),
@@ -1279,19 +1272,14 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                           Row(
                             children: [
                               TextButton.icon(
-                                onPressed: _isSelectionMode
-                                    ? null
-                                    : () => _editWord(
-                                          wordId: id,
-                                          word: word,
-                                          meaning: meaning,
-                                          pronunciation: pronunciation,
-                                          fullDetails: fullDetails,
-                                        ),
+                                onPressed: _isSelectionMode ? null : () => _editWord(
+                                  wordId: id, word: word, meaning: meaning,
+                                  pronunciation: pronunciation, fullDetails: fullDetails,
+                                ),
                                 icon: const Icon(Icons.edit_outlined, size: 16),
                                 label: const Text('Edit meaning'),
                                 style: TextButton.styleFrom(
-                                  foregroundColor: primary,
+                                  foregroundColor: theme.colorScheme.primary,
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   minimumSize: Size.zero,
@@ -1301,7 +1289,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                               if (!_isSelectionMode)
                                 IconButton(
                                   onPressed: () => _speak(word),
-                                  icon: const Icon(Icons.volume_up, color: primary),
+                                  icon: Icon(Icons.volume_up, color: theme.colorScheme.primary),
                                 ),
                             ],
                           ),
@@ -1312,7 +1300,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                 Icon(
                                   isDue ? Icons.notifications_active : Icons.schedule,
                                   size: 13,
-                                  color: isDue ? const Color(0xFFff6b35) : onSurfaceVariant.withValues(alpha: 0.7),
+                                  color: isDue ? colors.reviewBannerDue[0] : theme.colorScheme.onSurfaceVariant.withAlpha(179),
                                 ),
                                 const SizedBox(width: 4),
                                 Expanded(
@@ -1323,7 +1311,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                       fontFamily: 'Be Vietnam Pro',
                                       fontSize: 11,
                                       fontWeight: isDue ? FontWeight.bold : FontWeight.normal,
-                                      color: isDue ? const Color(0xFFff6b35) : onSurfaceVariant.withValues(alpha: 0.7),
+                                      color: isDue ? colors.reviewBannerDue[0] : theme.colorScheme.onSurfaceVariant.withAlpha(179),
                                     ),
                                   ),
                                 ),
@@ -1332,7 +1320,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                     '${intervalDays}d',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: onSurfaceVariant.withValues(alpha: 0.7),
+                                      color: theme.colorScheme.onSurfaceVariant.withAlpha(179),
                                     ),
                                   ),
                                 if (correctStreak > 0) ...[
@@ -1341,7 +1329,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                     'Streak $correctStreak',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: onSurfaceVariant.withValues(alpha: 0.7),
+                                      color: theme.colorScheme.onSurfaceVariant.withAlpha(179),
                                     ),
                                   ),
                                 ],
@@ -1361,16 +1349,29 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                                   word,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 22,
                                     fontWeight: FontWeight.w800,
-                                    color: onSurface,
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                 ),
                               ),
                               if (isMasteredOrHigh)
-                                const Icon(Icons.star, color: Color(0xFF43a047), size: 18),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Icon(Icons.star, color: colors.masteryMastered, size: 18),
+                                ),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: _isSelectionMode ? null : () => _toggleHardWord(id, isDifficult),
+                                icon: Icon(
+                                  isDifficult ? Icons.favorite : Icons.favorite_border,
+                                  color: isDifficult ? Colors.red : theme.colorScheme.onSurfaceVariant.withAlpha(128),
+                                  size: 22,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -1379,7 +1380,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
                             style: TextStyle(
                               fontFamily: 'Be Vietnam Pro',
                               fontSize: 12,
-                              color: onSurfaceVariant.withValues(alpha: 0.7),
+                              color: theme.colorScheme.onSurfaceVariant.withAlpha(179),
                             ),
                           ),
                         ],
@@ -1389,51 +1390,11 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
             if (!isFlipped)
               IconButton(
                 onPressed: _isSelectionMode ? null : () => _speak(word),
-                icon: const Icon(Icons.volume_up, color: primary),
+                icon: Icon(Icons.volume_up, color: theme.colorScheme.primary),
               ),
           ],
         ),
       ),
     );
   }
-
-  Map<String, dynamic> _getMasteryConfig(int level) {
-    switch (level) {
-      case 0:
-        return {'label': 'New', 'color': Colors.grey, 'icon': Icons.fiber_new};
-      case 1:
-        return {'label': 'Learning', 'color': const Color(0xFF1e88e5), 'icon': Icons.menu_book};
-      case 2:
-        return {'label': 'Reviewing', 'color': const Color(0xFFfb8c00), 'icon': Icons.refresh};
-      case 3:
-        return {'label': 'Mastered', 'color': const Color(0xFF43a047), 'icon': Icons.star};
-      default:
-        return {'label': 'Unknown', 'color': Colors.grey, 'icon': Icons.help};
-    }
-  }
-
-  Widget _buildNavItem(IconData icon, String label, {required bool isActive}) {
-    if (isActive) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFfed01b),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: const Color(0xFF433500)),
-          ),
-        ],
-      );
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: const Color(0xFF5f557f)),
-      ],
-    );
-  }
 }
-

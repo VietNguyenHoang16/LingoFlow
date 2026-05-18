@@ -1,6 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/bottom_nav_bar.dart';
+import '../widgets/animated_pressable.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:async';
 
@@ -61,21 +64,12 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-Future<void> _showVoiceSettings() async {
+  Future<void> _showVoiceSettings() async {
     final selectedVoice = await _ttsSettings.showVoiceSelector(context);
     if (!mounted || selectedVoice == null) return;
 
-    // Preview the selected voice with a short sample.
     final previewTts = FlutterTts();
-    await previewTts.setLanguage(selectedVoice.code);
-    // Attempt to set the specific voice identifier.
-    try {
-      await previewTts.setVoice({'name': selectedVoice.id});
-    } catch (_) {}
-    await previewTts.setPitch(selectedVoice.pitch);
-    await previewTts.setSpeechRate(0.5);
-    await previewTts.setVolume(1.0);
-    // Play a generic phrase for the preview.
+    await _ttsSettings.applyTo(previewTts);
     await previewTts.speak('This is a voice preview');
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -120,66 +114,61 @@ Future<void> _showVoiceSettings() async {
     }
   }
 
-Future<void> _createNewGroup() async {
-      try {
-        // Determine default group name based on existing groups.
-        int nextNumber = 1;
-        for (var group in _vocabularyGroups) {
-          final name = group['name'] as String;
-          if (name.startsWith('4000 Word List ')) {
-            final numPart = int.tryParse(name.replaceAll('4000 Word List ', ''));
-            if (numPart != null && numPart >= nextNumber) {
-              nextNumber = numPart + 1;
-            }
+  Future<void> _createNewGroup() async {
+    try {
+      int nextNumber = 1;
+      for (var group in _vocabularyGroups) {
+        final name = group['name'] as String;
+        if (name.startsWith('4000 Word List ')) {
+          final numPart = int.tryParse(name.replaceAll('4000 Word List ', ''));
+          if (numPart != null && numPart >= nextNumber) {
+            nextNumber = numPart + 1;
           }
         }
-        final defaultName = '4000 Word List $nextNumber';
-        // Prompt user for group name, pre‑filled with the default suggestion.
-        final nameController = TextEditingController(text: defaultName);
-        final enteredName = await showDialog<String>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Create New Group'),
-            content: TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                hintText: 'Enter group name',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  final name = nameController.text.trim();
-                  if (name.isNotEmpty) {
-                    Navigator.pop(context, name);
-                  }
-                },
-                child: const Text('Create'),
-              ),
-            ],
+      }
+      final defaultName = '4000 Word List $nextNumber';
+      final nameController = TextEditingController(text: defaultName);
+      final enteredName = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Create New Group'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(hintText: 'Enter group name'),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isNotEmpty) {
+                  Navigator.pop(context, name);
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      );
+      if (enteredName == null || enteredName.isEmpty) return;
+      await _db.createVocabularyGroup(widget.userId, enteredName);
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Created "$enteredName"')),
         );
-        // Abort if user cancelled or entered empty name.
-        if (enteredName == null || enteredName.isEmpty) return;
-        await _db.createVocabularyGroup(widget.userId, enteredName);
-        await _loadData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Created "$enteredName"')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
     }
+  }
 
   Future<void> _deleteGroup(int groupId) async {
     final confirm = await showDialog<bool>(
@@ -234,14 +223,10 @@ Future<void> _createNewGroup() async {
 
   @override
   Widget build(BuildContext context) {
-    const Color primary = Color(0xFF4a40e0);
-    const Color primaryContainer = Color(0xFF9795ff);
-    const Color surface = Color(0xFFfaf4ff);
-    const Color surfaceContainerLow = Color(0xFFf5eeff);
-    const Color onSurface = Color(0xFF32294f);
-    const Color onSurfaceVariant = Color(0xFF5f557f);
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: surface,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -253,22 +238,21 @@ Future<void> _createNewGroup() async {
                   Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 40, height: 40,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: primaryContainer,
+                          color: theme.colorScheme.primaryContainer,
                         ),
-                        child: const Icon(Icons.person, color: onSurface),
+                        child: Icon(Icons.person, color: theme.colorScheme.onSurface),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Vocabulary Library',
                         style: TextStyle(
                           fontFamily: 'Plus Jakarta Sans',
                           fontWeight: FontWeight.bold,
                           fontSize: 24,
-                          color: onSurface,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -276,27 +260,25 @@ Future<void> _createNewGroup() async {
                   Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 40, height: 40,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: surfaceContainerLow,
+                          color: theme.colorScheme.surfaceContainerLow,
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.record_voice_over, color: primary),
+                          icon: Icon(Icons.record_voice_over, color: theme.colorScheme.primary),
                           onPressed: _showVoiceSettings,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 40, height: 40,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: surfaceContainerLow,
+                          color: theme.colorScheme.surfaceContainerLow,
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.search, color: primary),
+                          icon: Icon(Icons.search, color: theme.colorScheme.primary),
                           onPressed: _showSearchDialog,
                         ),
                       ),
@@ -307,38 +289,34 @@ Future<void> _createNewGroup() async {
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 8),
-                          _buildDailyReviewBanner(
-                            primary: primary,
-                            onSurface: onSurface,
-                            onSurfaceVariant: onSurfaceVariant,
-                          ),
+                          _buildDailyReviewBanner(),
                           const SizedBox(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'My Groups',
                                 style: TextStyle(
                                   fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: onSurface,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                               Text(
                                 '${_vocabularyGroups.length} groups',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Be Vietnam Pro',
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: primary,
+                                  color: theme.colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -347,17 +325,17 @@ Future<void> _createNewGroup() async {
                           if (_vocabularyGroups.isEmpty)
                             Container(
                               padding: const EdgeInsets.all(32),
-                              child: const Center(
+                              child: Center(
                                 child: Column(
                                   children: [
-                                    Icon(Icons.folder_open, size: 64, color: onSurfaceVariant),
-                                    SizedBox(height: 16),
+                                    Icon(Icons.folder_open, size: 64, color: theme.colorScheme.onSurfaceVariant),
+                                    const SizedBox(height: 16),
                                     Text(
                                       'No groups yet',
                                       style: TextStyle(
                                         fontFamily: 'Be Vietnam Pro',
                                         fontSize: 16,
-                                        color: onSurfaceVariant,
+                                        color: theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                   ],
@@ -377,7 +355,7 @@ Future<void> _createNewGroup() async {
                               itemCount: _vocabularyGroups.length,
                               itemBuilder: (context, index) {
                                 final group = _vocabularyGroups[index];
-                                return GestureDetector(
+                                return AnimatedPressable(
                                   onTap: () async {
                                     await Navigator.push(
                                       context,
@@ -413,54 +391,26 @@ Future<void> _createNewGroup() async {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createNewGroup,
-        backgroundColor: primary,
+        backgroundColor: theme.colorScheme.primary,
         elevation: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
+        child: Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 30),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: surface.withValues(alpha: 0.8),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF32294f).withValues(alpha: 0.06),
-              blurRadius: 32,
-              offset: const Offset(0, -12),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            GestureDetector(
-              onTap: () => _onTabTapped(0),
-              child: _buildNavItem(Icons.home_outlined, 'Home', isActive: _currentIndex == 0),
-            ),
-            GestureDetector(
-              onTap: () => _onTabTapped(1),
-              child: _buildNavItem(Icons.menu_book, 'Library', isActive: _currentIndex == 1),
-            ),
-            GestureDetector(
-              onTap: () => _onTabTapped(2),
-              child: _buildNavItem(Icons.query_stats_outlined, 'Progress', isActive: _currentIndex == 2),
-            ),
-            GestureDetector(
-              onTap: () => _onTabTapped(3),
-              child: _buildNavItem(Icons.person_outline, 'Profile', isActive: _currentIndex == 3),
-            ),
-          ],
-        ),
+      bottomNavigationBar: LingoBottomNavBar(
+        currentIndex: _currentIndex,
+        items: const [
+          NavItem(icon: Icons.home_outlined, label: 'Home'),
+          NavItem(icon: Icons.menu_book, label: 'Library'),
+          NavItem(icon: Icons.query_stats_outlined, label: 'Progress'),
+          NavItem(icon: Icons.person_outline, label: 'Profile'),
+        ],
+        onTap: _onTabTapped,
       ),
     );
   }
 
-  Widget _buildDailyReviewBanner({
-    required Color primary,
-    required Color onSurface,
-    required Color onSurfaceVariant,
-  }) {
+  Widget _buildDailyReviewBanner() {
+    final colors = context.lingoColors;
     final dueToday = _reviewStats['dueToday'] ?? 0;
     final hasWordsDue = dueToday > 0;
 
@@ -470,21 +420,15 @@ Future<void> _createNewGroup() async {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          gradient: hasWordsDue
-              ? const LinearGradient(
-                  colors: [Color(0xFFff6b35), Color(0xFFffa726)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFF2d8f4e), Color(0xFF4ade80)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+          gradient: LinearGradient(
+            colors: hasWordsDue ? colors.reviewBannerDue : colors.reviewBannerDone,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: (hasWordsDue ? const Color(0xFFff6b35) : const Color(0xFF2d8f4e)).withValues(alpha: 0.3),
+              color: (hasWordsDue ? colors.reviewBannerDue[0] : colors.reviewBannerDone[0]).withAlpha(76),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -495,7 +439,7 @@ Future<void> _createNewGroup() async {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: Colors.white.withAlpha(51),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -510,7 +454,7 @@ Future<void> _createNewGroup() async {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hasWordsDue ? 'Time to review!' : 'You\'re all caught up!',
+                    hasWordsDue ? 'Time to review!' : "You're all caught up!",
                     style: const TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
                       fontSize: 16,
@@ -545,22 +489,16 @@ Future<void> _createNewGroup() async {
     required int dueCount,
     required int index,
   }) {
-    final List<List<Color>> palettes = [
-      [const Color(0xFF6366f1), const Color(0xFF818cf8)],
-      [const Color(0xFFfb7185), const Color(0xFFfda4af)],
-      [const Color(0xFF34d399), const Color(0xFF6ee7b7)],
-      [const Color(0xFFfbbf24), const Color(0xFFfcd34d)],
-      [const Color(0xFF8b5cf6), const Color(0xFFa78bfa)],
-    ];
-    final palette = palettes[index % palettes.length];
+    final colors = context.lingoColors;
+    final palette = colors.cardPalettes[index % colors.cardPalettes.length];
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: palette[0].withValues(alpha: 0.1),
+            color: palette[0].withAlpha(25),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -570,13 +508,11 @@ Future<void> _createNewGroup() async {
       child: Stack(
         children: [
           Positioned(
-            right: -20,
-            top: -20,
+            right: -20, top: -20,
             child: Container(
-              width: 100,
-              height: 100,
+              width: 100, height: 100,
               decoration: BoxDecoration(
-                color: palette[0].withValues(alpha: 0.05),
+                color: palette[0].withAlpha(13),
                 shape: BoxShape.circle,
               ),
             ),
@@ -592,29 +528,21 @@ Future<void> _createNewGroup() async {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: palette[0].withValues(alpha: 0.1),
+                        color: palette[0].withAlpha(25),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        Icons.folder_rounded,
-                        color: palette[0],
-                        size: 24,
-                      ),
+                      child: Icon(Icons.folder_rounded, color: palette[0], size: 24),
                     ),
                     if (dueCount > 0)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFff6b35),
+                          color: colors.reviewBannerDue[0],
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '$dueCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ),
                   ],
@@ -624,11 +552,11 @@ Future<void> _createNewGroup() async {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1f2937),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -637,7 +565,7 @@ Future<void> _createNewGroup() async {
                   style: TextStyle(
                     fontFamily: 'Be Vietnam Pro',
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -648,7 +576,7 @@ Future<void> _createNewGroup() async {
                       height: 6,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context).colorScheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -668,12 +596,11 @@ Future<void> _createNewGroup() async {
             ),
           ),
           Positioned(
-            right: 0,
-            top: 0,
+            right: 0, top: 0,
             child: Material(
               color: Colors.transparent,
               child: IconButton(
-                icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                icon: Icon(Icons.more_vert, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 onPressed: () => _showGroupOptions(id),
               ),
             ),
@@ -686,7 +613,7 @@ Future<void> _createNewGroup() async {
   void _showGroupOptions(int groupId) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -706,50 +633,6 @@ Future<void> _createNewGroup() async {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, {required bool isActive}) {
-    if (isActive) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFfed01b),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: const Color(0xFF433500)),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'Be Vietnam Pro',
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF433500),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: const Color(0xFF64748b)),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Be Vietnam Pro',
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF64748b),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -801,20 +684,21 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Color(0xFFfaf4ff),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
           const SizedBox(height: 12),
           Container(
-            width: 40,
-            height: 4,
+            width: 40, height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: theme.colorScheme.outlineVariant,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -827,7 +711,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
               style: const TextStyle(fontSize: 18),
               decoration: InputDecoration(
                 hintText: 'Search for a word...',
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF4a40e0)),
+                prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
@@ -838,7 +722,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: theme.colorScheme.surfaceContainerLowest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -849,15 +733,12 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
           ),
           Expanded(
             child: _isSearching
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                 : _searchResults.isEmpty && _searchController.text.isNotEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'Word not found',
-                          style: TextStyle(
-                            color: Color(0xFF5f557f),
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 16),
                         ),
                       )
                     : ListView.builder(
@@ -869,11 +750,11 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: theme.colorScheme.surfaceContainerLowest,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF4a40e0).withValues(alpha: 0.08),
+                                  color: theme.colorScheme.primary.withAlpha(20),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -884,37 +765,22 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                               children: [
                                 Text(
                                   word['word'] as String,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1f2937),
-                                  ),
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   word['meaning'] as String,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF5f557f),
-                                  ),
+                                  style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurfaceVariant),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.folder_outlined,
-                                      size: 14,
-                                      color: Color(0xFF4a40e0),
-                                    ),
+                                    Icon(Icons.folder_outlined, size: 14, color: theme.colorScheme.primary),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
                                         '${word['group_name']} / ${word['set_name']}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF4a40e0),
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                        style: TextStyle(fontSize: 12, color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),

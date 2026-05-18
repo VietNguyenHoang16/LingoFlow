@@ -9,6 +9,8 @@ class DatabaseService {
   DatabaseService._internal();
 
   bool _isInitialized = false;
+  final http.Client _client = http.Client();
+
   static const String _mobileApiBaseUrl = String.fromEnvironment(
     'LINGOFLOW_API_BASE_URL',
     defaultValue: 'https://vocab-virid.vercel.app',
@@ -28,7 +30,7 @@ class DatabaseService {
     String action, {
     Map<String, dynamic> data = const {},
   }) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse(_endpoint),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({'action': action, 'data': data}),
@@ -202,6 +204,13 @@ class DatabaseService {
     await _request<void>(
       'updateWordMastered',
       data: {'wordId': wordId, 'isMastered': isMastered},
+    );
+  }
+
+  Future<void> updateWordDifficult(int wordId, bool isDifficult) async {
+    await _request<void>(
+      'updateWordDifficult',
+      data: {'wordId': wordId, 'isDifficult': isDifficult},
     );
   }
 
