@@ -235,7 +235,8 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
+                  Expanded(
+                    child: Row(
                     children: [
                       Container(
                         width: 40, height: 40,
@@ -260,6 +261,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       ),
                     ],
+                    ),
                   ),
                   Row(
                     children: [
