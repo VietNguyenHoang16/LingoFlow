@@ -12,12 +12,14 @@ class ReviewPage extends StatefulWidget {
   final int userId;
   final int? setId;
   final String? setName;
+  final int? groupId;
 
   const ReviewPage({
     super.key,
     required this.userId,
     this.setId,
     this.setName,
+    this.groupId,
   });
 
   @override
@@ -97,7 +99,9 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
   Future<void> _loadDueWords() async {
     try {
       List<Map<String, dynamic>> words;
-      if (widget.setId != null) {
+      if (widget.groupId != null) {
+        words = await _db.getWordsDueForReviewByGroup(widget.groupId!);
+      } else if (widget.setId != null) {
         words = await _db.getWordsDueForReview(widget.setId!);
       } else {
         words = await _db.getAllWordsDueForReview(widget.userId);
