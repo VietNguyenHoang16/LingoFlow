@@ -127,6 +127,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       intervalDays: result.newInterval,
       nextReviewDate: result.nextReviewDate,
       masteryLevel: result.newMasteryLevel,
+      lapseCount: result.newLapseCount,
     ).catchError((e) {
       debugPrint('Failed to update word review: $e');
     });
@@ -147,6 +148,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       easeFactor: (word['ease_factor'] as num).toDouble(),
       correctStreak: word['correct_streak'] as int,
       reviewCount: word['review_count'] as int,
+      lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
     _queueUpdate(word['id'] as int, result);
@@ -288,8 +290,10 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
 
     final currentWord = _dueWords[_currentIndex];
     final progress = (_currentIndex + 1) / _dueWords.length;
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -340,12 +344,15 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(24, keyboardOpen ? 6 : 24, 24, 24),
                 child: Column(
                   children: [
-                    const SizedBox(height: 8),
-                    MasteryBadge(level: currentWord['mastery_level'] as int),
-                    const SizedBox(height: 16),
+                    if (!keyboardOpen) ...[
+                      const SizedBox(height: 8),
+                      MasteryBadge(level: currentWord['mastery_level'] as int),
+                      const SizedBox(height: 16),
+                    ],
                     AnimatedBuilder(
                       animation: _flipAnimation,
                       builder: (context, child) {
@@ -356,8 +363,11 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                             : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
                         return Container(
                           width: double.infinity,
-                          constraints: const BoxConstraints(minHeight: 180, maxHeight: 300),
-                          padding: const EdgeInsets.all(20),
+                          constraints: BoxConstraints(
+                            minHeight: keyboardOpen ? 100 : 180,
+                            maxHeight: keyboardOpen ? 200 : 300,
+                          ),
+                          padding: EdgeInsets.all(keyboardOpen ? 14 : 20),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: showColors,
@@ -377,20 +387,20 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               if (!_showAnswer) ...[
-                                const Icon(Icons.translate, color: Colors.white54, size: 32),
-                                const SizedBox(height: 8),
-                                Text('What is the English word?', style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(179), fontSize: 14)),
-                                const SizedBox(height: 10),
+                                if (!keyboardOpen) const Icon(Icons.translate, color: Colors.white54, size: 32),
+                                SizedBox(height: keyboardOpen ? 0 : 8),
+                                Text('What is the English word?', style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(179), fontSize: keyboardOpen ? 12 : 14)),
+                                SizedBox(height: keyboardOpen ? 6 : 10),
                                 Text(
                                   currentWord['meaning'] ?? '',
                                   textAlign: TextAlign.center,
-                                  maxLines: 3,
+                                  maxLines: keyboardOpen ? 1 : 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 22, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary, letterSpacing: 0.5),
+                                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: keyboardOpen ? 18 : 22, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary, letterSpacing: 0.5),
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: keyboardOpen ? 8 : 16),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: EdgeInsets.symmetric(horizontal: keyboardOpen ? 12 : 16, vertical: keyboardOpen ? 4 : 8),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withAlpha(25),
                                     borderRadius: BorderRadius.circular(12),
@@ -399,14 +409,14 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                                     _getMaskedWord(currentWord['word'] ?? ''),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: keyboardOpen ? 15 : 18,
                                       letterSpacing: 2,
                                       fontWeight: FontWeight.bold,
                                       color: theme.colorScheme.onPrimary,
                                     ),
                                   ),
                                 ),
-                                if (currentWord['set_name'] != null) ...[
+                                if (currentWord['set_name'] != null && !keyboardOpen) ...[
                                   const SizedBox(height: 10),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -414,43 +424,43 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                                     child: Text(currentWord['set_name'], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(153), fontSize: 12)),
                                   ),
                                 ],
-                                const SizedBox(height: 20),
+                                SizedBox(height: keyboardOpen ? 12 : 20),
                                 TextField(
                                   controller: _answerController,
                                   focusNode: _answerFocusNode,
                                   autofocus: true,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary),
+                                  style: TextStyle(fontSize: keyboardOpen ? 18 : 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary),
                                   decoration: InputDecoration(
                                     hintText: 'Type English word...',
-                                    hintStyle: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(128)),
+                                    hintStyle: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(128), fontSize: keyboardOpen ? 13 : 16),
                                     filled: true,
                                     fillColor: Colors.black.withAlpha(51),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       borderSide: BorderSide.none,
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: keyboardOpen ? 10 : 16),
                                   ),
                                   onSubmitted: (_) => _showAnswerCard(),
                                 ),
                               ] else ...[
-                                Icon(_isAnswerCorrect == true ? Icons.check_circle : Icons.cancel, color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent, size: 40),
-                                const SizedBox(height: 8),
-                                Text(currentWord['word'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 28, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
+                                Icon(_isAnswerCorrect == true ? Icons.check_circle : Icons.cancel, color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent, size: keyboardOpen ? 28 : 40),
+                                SizedBox(height: keyboardOpen ? 4 : 8),
+                                Text(currentWord['word'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: keyboardOpen ? 22 : 28, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
                                 if ((currentWord['pronunciation'] ?? '').isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text('/${currentWord['pronunciation']}/', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
+                                  Text('/${currentWord['pronunciation']}/', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: keyboardOpen ? 12 : 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
                                 ],
-                                const SizedBox(height: 8),
+                                SizedBox(height: keyboardOpen ? 4 : 8),
                                 Container(width: 60, height: 2, color: theme.colorScheme.onPrimary.withAlpha(76)),
-                                const SizedBox(height: 10),
-                                Text(currentWord['meaning'] ?? '', textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 19, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
+                                SizedBox(height: keyboardOpen ? 6 : 10),
+                                Text(currentWord['meaning'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: keyboardOpen ? 16 : 19, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
                                 if (_answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
-                                  const SizedBox(height: 10),
-                                  Text('You typed: ${_answerController.text}', style: TextStyle(fontSize: 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
+                                  SizedBox(height: keyboardOpen ? 6 : 10),
+                                  Text('You typed: ${_answerController.text}', style: TextStyle(fontSize: keyboardOpen ? 12 : 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
                                 ],
-                                if ((currentWord['full_details'] ?? '').isNotEmpty) ...[
+                                if ((currentWord['full_details'] ?? '').isNotEmpty && !keyboardOpen) ...[
                                   const SizedBox(height: 10),
                                   Container(
                                     padding: const EdgeInsets.all(12),
@@ -464,21 +474,21 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
                         );
                       },
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: keyboardOpen ? 10 : 16),
                     if (!_showAnswer) ...[
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: keyboardOpen ? 44 : 52,
                         child: ElevatedButton.icon(
                           onPressed: _showAnswerCard,
-                          icon: Icon(Icons.check, color: theme.colorScheme.onPrimary),
-                          label: Text('Check Answer', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+                          icon: Icon(Icons.check, color: theme.colorScheme.onPrimary, size: keyboardOpen ? 18 : 22),
+                          label: Text('Check Answer', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: keyboardOpen ? 14 : 16)),
                           style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 4),
                         ),
                       ),
                     ] else ...[
-                      Text('How well did you remember?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
-                      const SizedBox(height: 12),
+                      Text('How well did you remember?', style: TextStyle(fontSize: keyboardOpen ? 13 : 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+                      SizedBox(height: keyboardOpen ? 6 : 12),
                       LayoutBuilder(
                         builder: (context, buttonConstraints) {
                           final useWrap = buttonConstraints.maxWidth < 380;
