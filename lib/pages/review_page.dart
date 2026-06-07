@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
@@ -44,7 +45,6 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
 
   int _totalReviewed = 0;
   int _masteryUps = 0;
-  int _masteryDowns = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
   final List<Future<void>> _pendingUpdates = [];
 
@@ -112,6 +112,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
         _dueWords = words;
         _isLoading = false;
       });
+      _requestInputFocus();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -120,6 +121,12 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
         );
       }
     }
+  }
+
+  void _requestInputFocus() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _answerFocusNode.requestFocus();
+    });
   }
 
   void _queueUpdate(int wordId, SrsResult result) {
@@ -135,7 +142,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
     ).catchError((e) {
       debugPrint('Failed to update word review: $e');
     });
-    
+
     _pendingUpdates.add(future);
     future.whenComplete(() => _pendingUpdates.remove(future));
   }
@@ -159,7 +166,6 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
 
     _totalReviewed++;
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
-    if (result.newMasteryLevel < oldMastery) _masteryDowns++;
 
     _sessionResults.add({
       'word': word['word'],
@@ -179,23 +185,24 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       _answerController.clear();
       _flipController.reset();
       _calculatedIntervals = {};
-      
+
       if (_currentIndex < _dueWords.length - 1) {
         _currentIndex++;
-        Future.microtask(() {
-          if (mounted) _answerFocusNode.requestFocus();
-        });
       } else {
         _isCompleted = true;
       }
     });
+
+    if (!_isCompleted) {
+      _requestInputFocus();
+    }
   }
 
   void _showAnswerCard() {
     if (_dueWords.isEmpty || _currentIndex >= _dueWords.length) return;
-    
+
     _answerFocusNode.unfocus();
-    
+
     final word = _dueWords[_currentIndex];
     final intervals = <int, String>{};
     for (final q in [SrsService.qualityAgain, SrsService.qualityHard, SrsService.qualityGood, SrsService.qualityEasy]) {
@@ -214,13 +221,13 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       _isAnswerCorrect = _answerController.text.trim().toLowerCase() == (_dueWords[_currentIndex]['word'] ?? '').toString().toLowerCase();
       _calculatedIntervals = intervals;
     });
-    
+
     _flipController.forward();
     unawaited(_speak((_dueWords[_currentIndex]['word'] ?? '').toString()));
   }
 
   String _getMaskedWord(String word) {
-    if (word.length <= 2) return word; 
+    if (word.length <= 2) return word;
     String masked = '';
     for (int i = 0; i < word.length; i++) {
       if (i == 0 || i == word.length - 1 || word[i] == ' ') {
@@ -294,10 +301,8 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
 
     final currentWord = _dueWords[_currentIndex];
     final progress = (_currentIndex + 1) / _dueWords.length;
-    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -331,7 +336,7 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
       ),
       body: SafeArea(
         top: false,
-        minimum: const EdgeInsets.only(bottom: 8),
+        bottom: false,
         child: Column(
           children: [
             Padding(
@@ -347,183 +352,200 @@ class _ReviewPageState extends State<ReviewPage> with SingleTickerProviderStateM
               ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(24, keyboardOpen ? 6 : 24, 24, 24),
-                child: Column(
-                  children: [
-                    if (!keyboardOpen) ...[
-                      const SizedBox(height: 8),
-                      MasteryBadge(level: currentWord['mastery_level'] as int),
-                      const SizedBox(height: 16),
-                    ],
-                    AnimatedBuilder(
-                      animation: _flipAnimation,
-                      builder: (context, child) {
-                        final showColors = _showAnswer
-                            ? (_isAnswerCorrect == true 
-                                ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
-                                : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(179)])
-                            : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
-                        return Container(
-                          width: double.infinity,
-                          constraints: BoxConstraints(
-                            minHeight: keyboardOpen ? 100 : 180,
-                            maxHeight: keyboardOpen ? 200 : 300,
-                          ),
-                          padding: EdgeInsets.all(keyboardOpen ? 14 : 20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: showColors,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (showColors[0]).withAlpha(76),
-                                blurRadius: 24,
-                                offset: const Offset(0, 12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 500;
+                  final cardPadding = compact ? 14.0 : 20.0;
+                  final cardMaxH = compact ? 200.0 : 300.0;
+                  final cardMinH = compact ? 120.0 : 180.0;
+                  final meaningFont = compact ? 17.0 : 22.0;
+                  final maskedFont = compact ? 14.0 : 18.0;
+                  final inputFont = compact ? 17.0 : 20.0;
+                  final hintFont = compact ? 13.0 : 16.0;
+                  final inputVPad = compact ? 10.0 : 16.0;
+                  final gap = compact ? 8.0 : 16.0;
+                  final btnH = compact ? 44.0 : 52.0;
+                  final btnFont = compact ? 14.0 : 16.0;
+                  final iconSize = compact ? 24.0 : 32.0;
+                  final ansWordFont = compact ? 22.0 : 28.0;
+                  final ansMeanFont = compact ? 16.0 : 19.0;
+                  final subtitleFont = compact ? 12.0 : 14.0;
+
+                  return SingleChildScrollView(
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.fromLTRB(24, compact ? 4 : 16, 24, 16),
+                    child: Column(
+                      children: [
+                        if (!compact) ...[
+                          const SizedBox(height: 8),
+                          MasteryBadge(level: currentWord['mastery_level'] as int),
+                          SizedBox(height: gap),
+                        ],
+                        AnimatedBuilder(
+                          animation: _flipAnimation,
+                          builder: (context, child) {
+                            final showColors = _showAnswer
+                                ? (_isAnswerCorrect == true
+                                    ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
+                                    : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(179)])
+                                : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
+                            return Container(
+                              width: double.infinity,
+                              constraints: BoxConstraints(minHeight: cardMinH, maxHeight: cardMaxH),
+                              padding: EdgeInsets.all(cardPadding),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: showColors,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (showColors[0]).withAlpha(76),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (!_showAnswer) ...[
-                                if (!keyboardOpen) const Icon(Icons.translate, color: Colors.white54, size: 32),
-                                SizedBox(height: keyboardOpen ? 0 : 8),
-                                Text('What is the English word?', style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(179), fontSize: keyboardOpen ? 12 : 14)),
-                                SizedBox(height: keyboardOpen ? 6 : 10),
-                                Text(
-                                  currentWord['meaning'] ?? '',
-                                  textAlign: TextAlign.center,
-                                  maxLines: keyboardOpen ? 1 : 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: keyboardOpen ? 18 : 22, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary, letterSpacing: 0.5),
-                                ),
-                                SizedBox(height: keyboardOpen ? 8 : 16),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: keyboardOpen ? 12 : 16, vertical: keyboardOpen ? 4 : 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withAlpha(25),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _getMaskedWord(currentWord['word'] ?? ''),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: keyboardOpen ? 15 : 18,
-                                      letterSpacing: 2,
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onPrimary,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (!_showAnswer) ...[
+                                    if (!compact) const Icon(Icons.translate, color: Colors.white54, size: 32),
+                                    SizedBox(height: compact ? 0 : 8),
+                                    Text('What is the English word?', style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(179), fontSize: compact ? 12 : 14)),
+                                    SizedBox(height: compact ? 4 : 10),
+                                    Text(
+                                      currentWord['meaning'] ?? '',
+                                      textAlign: TextAlign.center,
+                                      maxLines: compact ? 1 : 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: meaningFont, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary, letterSpacing: 0.5),
                                     ),
-                                  ),
-                                ),
-                                if (currentWord['set_name'] != null && !keyboardOpen) ...[
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                    decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(38), borderRadius: BorderRadius.circular(12)),
-                                    child: Text(currentWord['set_name'], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(153), fontSize: 12)),
-                                  ),
-                                ],
-                                SizedBox(height: keyboardOpen ? 12 : 20),
-                                TextField(
-                                  controller: _answerController,
-                                  focusNode: _answerFocusNode,
-                                  autofocus: true,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: keyboardOpen ? 18 : 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary),
-                                  decoration: InputDecoration(
-                                    hintText: 'Type English word...',
-                                    hintStyle: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(128), fontSize: keyboardOpen ? 13 : 16),
-                                    filled: true,
-                                    fillColor: Colors.black.withAlpha(51),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      borderSide: BorderSide.none,
+                                    SizedBox(height: compact ? 6 : 16),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16, vertical: compact ? 3 : 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withAlpha(25),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _getMaskedWord(currentWord['word'] ?? ''),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: maskedFont,
+                                          letterSpacing: 2,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.colorScheme.onPrimary,
+                                        ),
+                                      ),
                                     ),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: keyboardOpen ? 10 : 16),
-                                  ),
-                                  onSubmitted: (_) => _showAnswerCard(),
-                                ),
-                              ] else ...[
-                                Icon(_isAnswerCorrect == true ? Icons.check_circle : Icons.cancel, color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent, size: keyboardOpen ? 28 : 40),
-                                SizedBox(height: keyboardOpen ? 4 : 8),
-                                Text(currentWord['word'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: keyboardOpen ? 22 : 28, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
-                                if ((currentWord['pronunciation'] ?? '').isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text('/${currentWord['pronunciation']}/', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: keyboardOpen ? 12 : 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
+                                    if (currentWord['set_name'] != null && !compact) ...[
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(38), borderRadius: BorderRadius.circular(12)),
+                                        child: Text(currentWord['set_name'], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(153), fontSize: 12)),
+                                      ),
+                                    ],
+                                    SizedBox(height: compact ? 8 : 20),
+                                    TextField(
+                                      controller: _answerController,
+                                      focusNode: _answerFocusNode,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: inputFont, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary),
+                                      decoration: InputDecoration(
+                                        hintText: 'Type English word...',
+                                        hintStyle: TextStyle(color: theme.colorScheme.onPrimary.withAlpha(128), fontSize: hintFont),
+                                        filled: true,
+                                        fillColor: Colors.black.withAlpha(51),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: inputVPad),
+                                      ),
+                                      onSubmitted: (_) => _showAnswerCard(),
+                                    ),
+                                  ] else ...[
+                                    Icon(_isAnswerCorrect == true ? Icons.check_circle : Icons.cancel, color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent, size: compact ? 28 : 40),
+                                    SizedBox(height: compact ? 4 : 8),
+                                    Text(currentWord['word'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: ansWordFont, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
+                                    if ((currentWord['pronunciation'] ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text('/${currentWord['pronunciation']}/', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: compact ? 12 : 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
+                                    ],
+                                    SizedBox(height: compact ? 4 : 8),
+                                    Container(width: 60, height: 2, color: theme.colorScheme.onPrimary.withAlpha(76)),
+                                    SizedBox(height: compact ? 6 : 10),
+                                    Text(currentWord['meaning'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: ansMeanFont, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
+                                    if (_answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
+                                      SizedBox(height: compact ? 4 : 10),
+                                      Text('You typed: ${_answerController.text}', style: TextStyle(fontSize: subtitleFont, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
+                                    ],
+                                    if ((currentWord['full_details'] ?? '').isNotEmpty && !compact) ...[
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(38), borderRadius: BorderRadius.circular(12)),
+                                        child: Text(currentWord['full_details'], textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: theme.colorScheme.onPrimary.withAlpha(179), height: 1.4)),
+                                      ),
+                                    ],
+                                  ],
                                 ],
-                                SizedBox(height: keyboardOpen ? 4 : 8),
-                                Container(width: 60, height: 2, color: theme.colorScheme.onPrimary.withAlpha(76)),
-                                SizedBox(height: keyboardOpen ? 6 : 10),
-                                Text(currentWord['meaning'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: keyboardOpen ? 16 : 19, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
-                                if (_answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
-                                  SizedBox(height: keyboardOpen ? 6 : 10),
-                                  Text('You typed: ${_answerController.text}', style: TextStyle(fontSize: keyboardOpen ? 12 : 14, color: theme.colorScheme.onPrimary.withAlpha(179), fontStyle: FontStyle.italic)),
-                                ],
-                                if ((currentWord['full_details'] ?? '').isNotEmpty && !keyboardOpen) ...[
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(38), borderRadius: BorderRadius.circular(12)),
-                                    child: Text(currentWord['full_details'], textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: theme.colorScheme.onPrimary.withAlpha(179), height: 1.4)),
-                                  ),
-                                ],
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    SizedBox(height: keyboardOpen ? 10 : 16),
-                    if (!_showAnswer) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: keyboardOpen ? 44 : 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _showAnswerCard,
-                          icon: Icon(Icons.check, color: theme.colorScheme.onPrimary, size: keyboardOpen ? 18 : 22),
-                          label: Text('Check Answer', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: keyboardOpen ? 14 : 16)),
-                          style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 4),
-                        ),
-                      ),
-                    ] else ...[
-                      Text('How well did you remember?', style: TextStyle(fontSize: keyboardOpen ? 13 : 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
-                      SizedBox(height: keyboardOpen ? 6 : 12),
-                      LayoutBuilder(
-                        builder: (context, buttonConstraints) {
-                          final useWrap = buttonConstraints.maxWidth < 380;
-                          if (useWrap) {
-                            return Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Again', emoji: 'A', subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '', color: theme.colorScheme.error, onTap: () => _rateWord(SrsService.qualityAgain))),
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Hard', emoji: 'H', subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '', color: colors.masteryReviewing, onTap: () => _rateWord(SrsService.qualityHard))),
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Good', emoji: 'G', subtitle: _calculatedIntervals[SrsService.qualityGood] ?? '', color: colors.masteryMastered, onTap: () => _rateWord(SrsService.qualityGood))),
-                                SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Easy', emoji: 'E', subtitle: _calculatedIntervals[SrsService.qualityEasy] ?? '', color: colors.masteryLearning, onTap: () => _rateWord(SrsService.qualityEasy))),
-                              ],
+                              ),
                             );
-                          }
-                          return Row(
-                            children: [
-                              Expanded(child: _buildRateButton(label: 'Again', emoji: '😣', subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '', color: theme.colorScheme.error, onTap: () => _rateWord(SrsService.qualityAgain))),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildRateButton(label: 'Hard', emoji: '🤔', subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '', color: colors.masteryReviewing, onTap: () => _rateWord(SrsService.qualityHard))),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildRateButton(label: 'Good', emoji: '👍', subtitle: _calculatedIntervals[SrsService.qualityGood] ?? '', color: colors.masteryMastered, onTap: () => _rateWord(SrsService.qualityGood))),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildRateButton(label: 'Easy', emoji: '🌟', subtitle: _calculatedIntervals[SrsService.qualityEasy] ?? '', color: colors.masteryLearning, onTap: () => _rateWord(SrsService.qualityEasy))),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
+                          },
+                        ),
+                        SizedBox(height: gap),
+                        if (!_showAnswer) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            height: btnH,
+                            child: ElevatedButton.icon(
+                              onPressed: _showAnswerCard,
+                              icon: Icon(Icons.check, color: theme.colorScheme.onPrimary, size: compact ? 18 : 22),
+                              label: Text('Check Answer', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: btnFont)),
+                              style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 4),
+                            ),
+                          ),
+                        ] else ...[
+                          Text('How well did you remember?', style: TextStyle(fontSize: compact ? 13 : 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+                          SizedBox(height: compact ? 6 : 12),
+                          LayoutBuilder(
+                            builder: (context, buttonConstraints) {
+                              final useWrap = buttonConstraints.maxWidth < 380;
+                              if (useWrap) {
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Again', emoji: 'A', subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '', color: theme.colorScheme.error, onTap: () => _rateWord(SrsService.qualityAgain))),
+                                    SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Hard', emoji: 'H', subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '', color: colors.masteryReviewing, onTap: () => _rateWord(SrsService.qualityHard))),
+                                    SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Good', emoji: 'G', subtitle: _calculatedIntervals[SrsService.qualityGood] ?? '', color: colors.masteryMastered, onTap: () => _rateWord(SrsService.qualityGood))),
+                                    SizedBox(width: (buttonConstraints.maxWidth - 8) / 2, child: _buildRateButton(label: 'Easy', emoji: 'E', subtitle: _calculatedIntervals[SrsService.qualityEasy] ?? '', color: colors.masteryLearning, onTap: () => _rateWord(SrsService.qualityEasy))),
+                                  ],
+                                );
+                              }
+                              return Row(
+                                children: [
+                                  Expanded(child: _buildRateButton(label: 'Again', emoji: '😣', subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '', color: theme.colorScheme.error, onTap: () => _rateWord(SrsService.qualityAgain))),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildRateButton(label: 'Hard', emoji: '🤔', subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '', color: colors.masteryReviewing, onTap: () => _rateWord(SrsService.qualityHard))),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildRateButton(label: 'Good', emoji: '👍', subtitle: _calculatedIntervals[SrsService.qualityGood] ?? '', color: colors.masteryMastered, onTap: () => _rateWord(SrsService.qualityGood))),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildRateButton(label: 'Easy', emoji: '🌟', subtitle: _calculatedIntervals[SrsService.qualityEasy] ?? '', color: colors.masteryLearning, onTap: () => _rateWord(SrsService.qualityEasy))),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
