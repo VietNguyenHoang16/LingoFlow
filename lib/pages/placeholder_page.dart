@@ -25,26 +25,31 @@ class PlaceholderPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 80, color: theme.colorScheme.onSurfaceVariant.withAlpha(128)),
-            const SizedBox(height: 16),
-            Text(
-              '$title Page',
-              style: theme.textTheme.headlineSmall,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 80, color: theme.colorScheme.onSurfaceVariant.withAlpha(128)),
+                const SizedBox(height: 16),
+                Text(
+                  '$title Page',
+                  style: theme.textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'This page is under development.\nComing soon!',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'This page is under development.\nComing soon!',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

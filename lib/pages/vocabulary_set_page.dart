@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
@@ -6,28 +6,32 @@ import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_utils.dart';
 import '../widgets/mastery_badge.dart';
+import '../widgets/word_type_utils.dart';
+import '../widgets/word_type_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
 import 'review_page.dart';
-import 'placeholder_page.dart';
+import 'profile_page.dart';
 
-class VocabularySetPage extends StatefulWidget {
-  final int setId;
-  final String setName;
+class VocabularyListPage extends StatefulWidget {
+  final int listId;
+  final String listName;
   final int userId;
-  
-  const VocabularySetPage({
+  final String? category;
+
+  const VocabularyListPage({
     super.key,
-    required this.setId,
-    required this.setName,
+    required this.listId,
+    required this.listName,
     required this.userId,
+    this.category,
   });
 
   @override
-  State<VocabularySetPage> createState() => _VocabularySetPageState();
+  State<VocabularyListPage> createState() => _VocabularyListPageState();
 }
 
-class _VocabularySetPageState extends State<VocabularySetPage> {
+class _VocabularyListPageState extends State<VocabularyListPage> {
   final DatabaseService _db = DatabaseService();
   final FlutterTts _flutterTts = FlutterTts();
   final SrsService _srs = SrsService();
@@ -39,11 +43,17 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
   int _totalWords = 0;
   int _dueCount = 0;
   Map<int, int> _masteryBreakdown = {};
+  Map<String, int> _wordTypeBreakdown = {};
   int _currentNavIndex = 1;
   bool _isSelectionMode = false;
   int _filterLevel = -1;
   final Set<int> _selectedWords = {};
   final Set<int> _flippedWords = {};
+  String? _filterWordType;
+
+  // -------------------------------------------------------
+  // Logic methods (unchanged)
+  // -------------------------------------------------------
 
   Future<void> _toggleHardWord(int wordId, bool currentStatus) async {
     try {
@@ -66,9 +76,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
   void _toggleSelectionMode() {
     setState(() {
       _isSelectionMode = !_isSelectionMode;
-      if (!_isSelectionMode) {
-        _selectedWords.clear();
-      }
+      if (!_isSelectionMode) _selectedWords.clear();
     });
   }
 
@@ -78,69 +86,129 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     required String meaning,
     required String pronunciation,
     required String fullDetails,
+    required String wordType,
     required bool isDifficult,
   }) async {
+    final theme = Theme.of(context);
     await showModalBottomSheet(
       context: context,
+      backgroundColor: theme.colorScheme.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              word,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: Icon(isDifficult ? Icons.flag : Icons.flag_outlined, color: isDifficult ? Colors.red : null),
-            title: Text(isDifficult ? 'Unmark Hard' : 'Mark Hard'),
-            onTap: () {
-              Navigator.pop(context);
-              _toggleHardWord(wordId, isDifficult);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: const Text('Edit'),
-            onTap: () {
-              Navigator.pop(context);
-              _editWord(
-                wordId: wordId,
-                word: word,
-                meaning: meaning,
-                pronunciation: pronunciation,
-                fullDetails: fullDetails,
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete, color: Colors.red),
-            title: const Text('Delete'),
-            onTap: () {
-              Navigator.pop(context);
-              _deleteWord(wordId);
-            },
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Column(
+                children: [
+                  Text(
+                    word,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  if (meaning.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      meaning,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 13,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: (isDifficult ? Colors.green : Colors.orange).withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isDifficult ? Icons.flag : Icons.flag_outlined,
+                  color: isDifficult ? Colors.green : Colors.orange,
+                  size: 18,
+                ),
+              ),
+              title: Text(
+                isDifficult ? 'Bo danh dau kho' : 'Danh dau kho',
+                style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _toggleHardWord(wordId, isDifficult);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.edit_rounded, color: theme.colorScheme.primary, size: 18),
+              ),
+              title: const Text(
+                'Chinh sua',
+                style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _editWord(
+                  wordId: wordId, word: word, meaning: meaning,
+                  pronunciation: pronunciation, fullDetails: fullDetails,
+                  wordType: wordType,
+                );
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.red.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.delete_rounded, color: Colors.red, size: 18),
+              ),
+              title: const Text(
+                'Xoa tu',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontFamily: 'Be Vietnam Pro',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteWord(wordId);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -180,26 +248,21 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
   Future<void> _deleteSelectedWords() async {
     if (_selectedWords.isEmpty) return;
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Words'),
-        content: Text('Are you sure you want to delete ${_selectedWords.length} selected words?'),
+        title: const Text('Xoa tu da chon?'),
+        content: Text('Ban sap xoa ${_selectedWords.length} tu vung.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('Xoa'),
           ),
         ],
       ),
     );
-
     if (confirm == true) {
       final countToDelete = _selectedWords.length;
       try {
@@ -213,13 +276,13 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Deleted $countToDelete words')),
+            SnackBar(content: Text('Da xoa $countToDelete tu')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text('Loi: $e')),
           );
         }
       }
@@ -229,22 +292,16 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
   void _onNavTapped(int index) {
     if (index == _currentNavIndex) return;
     setState(() => _currentNavIndex = index);
-    
     if (index == 0) {
       Navigator.pop(context);
-    } else if (index == 2) {
+    } else if (index == 1) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const PlaceholderPage(title: 'Practice', icon: Icons.fitness_center)),
-      );
-    } else if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const PlaceholderPage(title: 'Profile', icon: Icons.person)),
+        MaterialPageRoute(builder: (context) => ProfilePage(userId: widget.userId)),
       );
     }
   }
-  
+
   @override
   void initState() {
     super.initState();
@@ -254,10 +311,6 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
   Future<void> _initTts() async {
     await _ttsSettings.applyTo(_flutterTts);
-    var voices = await _flutterTts.getVoices;
-    if (voices != null) {
-      debugPrint('Available voices: $voices');
-    }
   }
 
   Future<void> _speak(String text) async {
@@ -278,7 +331,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
   Future<void> _loadWords() async {
     try {
-      final words = await _db.getVocabularyWords(widget.setId);
+      final words = await _db.getVocabularyWords(widget.listId);
       final total = words.length;
       final mastered = words.where((w) => (w['mastery_level'] ?? 0) >= 3).length;
       final progress = total > 0 ? ((mastered / total) * 100).round() : 0;
@@ -297,19 +350,31 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
         breakdown[level] = (breakdown[level] ?? 0) + 1;
       }
 
+      final typeBreakdown = <String, int>{};
+      for (final w in words) {
+        final raw = (w['word_type'] ?? '').toString();
+        if (raw.isEmpty) continue;
+        for (final t in raw.split(',')) {
+          final key = t.trim();
+          if (key.isEmpty) continue;
+          typeBreakdown[key] = (typeBreakdown[key] ?? 0) + 1;
+        }
+      }
+
       setState(() {
         _words = words;
         _totalWords = total;
         _progress = progress;
         _dueCount = localDueCount;
         _masteryBreakdown = breakdown;
+        _wordTypeBreakdown = typeBreakdown;
         final validIds = words.map((w) => w['id'] as int).toSet();
         _flippedWords.removeWhere((id) => !validIds.contains(id));
         _isLoading = false;
       });
 
       _refreshDueCount();
-      await _db.updateVocabularySetProgress(widget.setId, progress, total);
+      await _db.updateListProgress(widget.listId, progress, total);
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -322,7 +387,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
   Future<void> _refreshDueCount() async {
     try {
-      final dueWords = await _db.getWordsDueForReview(widget.setId);
+      final dueWords = await _db.getWordsDueForReview(widget.listId);
       if (!mounted) return;
       setState(() => _dueCount = dueWords.length);
     } catch (e) {
@@ -332,11 +397,10 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
   Future<void> _addWord() async {
     final wordsController = TextEditingController();
-
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Words (Bulk)'),
+        title: const Text('Them tu (nhap nhieu)'),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
@@ -344,15 +408,19 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Enter words (one per line)',
-                style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                'Moi dong la mot tu vung',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: wordsController,
                 maxLines: 10,
                 decoration: const InputDecoration(
-                  hintText: 'fair: (adj) công bằng, hợp lý; (n) hội chợ; (adv) khá, tương đối\n...',
+                  hintText:
+                      'fair: (adj) cong bang; (n) hoi cho; (adv) kha\n...',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -362,7 +430,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Huy'),
           ),
           TextButton(
             onPressed: () {
@@ -378,25 +446,17 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
 
     if (result != null && result.trim().isNotEmpty) {
       setState(() => _isImporting = true);
-
       try {
-        final lines = result.split('\n').where((line) => line.trim().isNotEmpty).toList();
-        
-        if (lines.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No words to import')),
-            );
-          }
-          return;
-        }
+        final lines = result
+            .split('\n')
+            .where((line) => line.trim().isNotEmpty)
+            .toList();
+        if (lines.isEmpty) return;
 
         final orderedLines = lines.reversed.toList();
-        
         for (String rawLine in orderedLines) {
           String line = rawLine.trim();
           if (line.isEmpty) continue;
-          
           int colonIdx = line.indexOf(':');
           String word;
           String remainder;
@@ -407,45 +467,62 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
             word = line;
             remainder = '';
           }
-          
+
           String meaning = '';
           String fullDetails = '';
+          String wordType = '';
           if (remainder.isNotEmpty) {
-            int semicolonIdx = remainder.indexOf(';');
+            final typeMatches = RegExp(r'\(([a-z\.]+)\)')
+                .allMatches(remainder)
+                .map((m) => normalizeWordTypeAbbrev(m.group(1) ?? ''))
+                .where((key) => key.isNotEmpty)
+                .toSet()
+                .toList();
+            if (typeMatches.isNotEmpty) {
+              wordType = typeMatches.join(',');
+            }
+            final cleanedRemainder =
+                remainder.replaceAll(RegExp(r'\s*\(([a-z\.]+)\)'), '').trim();
+            int semicolonIdx = cleanedRemainder.indexOf(';');
             if (semicolonIdx != -1) {
-              meaning = remainder.substring(0, semicolonIdx).trim();
-              fullDetails = remainder.substring(semicolonIdx + 1).trim();
+              meaning = cleanedRemainder.substring(0, semicolonIdx).trim();
+              fullDetails = cleanedRemainder.substring(semicolonIdx + 1).trim();
             } else {
-              meaning = remainder;
+              meaning = cleanedRemainder;
             }
           }
-          
+
+          final existingWords = await _db.searchWord(widget.userId, word);
+          final alreadyExists = existingWords.any(
+            (w) => (w['word']?.toString().toLowerCase() ?? '') ==
+                word.toLowerCase(),
+          );
+          if (alreadyExists) continue;
+
           await _db.addVocabularyWord(
-            widget.setId,
+            widget.listId,
             word,
             '',
             meaning,
             fullDetails: fullDetails,
+            wordType: wordType,
           );
         }
 
         await _loadWords();
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added ${lines.length} words!')),
+            SnackBar(content: Text('Da them ${lines.length} tu!')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text('Loi: $e')),
           );
         }
       } finally {
-        if (mounted) {
-          setState(() => _isImporting = false);
-        }
+        if (mounted) setState(() => _isImporting = false);
       }
     }
   }
@@ -454,22 +531,17 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Word'),
-        content: const Text('Are you sure you want to delete this word?'),
+        title: const Text('Xoa tu nay?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('Xoa'),
           ),
         ],
       ),
     );
-
     if (confirm == true) {
       try {
         await _db.deleteVocabularyWord(wordId);
@@ -477,7 +549,7 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text('Loi: $e')),
           );
         }
       }
@@ -490,636 +562,788 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     required String meaning,
     required String pronunciation,
     required String fullDetails,
+    required String wordType,
   }) async {
+    final wordController = TextEditingController(text: word);
     final meaningController = TextEditingController(text: meaning);
     final pronunciationController = TextEditingController(text: pronunciation);
     final detailsController = TextEditingController(text: fullDetails);
+    final selectedTypes = <String>{
+      ...wordType
+          .split(',')
+          .map((t) => t.trim())
+          .where((t) => kWordTypeLabel.containsKey(t)),
+    };
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit "$word"'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Meaning', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: meaningController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Enter the meaning you want',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Chinh sua tu'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tu vung', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: wordController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Nhap tu',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text('Pronunciation', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: pronunciationController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Optional pronunciation',
+                  const SizedBox(height: 14),
+                  const Text('Nghia', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: meaningController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Nhap nghia',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text('Notes / Word type details', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: detailsController,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Optional details or part of speech',
+                  const SizedBox(height: 14),
+                  const Text('Phat am', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: pronunciationController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Tuy chon',
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  const Text('Loai tu', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: kWordTypeKeys.map((key) {
+                      final config = wordTypeConfig(key, dialogContext);
+                      final color = config['color'] as Color;
+                      final isSelected = selectedTypes.contains(key);
+                      return GestureDetector(
+                        onTap: () {
+                          setDialogState(() {
+                            if (isSelected) {
+                              selectedTypes.remove(key);
+                            } else {
+                              selectedTypes.add(key);
+                            }
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: isSelected ? color.withAlpha(40) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected
+                                  ? color.withAlpha(180)
+                                  : color.withAlpha(60),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(config['icon'] as IconData, size: 12, color: color),
+                              const SizedBox(width: 4),
+                              Text(
+                                config['shortLabel'] as String,
+                                style: TextStyle(
+                                  fontFamily: 'Be Vietnam Pro',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Chi tiet', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: detailsController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Tuy chon',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huy'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (wordController.text.trim().isEmpty) return;
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Luu'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (meaningController.text.trim().isEmpty) return;
-              Navigator.pop(context, true);
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
     if (result != true) return;
 
+    final joinedTypes = selectedTypes.toList().join(',');
+
     try {
       final wasFlipped = _flippedWords.contains(wordId);
-      await _db.updateVocabularyWordDetails(
+      await _db.updateVocabularyWord(
         wordId: wordId,
+        word: wordController.text,
         meaning: meaningController.text,
         pronunciation: pronunciationController.text,
         fullDetails: detailsController.text,
+        wordType: joinedTypes,
       );
       await _loadWords();
-      if (wasFlipped && mounted) {
-        setState(() {
-          _flippedWords.add(wordId);
-        });
-      }
+      if (wasFlipped && mounted) setState(() => _flippedWords.add(wordId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Updated "$word"')),
+          SnackBar(content: Text('Da cap nhat "${wordController.text.trim()}"')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Loi: $e')),
         );
       }
     }
   }
 
   void _showFilterSheet() {
+    final theme = Theme.of(context);
+    final colors = context.lingoColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: theme.colorScheme.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Filter by Level',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _buildFilterOption(-1, 'All Words', Icons.list, Colors.grey, _words.length),
-            _buildFilterOption(0, 'New', Icons.fiber_new, Colors.grey, _masteryBreakdown[0] ?? 0),
-            _buildFilterOption(1, 'Learning', Icons.menu_book, context.lingoColors.masteryLearning, _masteryBreakdown[1] ?? 0),
-            _buildFilterOption(2, 'Reviewing', Icons.refresh, context.lingoColors.masteryReviewing, _masteryBreakdown[2] ?? 0),
-            _buildFilterOption(3, 'Mastered', Icons.star, context.lingoColors.masteryMastered, _masteryBreakdown[3] ?? 0),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                'Loc theo trinh do',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildFilterOption(-1, 'Tat ca', Icons.list_rounded, Colors.grey, _words.length),
+              _buildFilterOption(0, 'Moi', Icons.fiber_new_rounded, Colors.blueGrey, _masteryBreakdown[0] ?? 0),
+              _buildFilterOption(1, 'Dang hoc', Icons.menu_book_rounded, colors.masteryLearning, _masteryBreakdown[1] ?? 0),
+              _buildFilterOption(2, 'Dang on', Icons.refresh_rounded, colors.masteryReviewing, _masteryBreakdown[2] ?? 0),
+              _buildFilterOption(3, 'Thuan thuc', Icons.star_rounded, colors.masteryMastered, _masteryBreakdown[3] ?? 0),
+              _buildFilterOption(-2, 'Kho nho', Icons.warning_amber_rounded, Colors.orange, _words.where((w) => SrsService.isLeech(w['lapse_count'] as int? ?? 0)).length),
+              const SizedBox(height: 18),
+              Divider(color: theme.colorScheme.outlineVariant),
+              const SizedBox(height: 12),
+              Text(
+                'Loc theo loai tu',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildWordTypeFilterOption(
+                null,
+                'Tat ca',
+                Icons.all_inclusive_rounded,
+                Colors.grey,
+                _words.length,
+                sheetContext,
+                setSheetState,
+              ),
+              ...kWordTypeKeys.map((key) {
+                final config = wordTypeConfig(key, sheetContext);
+                return _buildWordTypeFilterOption(
+                  key,
+                  config['label'] as String,
+                  config['icon'] as IconData,
+                  config['color'] as Color,
+                  _wordTypeBreakdown[key] ?? 0,
+                  sheetContext,
+                  setSheetState,
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildFilterOption(int level, String label, IconData icon, Color color, int count) {
+    final theme = Theme.of(context);
     final isSelected = _filterLevel == level;
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withAlpha(25),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          '$count',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: color,
-            fontSize: 13,
-          ),
-        ),
-      ),
-      selected: isSelected,
+    return GestureDetector(
       onTap: () {
-        setState(() => _filterLevel = level);
+        setState(() {
+          _filterLevel = level;
+          _filterWordType = null;
+        });
         Navigator.pop(context);
       },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withAlpha(20) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected ? Border.all(color: color.withAlpha(80), width: 1.5) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                  color: isSelected ? color : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withAlpha(isSelected ? 40 : 20),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWordTypeFilterOption(
+    String? typeKey,
+    String label,
+    IconData icon,
+    Color color,
+    int count,
+    BuildContext sheetContext,
+    StateSetter setSheetState,
+  ) {
+    final theme = Theme.of(sheetContext);
+    final isSelected = _filterWordType == typeKey;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _filterWordType = typeKey;
+          _filterLevel = -1;
+        });
+        Navigator.pop(sheetContext);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withAlpha(20) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected ? Border.all(color: color.withAlpha(80), width: 1.5) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                  color: isSelected ? color : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withAlpha(isSelected ? 40 : 20),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   List<Map<String, dynamic>> get _filteredWords {
-    if (_filterLevel == -1) return _words;
-    return _words.where((w) => (w['mastery_level'] ?? 0) == _filterLevel).toList();
+    Iterable<Map<String, dynamic>> words = _words;
+    if (_filterWordType != null) {
+      words = words.where((w) {
+        final raw = (w['word_type'] ?? '').toString();
+        if (raw.isEmpty) return false;
+        return raw.split(',').map((s) => s.trim()).contains(_filterWordType);
+      });
+    }
+    final list = words.toList();
+    if (_filterLevel == -2) {
+      return list.where((w) => SrsService.isLeech(w['lapse_count'] as int? ?? 0)).toList();
+    }
+    if (_filterLevel == -1) return list;
+    return list.where((w) => (w['mastery_level'] ?? 0) == _filterLevel).toList();
   }
+
+  // -------------------------------------------------------
+  // Build
+  // -------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.lingoColors;
-
+    final isDark = theme.brightness == Brightness.dark;
     final displayWords = _filteredWords;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-                      ),
-                      Text(
-                        'Vocabulary List',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ],
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Header
+          SliverAppBar(
+            expandedHeight: 260,
+            pinned: true,
+            backgroundColor: theme.colorScheme.primary,
+            leading: Padding(
+              padding: const EdgeInsets.all(8),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(40),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _toggleSelectionMode,
-                        icon: Icon(
-                          _isSelectionMode ? Icons.close : Icons.delete_outline,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                ),
               ),
             ),
-            Expanded(
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 24),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
+            actions: [
+              GestureDetector(
+                onTap: _toggleSelectionMode,
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(0, 8, 12, 8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(40),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _isSelectionMode ? Icons.close_rounded : Icons.checklist_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.primary.withAlpha(200),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(30),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Danh sach',
+                            style: TextStyle(
+                              fontFamily: 'Be Vietnam Pro',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.listName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.4,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _buildProgressSection(theme, colors),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // Due review banner
+                  if (_dueCount > 0)
+                    _buildDueBanner(theme, colors),
+                  if (_dueCount > 0) const SizedBox(height: 16),
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildActionButton(
+                          label: 'Luyen tap',
+                          icon: Icons.play_arrow_rounded,
+                          color: theme.colorScheme.secondary,
+                          textColor: theme.colorScheme.onSecondary,
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PracticePage(
+                                  listId: widget.listId,
+                                  listName: widget.listName,
+                                  userId: widget.userId,
+                                ),
+                              ),
+                            );
+                            if (result == true) await _loadWords();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildActionButton(
+                          label: 'On tap ($_dueCount)',
+                          icon: Icons.refresh_rounded,
+                          color: colors.reviewBannerDue[0],
+                          textColor: Colors.white,
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ReviewPage(
+                                  userId: widget.userId,
+                                  listId: widget.listId,
+                                  listName: widget.listName,
+                                ),
+                              ),
+                            );
+                            if (result == true) await _loadWords();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Word list header
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Danh sach tu (${displayWords.length})',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      // Flip all
+                      if (!_isSelectionMode && displayWords.isNotEmpty)
+                        _buildChipButton(
+                          label: displayWords.every((w) => _flippedWords.contains(w['id']))
+                              ? 'Giu lat'
+                              : 'Lat tat ca',
+                          icon: Icons.flip_rounded,
+                          onTap: _flipAll,
+                          theme: theme,
+                        ),
+                      const SizedBox(width: 8),
+                      // Filter
+                      _buildChipButton(
+                        label: _filterWordType != null
+                            ? (kWordTypeLabel[_filterWordType] ?? _filterWordType!)
+                            : (_filterLevel == -2
+                                ? 'Kho nho'
+                                : (_filterLevel >= 0
+                                    ? SrsService.masteryName(_filterLevel)
+                                    : 'Loc')),
+                        icon: _filterLevel != -1 || _filterWordType != null
+                            ? Icons.filter_alt_rounded
+                            : Icons.filter_list_rounded,
+                        onTap: _showFilterSheet,
+                        theme: theme,
+                        isActive: _filterLevel != -1 || _filterWordType != null,
+                      ),
+                      // Delete selected
+                      if (_isSelectionMode && _selectedWords.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _deleteSelectedWords,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
                               children: [
+                                const Icon(Icons.delete_rounded, color: Colors.white, size: 16),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'List',
-                                  style: TextStyle(
+                                  '${_selectedWords.length}',
+                                  style: const TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.onPrimary.withAlpha(179),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  widget.setName,
-                                  style: TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
-                                    fontSize: 28,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.w800,
-                                    color: theme.colorScheme.onPrimary,
+                                    fontSize: 13,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.onPrimary.withAlpha(25),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Mastery Progress',
-                                            style: TextStyle(
-                                              fontFamily: 'Plus Jakarta Sans',
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.colorScheme.onPrimary,
-                                            ),
-                                          ),
-                                          Text(
-                                            '$_progress%',
-                                            style: TextStyle(
-                                              fontFamily: 'Plus Jakarta Sans',
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w900,
-                                              color: theme.colorScheme.secondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      if (_totalWords > 0)
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: SizedBox(
-                                            height: 12,
-                                            child: Row(
-                                              children: [
-                                                _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, colors.masteryMastered),
-                                                _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, colors.masteryReviewing),
-                                                _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, colors.masteryLearning),
-                                                _buildBarSegment(_masteryBreakdown[0] ?? 0, _totalWords, theme.colorScheme.onPrimary.withAlpha(60)),
-                                              ],
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        Container(
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.onPrimary.withAlpha(51),
-                                            borderRadius: BorderRadius.circular(999),
-                                          ),
-                                        ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          _buildLegend('New', theme.colorScheme.onPrimary.withAlpha(138), _masteryBreakdown[0] ?? 0),
-                                          _buildLegend('Learning', colors.masteryLearning, _masteryBreakdown[1] ?? 0),
-                                          _buildLegend('Reviewing', colors.masteryReviewing, _masteryBreakdown[2] ?? 0),
-                                          _buildLegend('Mastered', colors.masteryMastered, _masteryBreakdown[3] ?? 0),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (_dueCount > 0) ...[
-                                  const SizedBox(height: 12),
-                                  GestureDetector(
-                                    onTap: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ReviewPage(
-                                            userId: widget.userId,
-                                            setId: widget.setId,
-                                            setName: widget.setName,
-                                          ),
-                                        ),
-                                      );
-                                      if (result == true) await _loadWords();
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: colors.reviewBannerDue[0].withAlpha(76),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: colors.reviewBannerDue[0].withAlpha(128)),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.notifications_active, color: theme.colorScheme.onPrimary, size: 18),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '$_dueCount words due for review!',
-                                            style: TextStyle(
-                                              color: theme.colorScheme.onPrimary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          Icon(Icons.arrow_forward_ios, color: theme.colorScheme.onPrimary.withAlpha(179), size: 14),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => PracticePage(
-                                          setId: widget.setId,
-                                          setName: widget.setName,
-                                          userId: widget.userId,
-                                        ),
-                                      ),
-                                    );
-                                    if (result == true) await _loadWords();
-                                  },
-                                  icon: Icon(Icons.play_arrow, color: theme.colorScheme.onSecondary),
-                                  label: Text(
-                                    'Practice',
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSecondary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.secondary,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ReviewPage(
-                                          userId: widget.userId,
-                                          setId: widget.setId,
-                                          setName: widget.setName,
-                                        ),
-                                      ),
-                                    );
-                                    if (result == true) await _loadWords();
-                                  },
-                                  icon: const Icon(Icons.refresh, color: Colors.white),
-                                  label: Text(
-                                    'Review ($_dueCount)',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: colors.reviewBannerDue[0],
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Word List (${displayWords.length})',
-                                style: TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  if (_isSelectionMode && _selectedWords.isNotEmpty)
-                                    GestureDetector(
-                                      onTap: _deleteSelectedWords,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        margin: const EdgeInsets.only(right: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.delete, color: Colors.white, size: 18),
-                                            SizedBox(width: 4),
-                                            Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  if (!_isSelectionMode && displayWords.isNotEmpty)
-                                    GestureDetector(
-                                      onTap: _flipAll,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        margin: const EdgeInsets.only(right: 8),
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.primary.withAlpha(25),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              displayWords.every((w) => _flippedWords.contains(w['id']))
-                                                  ? Icons.flip_to_back
-                                                  : Icons.flip_to_front,
-                                              color: theme.colorScheme.primary,
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              displayWords.every((w) => _flippedWords.contains(w['id']))
-                                                  ? 'Unflip All' : 'Flip All',
-                                              style: TextStyle(
-                                                fontFamily: 'Be Vietnam Pro',
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: theme.colorScheme.primary,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  GestureDetector(
-                                    onTap: _showFilterSheet,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: _filterLevel >= 0 ? theme.colorScheme.primary.withAlpha(25) : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            _filterLevel >= 0 ? SrsService.masteryName(_filterLevel) : 'Filter',
-                                            style: TextStyle(
-                                              fontFamily: 'Be Vietnam Pro',
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            _filterLevel >= 0 ? Icons.filter_alt : Icons.filter_list,
-                                            color: theme.colorScheme.primary,
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          if (displayWords.isEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(32),
-                              child: Center(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.auto_stories, size: 64, color: theme.colorScheme.onSurfaceVariant.withAlpha(128)),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      _filterLevel >= 0 ? 'No ${SrsService.masteryName(_filterLevel)} words' : 'No words yet',
-                                      style: TextStyle(
-                                        fontFamily: 'Be Vietnam Pro',
-                                        fontSize: 16,
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _filterLevel >= 0 ? 'Try changing the filter' : 'Add your first word to get started!',
-                                      style: TextStyle(
-                                        fontFamily: 'Be Vietnam Pro',
-                                        fontSize: 14,
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else
-                            ...List.generate(displayWords.length, (index) {
-                              final word = displayWords[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _buildWordCard(
-                                  id: word['id'],
-                                  word: word['word'],
-                                  pronunciation: word['pronunciation'] ?? '',
-                                  meaning: word['meaning'],
-                                  fullDetails: word['full_details'] ?? '',
-                                  isMastered: word['is_mastered'] ?? false,
-                                  isDifficult: word['is_difficult'] ?? false,
-                                  masteryLevel: word['mastery_level'] ?? 0,
-                                  nextReviewDate: word['next_review_date'],
-                                  intervalDays: word['interval_days'] ?? 0,
-                                  correctStreak: word['correct_streak'] ?? 0,
-                                ),
-                              );
-                            }),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
-                    ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Words
+                  if (displayWords.isEmpty)
+                    _buildEmptyWords(theme)
+                  else
+                    ...List.generate(displayWords.length, (index) {
+                      final word = displayWords[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _buildWordCard(
+                          id: word['id'],
+                          word: word['word'],
+                          pronunciation: word['pronunciation'] ?? '',
+                          meaning: word['meaning'],
+                          fullDetails: word['full_details'] ?? '',
+                          wordType: word['word_type'] ?? '',
+                          isMastered: word['is_mastered'] ?? false,
+                          isDifficult: word['is_difficult'] ?? false,
+                          masteryLevel: word['mastery_level'] ?? 0,
+                          nextReviewDate: word['next_review_date'],
+                          intervalDays: word['interval_days'] ?? 0,
+                          correctStreak: word['correct_streak'] ?? 0,
+                          lapseCount: word['lapse_count'] ?? 0,
+                          isDark: isDark,
+                        ),
+                      );
+                    }),
+                ]),
+              ),
             ),
-          ],
-        ),
+        ],
       ),
       floatingActionButton: _isSelectionMode && _selectedWords.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _deleteSelectedWords,
               backgroundColor: Colors.red,
-              icon: const Icon(Icons.delete, color: Colors.white),
+              icon: const Icon(Icons.delete_rounded, color: Colors.white),
               label: Text(
-                'Delete ${_selectedWords.length}',
+                'Xoa ${_selectedWords.length} tu',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             )
-          : FloatingActionButton(
-              onPressed: _isImporting ? null : _addWord,
-              backgroundColor: theme.colorScheme.primary,
-              child: _isImporting
-                  ? SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: theme.colorScheme.onPrimary,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Icon(Icons.add, color: theme.colorScheme.onPrimary),
+          : Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withAlpha(80),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                onPressed: _isImporting ? null : _addWord,
+                backgroundColor: theme.colorScheme.primary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                child: _isImporting
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          color: theme.colorScheme.onPrimary,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Icon(Icons.add_rounded, color: theme.colorScheme.onPrimary, size: 28),
+              ),
             ),
       bottomNavigationBar: SafeArea(
         bottom: true,
         child: LingoBottomNavBar(
-        currentIndex: _currentNavIndex,
-        items: const [
-          NavItem(icon: Icons.school_outlined, label: 'Learn'),
-          NavItem(icon: Icons.menu_book, label: 'Library'),
-          NavItem(icon: Icons.fitness_center_outlined, label: 'Practice'),
-          NavItem(icon: Icons.person_outline, label: 'Profile'),
-        ],
-        onTap: _onNavTapped,
+          currentIndex: _currentNavIndex,
+          items: const [
+            NavItem(icon: Icons.home_rounded, label: 'Trang chu'),
+            NavItem(icon: Icons.person_rounded, label: 'Ho so'),
+          ],
+          onTap: _onNavTapped,
         ),
       ),
+    );
+  }
+
+  // -------------------------------------------------------
+  // Widget helpers
+  // -------------------------------------------------------
+
+  Widget _buildProgressSection(ThemeData theme, LingoFlowColors colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: _totalWords > 0
+                    ? SizedBox(
+                        height: 8,
+                        child: Row(
+                          children: [
+                            _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, colors.masteryMastered),
+                            _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, colors.masteryReviewing),
+                            _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, colors.masteryLearning),
+                            _buildBarSegment(
+                              _masteryBreakdown[0] ?? 0,
+                              _totalWords,
+                              Colors.white.withAlpha(50),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Container(
+                        height: 8,
+                        color: Colors.white.withAlpha(30),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '$_progress%',
+              style: const TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildLegend('Moi', Colors.white.withAlpha(120), _masteryBreakdown[0] ?? 0),
+            const SizedBox(width: 12),
+            _buildLegend('Hoc', colors.masteryLearning, _masteryBreakdown[1] ?? 0),
+            const SizedBox(width: 12),
+            _buildLegend('On', colors.masteryReviewing, _masteryBreakdown[2] ?? 0),
+            const SizedBox(width: 12),
+            _buildLegend('Gioi', colors.masteryMastered, _masteryBreakdown[3] ?? 0),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1132,17 +1356,219 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 4),
         Text(
-          '$count',
+          '$count $label',
           style: TextStyle(
+            fontFamily: 'Be Vietnam Pro',
             fontSize: 11,
-            color: Theme.of(context).colorScheme.onPrimary.withAlpha(179),
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withAlpha(200),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDueBanner(ThemeData theme, LingoFlowColors colors) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReviewPage(
+              userId: widget.userId,
+              listId: widget.listId,
+              listName: widget.listName,
+            ),
+          ),
+        );
+        if (result == true) await _loadWords();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: colors.reviewBannerDue),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: colors.reviewBannerDue[0].withAlpha(60),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Text('ðŸ“š', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Co tu can on tap!',
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    '$_dueCount tu dang cho ban',
+                    style: const TextStyle(
+                      fontFamily: 'Be Vietnam Pro',
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_rounded, color: Colors.white70, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withAlpha(80),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: textColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChipButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required ThemeData theme,
+    bool isActive = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? theme.colorScheme.primary.withAlpha(25)
+              : theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: isActive
+              ? Border.all(color: theme.colorScheme.primary.withAlpha(80), width: 1)
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isActive ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isActive ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyWords(ThemeData theme) {
+    final hasActiveFilter = _filterLevel != -1 || _filterWordType != null;
+    final masteryLabel = _filterLevel == -2
+        ? 'kho nho'
+        : (_filterLevel >= 0
+            ? 'trinh do ${SrsService.masteryName(_filterLevel)}'
+            : '');
+    final typeLabel = _filterWordType != null
+        ? (kWordTypeLabel[_filterWordType] ?? _filterWordType!)
+        : '';
+    final subjectParts = <String>[
+      if (masteryLabel.isNotEmpty) masteryLabel,
+      if (typeLabel.isNotEmpty) typeLabel,
+    ];
+    final subject = subjectParts.join(' + ');
+    return Container(
+      padding: const EdgeInsets.all(40),
+      child: Center(
+        child: Column(
+          children: [
+            Text('ðŸ“–', style: const TextStyle(fontSize: 52)),
+            const SizedBox(height: 16),
+            Text(
+              subject.isNotEmpty
+                  ? 'Khong co tu $subject'
+                  : 'Chua co tu vung',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              hasActiveFilter ? 'Thu thay doi bo loc' : 'Nhan + de them tu dau tien!',
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1152,12 +1578,15 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     required String pronunciation,
     required String meaning,
     required String fullDetails,
+    required String wordType,
     required bool isMastered,
     required bool isDifficult,
     required int masteryLevel,
     DateTime? nextReviewDate,
     required int intervalDays,
     required int correctStreak,
+    required int lapseCount,
+    required bool isDark,
   }) {
     final theme = Theme.of(context);
     final colors = context.lingoColors;
@@ -1166,238 +1595,441 @@ class _VocabularySetPageState extends State<VocabularySetPage> {
     final isFlipped = _flippedWords.contains(id);
     final isMasteredOrHigh = isMastered || masteryLevel >= 3;
     final mConfig = masteryConfig(masteryLevel, context);
+    final masteryColor = mConfig['color'] as Color;
     final reviewText = _srs.timeUntilReview(nextReviewDate);
     final isDue = _srs.isDueForReview(nextReviewDate);
 
     return GestureDetector(
-      onTap: _isSelectionMode ? () => _toggleWordSelection(id) : () => _toggleWordFlip(id),
+      onTap: _isSelectionMode
+          ? () => _toggleWordSelection(id)
+          : () => _toggleWordFlip(id),
       onLongPress: _isSelectionMode
           ? null
           : () => _showWordOptions(
-                wordId: id, word: word, meaning: meaning,
-                pronunciation: pronunciation, fullDetails: fullDetails,
+                wordId: id,
+                word: word,
+                meaning: meaning,
+                pronunciation: pronunciation,
+                fullDetails: fullDetails,
+                wordType: wordType,
                 isDifficult: isDifficult,
               ),
-      child: Container(
-        padding: const EdgeInsets.all(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primaryContainer.withAlpha(51) : theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(12),
-          border: isSelected
-              ? Border.all(color: theme.colorScheme.primary, width: 2)
-              : Border.all(
-                  color: isDue ? colors.reviewBannerDue[0] : (mConfig['color'] as Color).withAlpha(153),
-                  width: isDue ? 2.0 : 1.5,
-                ),
+          color: isSelected
+              ? theme.colorScheme.primary.withAlpha(15)
+              : (isDark
+                  ? theme.colorScheme.surfaceContainerLow
+                  : theme.colorScheme.surfaceContainerLowest),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary.withAlpha(150)
+                : (isDue
+                    ? colors.reviewBannerDue[0].withAlpha(150)
+                    : masteryColor.withAlpha(60)),
+            width: isSelected || isDue ? 1.5 : 1,
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(6),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Selection checkbox
             if (_isSelectionMode)
-              Container(
-                width: 24, height: 24,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                  border: Border.all(
-                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                    width: 2,
+              Padding(
+                padding: const EdgeInsets.only(right: 10, top: 2),
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outlineVariant,
+                      width: 2,
+                    ),
                   ),
+                  child: isSelected
+                      ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                      : null,
                 ),
-                child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
               ),
-            const SizedBox(width: 16),
+
+            // Content
             Expanded(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
+                duration: const Duration(milliseconds: 200),
                 switchInCurve: Curves.easeOut,
                 switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
                 child: isFlipped
-                    ? Column(
+                    ? _buildWordCardBack(
                         key: ValueKey('back-$id'),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  word,
-                                  style: TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              MasteryBadge(level: masteryLevel),
-                            ],
-                          ),
-                          if (pronunciation.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              '/$pronunciation/',
-                              style: TextStyle(
-                                fontFamily: 'Be Vietnam Pro',
-                                fontSize: 14,
-                                fontStyle: FontStyle.italic,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 6),
-                          Text(
-                            meaning,
-                            style: TextStyle(
-                              fontFamily: 'Be Vietnam Pro',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          if (fullDetails.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              fullDetails,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Be Vietnam Pro',
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurface,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              TextButton.icon(
-                                onPressed: _isSelectionMode ? null : () => _editWord(
-                                  wordId: id, word: word, meaning: meaning,
-                                  pronunciation: pronunciation, fullDetails: fullDetails,
-                                ),
-                                icon: const Icon(Icons.edit_outlined, size: 16),
-                                label: const Text('Edit meaning'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.primary,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  minimumSize: Size.zero,
-                                ),
-                              ),
-                              const Spacer(),
-                              if (!_isSelectionMode)
-                                IconButton(
-                                  onPressed: () => _speak(word),
-                                  icon: Icon(Icons.volume_up, color: theme.colorScheme.primary),
-                                ),
-                            ],
-                          ),
-                          if (masteryLevel > 0 || nextReviewDate != null) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Icon(
-                                  isDue ? Icons.notifications_active : Icons.schedule,
-                                  size: 13,
-                                  color: isDue ? colors.reviewBannerDue[0] : theme.colorScheme.onSurfaceVariant.withAlpha(179),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    reviewText,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Be Vietnam Pro',
-                                      fontSize: 11,
-                                      fontWeight: isDue ? FontWeight.bold : FontWeight.normal,
-                                      color: isDue ? colors.reviewBannerDue[0] : theme.colorScheme.onSurfaceVariant.withAlpha(179),
-                                    ),
-                                  ),
-                                ),
-                                if (intervalDays > 0)
-                                  Text(
-                                    '${intervalDays}d',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: theme.colorScheme.onSurfaceVariant.withAlpha(179),
-                                    ),
-                                  ),
-                                if (correctStreak > 0) ...[
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Streak $correctStreak',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: theme.colorScheme.onSurfaceVariant.withAlpha(179),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ],
+                        id: id,
+                        word: word,
+                        pronunciation: pronunciation,
+                        meaning: meaning,
+                        fullDetails: fullDetails,
+                        wordType: wordType,
+                        isDifficult: isDifficult,
+                        masteryLevel: masteryLevel,
+                        nextReviewDate: nextReviewDate,
+                        intervalDays: intervalDays,
+                        correctStreak: correctStreak,
+                        lapseCount: lapseCount,
+                        reviewText: reviewText,
+                        isDue: isDue,
+                        theme: theme,
+                        colors: colors,
                       )
-                    : Column(
+                    : _buildWordCardFront(
                         key: ValueKey('front-$id'),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  word,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                              if (isMasteredOrHigh)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Icon(Icons.star, color: colors.masteryMastered, size: 18),
-                                ),
-                              IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: _isSelectionMode ? null : () => _toggleHardWord(id, isDifficult),
-                                icon: Icon(
-                                  isDifficult ? Icons.favorite : Icons.favorite_border,
-                                  color: isDifficult ? Colors.red : theme.colorScheme.onSurfaceVariant.withAlpha(128),
-                                  size: 22,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap card to flip',
-                            style: TextStyle(
-                              fontFamily: 'Be Vietnam Pro',
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurfaceVariant.withAlpha(179),
-                            ),
-                          ),
-                        ],
+                        id: id,
+                        word: word,
+                        wordType: wordType,
+                        isMasteredOrHigh: isMasteredOrHigh,
+                        isDifficult: isDifficult,
+                        masteryColor: masteryColor,
+                        lapseCount: lapseCount,
+                        theme: theme,
+                        colors: colors,
                       ),
               ),
             ),
-            if (!isFlipped)
-              IconButton(
-                onPressed: _isSelectionMode ? null : () => _speak(word),
-                icon: Icon(Icons.volume_up, color: theme.colorScheme.primary),
+
+            // Speaker icon (front only)
+            if (!isFlipped) ...[
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: _isSelectionMode ? null : () => _speak(word),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withAlpha(15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.volume_up_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
               ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  Widget _buildWordCardFront({
+    required Key key,
+    required int id,
+    required String word,
+    required String wordType,
+    required bool isMasteredOrHigh,
+    required bool isDifficult,
+    required Color masteryColor,
+    required int lapseCount,
+    required ThemeData theme,
+    required LingoFlowColors colors,
+  }) {
+    final typeTokens = wordType
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                word,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: theme.colorScheme.onSurface,
+                  height: 1.2,
+                ),
+              ),
+            ),
+            if (SrsService.isLeech(lapseCount))
+              Container(
+                margin: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Leech',
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+            if (isMasteredOrHigh)
+              Icon(Icons.star_rounded, color: colors.masteryMastered, size: 18),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: _isSelectionMode ? null : () => _toggleHardWord(id, isDifficult),
+              child: Icon(
+                isDifficult ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: isDifficult
+                    ? Colors.red
+                    : theme.colorScheme.onSurfaceVariant.withAlpha(100),
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: masteryColor.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                SrsService.masteryName(0),
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: masteryColor,
+                ),
+              ),
+            ),
+            if (typeTokens.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: typeTokens
+                      .map((t) => WordTypeBadge(typeKey: t, compact: true))
+                      .toList(),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 8),
+              Text(
+                'Nhan de lat',
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 11,
+                  color: theme.colorScheme.onSurfaceVariant.withAlpha(140),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWordCardBack({
+    required Key key,
+    required int id,
+    required String word,
+    required String pronunciation,
+    required String meaning,
+    required String fullDetails,
+    required String wordType,
+    required bool isDifficult,
+    required int masteryLevel,
+    required DateTime? nextReviewDate,
+    required int intervalDays,
+    required int correctStreak,
+    required int lapseCount,
+    required String reviewText,
+    required bool isDue,
+    required ThemeData theme,
+    required LingoFlowColors colors,
+  }) {
+    final typeTokens = wordType
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                word,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            if (SrsService.isLeech(lapseCount))
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
+              ),
+            MasteryBadge(level: masteryLevel),
+          ],
+        ),
+        if (typeTokens.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: typeTokens
+                .map((t) => WordTypeBadge(typeKey: t, compact: true))
+                .toList(),
+          ),
+        ],
+        if (pronunciation.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            '/$pronunciation/',
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Text(
+          meaning,
+          style: TextStyle(
+            fontFamily: 'Be Vietnam Pro',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        if (fullDetails.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            fullDetails,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 12,
+              color: theme.colorScheme.onSurface,
+              height: 1.5,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: _isSelectionMode
+                  ? null
+                  : () => _editWord(
+                        wordId: id,
+                        word: word,
+                        meaning: meaning,
+                        pronunciation: pronunciation,
+                        fullDetails: fullDetails,
+                        wordType: wordType,
+                      ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withAlpha(15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit_rounded, size: 14, color: theme.colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Sua',
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            if (nextReviewDate != null || intervalDays > 0)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isDue ? Icons.notifications_active_rounded : Icons.schedule_rounded,
+                    size: 13,
+                    color: isDue ? colors.reviewBannerDue[0] : theme.colorScheme.onSurfaceVariant.withAlpha(160),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    reviewText,
+                    style: TextStyle(
+                      fontFamily: 'Be Vietnam Pro',
+                      fontSize: 11,
+                      fontWeight: isDue ? FontWeight.w700 : FontWeight.w500,
+                      color: isDue
+                          ? colors.reviewBannerDue[0]
+                          : theme.colorScheme.onSurfaceVariant.withAlpha(160),
+                    ),
+                  ),
+                ],
+              ),
+            if (!_isSelectionMode) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _speak(word),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withAlpha(15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.volume_up_rounded, color: theme.colorScheme.primary, size: 22),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
 }
+

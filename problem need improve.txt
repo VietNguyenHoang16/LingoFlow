@@ -1,36 +1,8 @@
-Phía dưới màn hình ,3 nút màn hình của tôi che các nút ứng dụng , fix 
-Tình trạng này xảy ra do ứng dụng của bạn chưa xử lý khoảng trống cho thanh điều hướng hệ thống (System Navigation Bar - 3 nút Home, Back, Recents của Android). Khi thanh này hiển thị ở chế độ trong suốt hoặc hòa trộn, nó sẽ đè lên trên nội dung (Bottom Navigation) của app nếu bạn chưa cấu hình Edge-to-Edge.
+RangeError (length):
+Invalid value: Valid value
+range is empty: 0
+See also: https://
+docs.flutter.dev/testing/
+errors
 
-Để giải quyết triệt để, bạn cần đẩy phần Bottom Navigation của app lên trên một khoảng bằng đúng chiều cao của thanh điều hướng (gọi là System Bars Insets).
-
-Dưới đây là cách xử lý trên các framework phổ biến hiện nay:
-
-1. Nếu bạn dùng Flutter
-Flutter hỗ trợ việc này cực kỳ đơn giản bằng cách bọc màn hình hoặc BottomNavigationBar trong một widget SafeArea.
-
-Cách 1: Sử dụng SafeArea cho bottomNavigationBar
-
-Dart
-Scaffold(
-  body: YourBodyWidget(),
-  // Bọc BottomNavigationBar trong SafeArea để tự động né thanh điều hướng
-  bottomNavigationBar: SafeArea(
-    bottom: true, // Chỉ bật né phía dưới
-    child: BottomNavigationBar(
-      items: [...],
-    ),
-  ),
-);
-Cách 2: Sử dụng MediaQuery để lấy khoảng padding chính xác
-Nếu bạn tự custom thanh điều hướng bằng Container hoặc Row (như trong ảnh của bạn):
-
-Dart
-Container(
-  // Thêm padding bottom bằng chính chiều cao của thanh điều hướng hệ thống
-  padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-  color: Colors.white,
-  child: YourCustomBottomBar(),
-);
-
-Một lưu ý nhỏ ngoài lề ( trang khi vừa mở ứng dụng ):
-Ở góc trên cùng bên phải màn hình của bạn đang có dòng chữ màu đỏ "RIGHT OVERFLOWED BY 5.7 PIXELS". Đây là lỗi tràn viền (Overflow) đặc trưng của Flutter khi widget cha không đủ chứa widget con theo chiều ngang (có thể do cụm icon Avatar, Text và Nút chuông đang chiếm quá nhiều diện tích). Bạn nên bọc cụm Text "Vocabulary Library" trong widget Expanded hoặc Flexible để nó tự động xuống dòng hoặc thu nhỏ lại khi gặp màn hình hẹp nhé!
+trong app bị lỗi như vậy khi vào 'review' để ôn tập từ vựng , kiểm tra vì sao và sửa lỗi , và kiểm tra nó có thể xuất hiện ở đâu nữa không , sửa triệt để 

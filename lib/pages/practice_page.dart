@@ -1,6 +1,7 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
@@ -9,17 +10,19 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
 
 class PracticePage extends StatefulWidget {
-  final int setId;
-  final String setName;
+  final int listId;
+  final String listName;
   final int userId;
+  final String? category;
   final bool studyMode;
 
   const PracticePage({
     super.key,
-    required this.setId,
-    required this.setName,
+    this.listId = 0,
+    required this.listName,
     required this.userId,
     this.studyMode = true,
+    this.category,
   });
 
   @override
@@ -42,7 +45,6 @@ class _PracticePageState extends State<PracticePage> {
   DateTime? _questionStartTime;
 
   int _masteryUps = 0;
-  int _masteryDowns = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
   final List<Future<void>> _pendingReviewUpdates = [];
   final List<Map<String, dynamic>> _retryWords = [];
@@ -52,6 +54,7 @@ class _PracticePageState extends State<PracticePage> {
   final FlutterTts _flutterTts = FlutterTts();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _practiceMode = 0;
+  int _hintLevel = 0;
   List<String> _currentOptions = [];
 
   @override
@@ -105,7 +108,12 @@ class _PracticePageState extends State<PracticePage> {
 
   Future<void> _loadWords() async {
     try {
-      final wordsResult = await _db.getVocabularyWords(widget.setId);
+      final List<Map<String, dynamic>> wordsResult;
+      if (widget.category != null) {
+        wordsResult = await _db.getWordsByCategory(widget.userId, widget.category!);
+      } else {
+        wordsResult = await _db.getVocabularyWords(widget.listId);
+      }
       final words = List<Map<String, dynamic>>.from(wordsResult);
       words.shuffle(Random());
       setState(() {
@@ -127,6 +135,7 @@ class _PracticePageState extends State<PracticePage> {
       _spellController.clear();
       _spellFocusNode.unfocus();
       _questionStartTime = DateTime.now();
+      _hintLevel = 0;
 
       if (_words.isEmpty) return;
 
@@ -145,7 +154,7 @@ class _PracticePageState extends State<PracticePage> {
         if (!widget.studyMode) {
           unawaited(() async {
             await _flushPendingUpdates();
-            await _updateSetProgress();
+            await _updateListProgress();
           }());
         }
       }
@@ -155,13 +164,13 @@ class _PracticePageState extends State<PracticePage> {
     }
   }
 
-  Future<void> _updateSetProgress() async {
+  Future<void> _updateListProgress() async {
     try {
-      final words = await _db.getVocabularyWords(widget.setId);
+      final words = await _db.getVocabularyWords(widget.listId);
       final total = words.length;
       final mastered = words.where((w) => (w['mastery_level'] ?? 0) >= 3).length;
       final progress = total > 0 ? ((mastered / total) * 100).round() : 0;
-      await _db.updateVocabularySetProgress(widget.setId, progress, total);
+      await _db.updateListProgress(widget.listId, progress, total);
     } catch (e) {
       debugPrint('Failed to update set progress: $e');
     }
@@ -176,6 +185,7 @@ class _PracticePageState extends State<PracticePage> {
       intervalDays: result.newInterval,
       nextReviewDate: result.nextReviewDate,
       masteryLevel: result.newMasteryLevel,
+      lapseCount: result.newLapseCount,
     ).catchError((e) {
       debugPrint('Failed to save review update: $e');
     });
@@ -223,12 +233,12 @@ class _PracticePageState extends State<PracticePage> {
       easeFactor: ((word['ease_factor'] ?? 2.5) as num).toDouble(),
       correctStreak: word['correct_streak'] as int? ?? 0,
       reviewCount: word['review_count'] as int? ?? 0,
+      lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
     _queueReviewUpdate(wordId: word['id'] as int, result: result);
 
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
-    if (result.newMasteryLevel < oldMastery) _masteryDowns++;
 
     _sessionResults.add({
       'word': correct,
@@ -280,12 +290,12 @@ class _PracticePageState extends State<PracticePage> {
       easeFactor: ((word['ease_factor'] ?? 2.5) as num).toDouble(),
       correctStreak: word['correct_streak'] as int? ?? 0,
       reviewCount: word['review_count'] as int? ?? 0,
+      lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
     _queueReviewUpdate(wordId: word['id'] as int, result: result);
 
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
-    if (result.newMasteryLevel < oldMastery) _masteryDowns++;
 
     _sessionResults.add({
       'word': correct,
@@ -316,7 +326,6 @@ class _PracticePageState extends State<PracticePage> {
       _spellController.clear();
       _words.shuffle(Random());
       _masteryUps = 0;
-      _masteryDowns = 0;
       _sessionResults.clear();
       _retryWords.clear();
       _questionStartTime = DateTime.now();
@@ -324,20 +333,40 @@ class _PracticePageState extends State<PracticePage> {
     });
   }
 
-  String _getMaskedWord(String word) {
+  void _handleKeyOption(int index) {
+    if (_practiceMode == 0 && !_showResult && !_isCompleted && index < _currentOptions.length) {
+      _checkAnswer(_currentOptions[index]);
+    }
+  }
+
+  void _tapHint() {
+    if (_showResult ||
+        _words.isEmpty ||
+        _currentIndex >= _words.length ||
+        _practiceMode != 1) {
+      return;
+    }
+    final word = _words[_currentIndex]['word'] ?? '';
+    final wordStr = word.toString();
+    final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
+    if (_hintLevel < maxHints) {
+      setState(() => _hintLevel++);
+    }
+  }
+
+  String _getMaskedWord(String word, {int hintLevel = 0}) {
     if (word.length <= 2) return word;
-    final first = word[0];
-    final last = word[word.length - 1];
-    final underscores = List.filled(word.length - 2, '_').join(' ');
-    String masked = '';
+    final buffer = StringBuffer();
     for (int i = 0; i < word.length; i++) {
       if (i == 0 || i == word.length - 1 || word[i] == ' ') {
-        masked += word[i];
+        buffer.write(word[i]);
+      } else if (i <= hintLevel) {
+        buffer.write(word[i]);
       } else {
-        masked += ' _ ';
+        buffer.write(' _ ');
       }
     }
-    return masked.replaceAll('  ', ' ').trim();
+    return buffer.toString().replaceAll('  ', ' ').trim();
   }
 
   @override
@@ -369,7 +398,7 @@ class _PracticePageState extends State<PracticePage> {
             icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text(widget.setName, style: TextStyle(color: theme.colorScheme.onSurface)),
+          title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         body: const Center(child: Text('No words to study')),
       );
@@ -388,7 +417,7 @@ class _PracticePageState extends State<PracticePage> {
             icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
             onPressed: () => Navigator.pop(context, true),
           ),
-          title: Text(widget.setName, style: TextStyle(color: theme.colorScheme.onSurface)),
+          title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -519,8 +548,18 @@ class _PracticePageState extends State<PracticePage> {
     final options = _currentOptions;
     final masteryLevel = currentWord['mastery_level'] as int? ?? 0;
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.digit1): () => _handleKeyOption(0),
+        const SingleActivator(LogicalKeyboardKey.digit2): () => _handleKeyOption(1),
+        const SingleActivator(LogicalKeyboardKey.digit3): () => _handleKeyOption(2),
+        const SingleActivator(LogicalKeyboardKey.digit4): () => _handleKeyOption(3),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          resizeToAvoidBottomInset: true,
+          backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -528,7 +567,7 @@ class _PracticePageState extends State<PracticePage> {
           icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
           onPressed: () => Navigator.pop(context, true),
         ),
-        title: Text(widget.setName, style: TextStyle(color: theme.colorScheme.onSurface)),
+        title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -766,7 +805,7 @@ class _PracticePageState extends State<PracticePage> {
                                         ),
                                         child: Center(
                                           child: Text(
-                                            String.fromCharCode(65 + index),
+                                            '${index + 1}',
                                             style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
                                           ),
                                         ),
@@ -812,7 +851,7 @@ class _PracticePageState extends State<PracticePage> {
                             ),
                             child: Center(
                               child: Text(
-                                _getMaskedWord(currentWord['word']),
+                                _getMaskedWord(currentWord['word'], hintLevel: _hintLevel),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 textAlign: TextAlign.center,
@@ -825,7 +864,13 @@ class _PracticePageState extends State<PracticePage> {
                               ),
                             ),
                           ),
-                          SizedBox(height: compact ? 10 : 14),
+                          // Hint button
+                          if (!_showResult) ...[
+                            const SizedBox(height: 6),
+                            _buildPracticeHintButton(currentWord),
+                            const SizedBox(height: 6),
+                          ] else
+                            SizedBox(height: compact ? 10 : 14),
                           TextField(
                             controller: _spellController,
                             focusNode: _spellFocusNode,
@@ -936,6 +981,51 @@ class _PracticePageState extends State<PracticePage> {
           ],
         ),
       ),
+    ),
+    ),
+    );
+  }
+
+  Widget _buildPracticeHintButton(Map<String, dynamic> currentWord) {
+    final theme = Theme.of(context);
+    final wordStr = (currentWord['word'] ?? '').toString();
+    final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
+    final canHint = _hintLevel < maxHints;
+
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: canHint ? _tapHint : null,
+          icon: Icon(
+            canHint ? Icons.lightbulb : Icons.lightbulb_outline,
+            size: 16,
+          ),
+          label: Text(
+            _hintLevel > 0 ? 'Goi y ($_hintLevel/$maxHints)' : 'Goi y',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFE6A800),
+            backgroundColor: canHint
+                ? const Color(0xFFE6A800).withAlpha(20)
+                : Colors.transparent,
+            side: BorderSide(
+              color: canHint
+                  ? const Color(0xFFE6A800).withAlpha(120)
+                  : theme.colorScheme.onSurfaceVariant.withAlpha(50),
+              width: 2,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            elevation: 0,
+          ),
+        ),
+      ],
     );
   }
 
@@ -993,3 +1083,6 @@ class _PracticePageState extends State<PracticePage> {
     );
   }
 }
+
+
+

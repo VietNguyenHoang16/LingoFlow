@@ -6,6 +6,7 @@ import 'pages/dashboard_page.dart';
 import 'services/database_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'services/word_type_classifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +20,26 @@ void main() async {
       debugPrint('Notification init failed: $e');
     }),
   );
+  // Background classify existing words once per app launch.
+  // Triggered after a short delay so login/session restore can finish first.
+  scheduleMicrotask(_backgroundClassify);
   runApp(const MyApp());
+}
+
+void _backgroundClassify() {
+  Future.delayed(const Duration(seconds: 4), () async {
+    try {
+      final session = await AuthService().getSession();
+      if (session == null) return;
+      final userId = session['userId'] as int;
+      final classified = await WordTypeClassifier().classifyAllUntagged(
+        userId: userId,
+      );
+      debugPrint('Background classifier finished: $classified words updated');
+    } catch (e) {
+      debugPrint('Background classifier failed: $e');
+    }
+  });
 }
 
 class MyApp extends StatefulWidget {

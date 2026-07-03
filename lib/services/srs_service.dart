@@ -8,6 +8,7 @@ class SrsResult {
   final int newReviewCount;
   final int newMasteryLevel;
   final DateTime nextReviewDate;
+  final int newLapseCount;
 
   SrsResult({
     required this.newInterval,
@@ -16,6 +17,7 @@ class SrsResult {
     required this.newReviewCount,
     required this.newMasteryLevel,
     required this.nextReviewDate,
+    required this.newLapseCount,
   });
 }
 
@@ -36,6 +38,14 @@ class SrsService {
   static const int masteryLearning = 1;
   static const int masteryReviewing = 2;
   static const int masteryMastered = 3;
+
+  /// Leech detection
+  static const int leechThreshold = 3;    // 3 lần Again → đánh dấu Leech
+  static const int leechMaxInterval = 4;  // Leech: interval tối đa 4 ngày
+  static const double hardMultiplier = 0.5; // Hard: giảm 50% interval
+
+  /// Kiểm tra từ có phải là Leech không
+  static bool isLeech(int lapseCount) => lapseCount >= leechThreshold;
 
   /// Tên hiển thị cho mastery levels
   static String masteryName(int level) {
@@ -66,21 +76,29 @@ class SrsService {
     required double easeFactor,
     required int correctStreak,
     required int reviewCount,
+    int lapseCount = 0,
   }) {
     double newEaseFactor = easeFactor;
     int newInterval;
     int newStreak;
     int newReviewCount = reviewCount + 1;
+    int newLapseCount = lapseCount;
 
     if (quality < 3) {
       // Trả lời sai (Again) → làm lại ngay (0 ngày)
       newInterval = 0;
       newStreak = 0;
+      newLapseCount = lapseCount + 1; // Tăng lapse count cho leech tracking
       // Giảm ease factor
       newEaseFactor = max(1.3, easeFactor - 0.2);
     } else {
       // Trả lời đúng (Hard, Good, Easy)
       newStreak = correctStreak + 1;
+
+      // Reset lapse count khi trả lời Good hoặc Easy
+      if (quality >= qualityGood) {
+        newLapseCount = 0;
+      }
 
       if (currentInterval == 0) {
         // Lần đầu ôn: Phân hóa rõ rệt hơn
@@ -101,17 +119,20 @@ class SrsService {
           newInterval = 2;
         }
       } else {
-        // Lần 3+ : interval * easeFactor
-        newInterval = (currentInterval * easeFactor).round();
+        // Lần 3+
+        if (quality == qualityHard) {
+          // Hard: GIẢM interval 50% (không nhân easeFactor)
+          newInterval = max(1, (currentInterval * hardMultiplier).round());
+        } else {
+          // Good/Easy: interval * easeFactor (tăng bình thường)
+          newInterval = (currentInterval * easeFactor).round();
+        }
       }
 
       // Điều chỉnh interval thêm dựa trên chất lượng trả lời
       if (quality == qualityEasy) {
         // Easy: cộng thêm 30% khoảng cách
         newInterval = (newInterval * 1.3).round();
-      } else if (quality == qualityHard) {
-        // Hard: chỉ lấy 80% khoảng cách tính toán (giãn chậm hơn)
-        newInterval = max(1, (newInterval * 0.8).round());
       }
 
       // Cập nhật ease factor theo công thức SM-2
@@ -119,8 +140,14 @@ class SrsService {
       newEaseFactor = max(1.3, newEaseFactor);
     }
 
-    // Giới hạn interval tối đa 180 ngày
-    newInterval = min(newInterval, 180);
+    // Giới hạn interval tối đa
+    // Nếu từ là Leech → giới hạn tối đa leechMaxInterval (4 ngày)
+    // Nếu bình thường → giới hạn tối đa 180 ngày
+    if (isLeech(newLapseCount)) {
+      newInterval = min(newInterval, leechMaxInterval);
+    } else {
+      newInterval = min(newInterval, 180);
+    }
 
     // Tính mastery level
     int newMasteryLevel = determineMasteryLevel(newInterval, newStreak);
@@ -138,6 +165,7 @@ class SrsService {
       newReviewCount: newReviewCount,
       newMasteryLevel: newMasteryLevel,
       nextReviewDate: nextReview,
+      newLapseCount: newLapseCount,
     );
   }
 

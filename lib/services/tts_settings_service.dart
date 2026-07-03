@@ -22,7 +22,9 @@ class TtsSettingsService {
   static const String _voiceIdKey = 'tts_voice_id';
   static const String _voiceNameKey = 'tts_voice_real_name';
   static const String _voiceLocaleKey = 'tts_voice_real_locale';
+  static const String _speechRateKey = 'tts_speech_rate';
   static const String _defaultVoiceId = 'en-US-female';
+  static const double _defaultSpeechRate = 0.85;
 
   static const List<TtsVoiceOption> voices = [
     TtsVoiceOption(id: 'en-US-female', code: 'en-US', name: 'English US Female', gender: 'Female', pitch: 1.0),
@@ -63,14 +65,21 @@ class TtsSettingsService {
     return _cachedVoices!;
   }
 
-  Map<String, String>? _findRealVoice(String localeCode, String gender) {
+  Map<String, String>? findRealVoice(String localeCode, String gender) {
     if (_cachedVoices == null || _cachedVoices!.isEmpty) return null;
     final normalizedLocale = localeCode.toLowerCase().replaceAll('_', '-');
 
-    final matches = _cachedVoices!.where((v) {
+    var matches = _cachedVoices!.where((v) {
       final vLocale = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-');
       return vLocale.startsWith(normalizedLocale);
     }).toList();
+
+    if (matches.isEmpty) {
+      matches = _cachedVoices!.where((v) {
+        final vLocale = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-');
+        return vLocale.startsWith('en');
+      }).toList();
+    }
 
     if (matches.isEmpty) return null;
 
@@ -112,6 +121,16 @@ class TtsSettingsService {
     await prefs.setString(_voiceIdKey, voiceId);
   }
 
+  Future<double> getSpeechRate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_speechRateKey) ?? _defaultSpeechRate;
+  }
+
+  Future<void> saveSpeechRate(double rate) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_speechRateKey, rate);
+  }
+
   Future<String?> getSavedRealVoiceName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_voiceNameKey);
@@ -122,7 +141,7 @@ class TtsSettingsService {
     return prefs.getString(_voiceLocaleKey);
   }
 
-  Future<void> _saveRealVoice(String name, String locale) async {
+  Future<void> saveRealVoice(String name, String locale) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_voiceNameKey, name);
     await prefs.setString(_voiceLocaleKey, locale);
@@ -130,21 +149,34 @@ class TtsSettingsService {
 
   Future<void> applyTo(FlutterTts flutterTts) async {
     final voice = await getSelectedVoice();
+    final speechRate = await getSpeechRate();
     await flutterTts.setLanguage(voice.code);
     await flutterTts.setPitch(voice.pitch);
-    await flutterTts.setSpeechRate(0.5);
     await flutterTts.setVolume(1.0);
 
     await _getSystemVoices();
-    final realVoice = _findRealVoice(voice.code, voice.gender);
+    final realVoice = findRealVoice(voice.code, voice.gender);
+
     if (realVoice != null) {
-      try {
-        await flutterTts.setVoice({
-          'name': realVoice['name']!,
-          'locale': realVoice['locale']!,
-        });
-      } catch (_) {}
+      await flutterTts.setVoice({
+        'name': realVoice['name']!,
+        'locale': realVoice['locale']!,
+      });
+    } else if (_cachedVoices != null && _cachedVoices!.isNotEmpty) {
+      var englishVoice = _cachedVoices!.firstWhere(
+        (v) {
+          final vLocale = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-');
+          return vLocale.startsWith('en');
+        },
+        orElse: () => _cachedVoices!.first,
+      );
+      await flutterTts.setVoice({
+        'name': englishVoice['name']!,
+        'locale': englishVoice['locale']!,
+      });
     }
+
+    await flutterTts.setSpeechRate(speechRate);
   }
 
   Future<TtsVoiceOption?> showVoiceSelector(BuildContext context) async {
@@ -184,7 +216,7 @@ class TtsSettingsService {
                   itemBuilder: (context, index) {
                     final voice = voices[index];
                     final isSelected = voice.id == selectedVoice.id;
-                    final realVoice = _findRealVoice(voice.code, voice.gender);
+                    final realVoice = findRealVoice(voice.code, voice.gender);
                     return ListTile(
                       leading: Icon(
                         Icons.record_voice_over,
@@ -202,7 +234,7 @@ class TtsSettingsService {
                       onTap: () async {
                         await saveSelectedVoice(voice.id);
                         if (realVoice != null) {
-                          await _saveRealVoice(realVoice['name']!, realVoice['locale']!);
+                          await saveRealVoice(realVoice['name']!, realVoice['locale']!);
                         }
                         if (!context.mounted) return;
                         Navigator.pop(context, voice);

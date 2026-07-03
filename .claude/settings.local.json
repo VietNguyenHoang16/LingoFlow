@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rtk ls *)"
+      "Bash(rtk ls *)",
+      "Bash(flutter devices *)",
+      "Bash(flutter build *)",
+      "Bash(flutter pub *)",
+      "Bash(flutter install *)",
+      "Bash(vercel --version)",
+      "Bash(vercel deploy *)",
+      "Read(//c/Users/ASUS/Desktop/Ung dung/agent-skills-main/**)",
+      "Read(//c/Users/ASUS/Desktop/Ung dung/taste-skill-main/**)",
+      "Bash(flutter analyze *)"
     ]
   }
 }

@@ -1,4 +1,5 @@
-import 'dart:convert';
+﻿import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -29,21 +30,36 @@ class DatabaseService {
     String action, {
     Map<String, dynamic> data = const {},
   }) async {
-    final response = await http.post(
-      Uri.parse(_endpoint),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'action': action, 'data': data}),
-    );
+    late http.Response response;
+    try {
+      response = await http
+          .post(
+            Uri.parse(_endpoint),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'action': action, 'data': data}),
+          )
+          .timeout(const Duration(seconds: 15));
+    } on Exception catch (e) {
+      final msg = e.toString();
+      if (msg.contains('SocketException') ||
+          msg.contains('Connection refused') ||
+          msg.contains('NetworkException') ||
+          msg.contains('TimeoutException') ||
+          msg.contains('HandshakeException')) {
+        throw Exception('Khong co ket noi mang. Kiem tra WiFi / mobile data va thu lai.');
+      }
+      rethrow;
+    }
 
     Map<String, dynamic> payload;
     try {
       payload = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
-      throw Exception('Server returned an invalid response.');
+      throw Exception('Server tra ve phan hoi khong hop le (HTTP ${response.statusCode}).');
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = payload['error']?.toString() ?? 'Request failed';
+      final message = payload['error']?.toString() ?? 'Request that bai (HTTP ${response.statusCode})';
       throw Exception(message);
     }
 
@@ -77,15 +93,13 @@ class DatabaseService {
     return mapped;
   }
 
+  // ---- Auth ----
   Future<bool> registerUser(String phoneNumber) async {
     return _request<bool>('registerUser', data: {'phoneNumber': phoneNumber});
   }
 
   Future<int?> getUserId(String phoneNumber) async {
-    final value = await _request<dynamic>(
-      'getUserId',
-      data: {'phoneNumber': phoneNumber},
-    );
+    final value = await _request<dynamic>('getUserId', data: {'phoneNumber': phoneNumber});
     return value == null ? null : _asInt(value);
   }
 
@@ -97,120 +111,93 @@ class DatabaseService {
     return _request<bool>('userExists', data: {'userId': userId});
   }
 
-  Future<int> createVocabularyGroup(int userId, String name) async {
-    final id = await _request<dynamic>(
-      'createVocabularyGroup',
-      data: {'userId': userId, 'name': name},
-    );
+  // ---- Lists ----
+  Future<int> createList(int userId, String category, String name) async {
+    final id = await _request<dynamic>('createList', data: {'userId': userId, 'category': category, 'name': name});
     return _asInt(id);
   }
 
-  Future<List<Map<String, dynamic>>> getVocabularyGroups(int userId) async {
-    final rows = await _request<List<dynamic>>(
-      'getVocabularyGroups',
-      data: {'userId': userId},
-    );
-    return rows
-        .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-        .toList();
+  Future<List<Map<String, dynamic>>> getListsByCategory(int userId, String category) async {
+    final rows = await _request<List<dynamic>>('getListsByCategory', data: {'userId': userId, 'category': category});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
-  Future<void> deleteVocabularyGroup(int groupId) async {
-    await _request<void>('deleteVocabularyGroup', data: {'groupId': groupId});
+  Future<List<Map<String, dynamic>>> getAllLists(int userId) async {
+    final rows = await _request<List<dynamic>>('getAllLists', data: {'userId': userId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
-  Future<int> createVocabularySet(
-    int userId,
-    String name, {
-    int? groupId,
-  }) async {
-    final id = await _request<dynamic>(
-      'createVocabularySet',
-      data: {'userId': userId, 'name': name, 'groupId': groupId},
-    );
-    return _asInt(id);
+  Future<void> updateListProgress(int listId, int progress, int wordCount) async {
+    await _request<void>('updateListProgress', data: {'listId': listId, 'progress': progress, 'wordCount': wordCount});
   }
 
-  Future<List<Map<String, dynamic>>> getVocabularySets(int userId) async {
-    final rows = await _request<List<dynamic>>(
-      'getVocabularySets',
-      data: {'userId': userId},
-    );
-    return rows
-        .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-        .toList();
+  Future<void> deleteList(int listId) async {
+    await _request<void>('deleteList', data: {'listId': listId});
   }
 
-  Future<List<Map<String, dynamic>>> getVocabularySetsByGroup(
-    int userId,
-    int groupId,
-  ) async {
-    final rows = await _request<List<dynamic>>(
-      'getVocabularySetsByGroup',
-      data: {'userId': userId, 'groupId': groupId},
-    );
-    return rows
-        .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-        .toList();
+  // ---- Categories ----
+  Future<Map<String, dynamic>> getCategoryStats(int userId) async {
+    final stats = await _request<Map<String, dynamic>>('getCategoryStats', data: {'userId': userId});
+    return Map<String, dynamic>.from(stats);
   }
 
-  Future<void> updateVocabularySetProgress(
-    int setId,
-    int progress,
-    int wordCount,
-  ) async {
-    await _request<void>(
-      'updateVocabularySetProgress',
-      data: {'setId': setId, 'progress': progress, 'wordCount': wordCount},
-    );
-  }
-
-  Future<void> deleteVocabularySet(int setId) async {
-    await _request<void>('deleteVocabularySet', data: {'setId': setId});
-  }
-
+  // ---- Words ----
   Future<int> addVocabularyWord(
-    int setId,
+    int listId,
     String word,
     String pronunciation,
     String meaning, {
     String? fullDetails,
+    String? wordType,
   }) async {
-    final id = await _request<dynamic>(
-      'addVocabularyWord',
-      data: {
-        'setId': setId,
-        'word': word,
-        'pronunciation': pronunciation,
-        'meaning': meaning,
-        'fullDetails': fullDetails ?? '',
-      },
-    );
+    final id = await _request<dynamic>('addVocabularyWord', data: {
+      'listId': listId,
+      'word': word,
+      'pronunciation': pronunciation,
+      'meaning': meaning,
+      'fullDetails': fullDetails ?? '',
+      'wordType': wordType ?? '',
+    });
     return _asInt(id);
   }
 
-  Future<List<Map<String, dynamic>>> getVocabularyWords(int setId) async {
-    final rows = await _request<List<dynamic>>(
-      'getVocabularyWords',
-      data: {'setId': setId},
-    );
-    return rows
-        .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-        .toList();
+  Future<int> addWordToCategory(
+    int userId,
+    String category,
+    String word,
+    String pronunciation,
+    String meaning, {
+    String? fullDetails,
+    String? wordType,
+  }) async {
+    final id = await _request<dynamic>('addVocabularyWord', data: {
+      'userId': userId,
+      'category': category,
+      'word': word,
+      'pronunciation': pronunciation,
+      'meaning': meaning,
+      'fullDetails': fullDetails ?? '',
+      'wordType': wordType ?? '',
+    });
+    return _asInt(id);
+  }
+
+  Future<List<Map<String, dynamic>>> getVocabularyWords(int listId) async {
+    final rows = await _request<List<dynamic>>('getVocabularyWords', data: {'listId': listId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getWordsByCategory(int userId, String category) async {
+    final rows = await _request<List<dynamic>>('getWordsByCategory', data: {'userId': userId, 'category': category});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
   Future<void> updateWordMastered(int wordId, bool isMastered) async {
-    await _request<void>(
-      'updateWordMastered',
-      data: {'wordId': wordId, 'isMastered': isMastered},
-    );
+    await _request<void>('updateWordMastered', data: {'wordId': wordId, 'isMastered': isMastered});
   }
 
   Future<void> updateWordDifficult(int wordId, bool isDifficult) async {
-    await _request<void>(
-      'updateWordDifficult',
-      data: {'wordId': wordId, 'isDifficult': isDifficult},
-    );
+    await _request<void>('updateWordDifficult', data: {'wordId': wordId, 'isDifficult': isDifficult});
   }
 
   Future<void> deleteVocabularyWord(int wordId) async {
@@ -222,16 +209,33 @@ class DatabaseService {
     required String meaning,
     String? pronunciation,
     String? fullDetails,
+    String? wordType,
   }) async {
-    await _request<void>(
-      'updateVocabularyWordDetails',
-      data: {
-        'wordId': wordId,
-        'meaning': meaning,
-        'pronunciation': pronunciation ?? '',
-        'fullDetails': fullDetails ?? '',
-      },
-    );
+    await _request<void>('updateVocabularyWordDetails', data: {
+      'wordId': wordId,
+      'meaning': meaning,
+      'pronunciation': pronunciation ?? '',
+      'fullDetails': fullDetails ?? '',
+      'wordType': wordType ?? '',
+    });
+  }
+
+  Future<void> updateVocabularyWord({
+    required int wordId,
+    required String word,
+    required String meaning,
+    String? pronunciation,
+    String? fullDetails,
+    String? wordType,
+  }) async {
+    await _request<void>('updateVocabularyWord', data: {
+      'wordId': wordId,
+      'word': word,
+      'meaning': meaning,
+      'pronunciation': pronunciation ?? '',
+      'fullDetails': fullDetails ?? '',
+      'wordType': wordType ?? '',
+    });
   }
 
   Future<void> updateWordReview({
@@ -242,65 +246,54 @@ class DatabaseService {
     required int intervalDays,
     required DateTime nextReviewDate,
     required int masteryLevel,
+    required int lapseCount,
   }) async {
-    await _request<void>(
-      'updateWordReview',
-      data: {
-        'wordId': wordId,
-        'reviewCount': reviewCount,
-        'correctStreak': correctStreak,
-        'easeFactor': easeFactor,
-        'intervalDays': intervalDays,
-        'nextReviewDate': nextReviewDate.toIso8601String(),
-        'masteryLevel': masteryLevel,
-      },
-    );
+    await _request<void>('updateWordReview', data: {
+      'wordId': wordId,
+      'reviewCount': reviewCount,
+      'correctStreak': correctStreak,
+      'easeFactor': easeFactor,
+      'intervalDays': intervalDays,
+      'nextReviewDate': nextReviewDate.toIso8601String(),
+      'masteryLevel': masteryLevel,
+      'lapseCount': lapseCount,
+    });
   }
 
-  Future<List<Map<String, dynamic>>> getWordsDueForReview(int setId) async {
-    final rows = await _request<List<dynamic>>(
-      'getWordsDueForReview',
-      data: {'setId': setId},
-    );
-    return rows
-        .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-        .toList();
+  // ---- Review ----
+  Future<List<Map<String, dynamic>>> getWordsDueForReview(int listId) async {
+    final rows = await _request<List<dynamic>>('getWordsDueForReview', data: {'listId': listId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
   Future<List<Map<String, dynamic>>> getAllWordsDueForReview(int userId) async {
-    final rows = await _request<List<dynamic>>(
-      'getAllWordsDueForReview',
-      data: {'userId': userId},
-    );
-    return rows
-        .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-        .toList();
+    final rows = await _request<List<dynamic>>('getAllWordsDueForReview', data: {'userId': userId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getWordsDueForReviewByCategory(int userId, String category) async {
+    final rows = await _request<List<dynamic>>('getWordsDueForReviewByCategory', data: {'userId': userId, 'category': category});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
   Future<Map<String, dynamic>> getReviewStats(int userId) async {
-    final stats = await _request<Map<String, dynamic>>(
-      'getReviewStats',
-      data: {'userId': userId},
-    );
+    final stats = await _request<Map<String, dynamic>>('getReviewStats', data: {'userId': userId});
     return Map<String, dynamic>.from(stats);
   }
 
-  Future<Map<int, int>> getSetMasteryBreakdown(int setId) async {
-    final raw = await _request<Map<String, dynamic>>(
-      'getSetMasteryBreakdown',
-      data: {'setId': setId},
-    );
+  Future<Map<int, int>> getListMasteryBreakdown(int listId) async {
+    final raw = await _request<Map<String, dynamic>>('getListMasteryBreakdown', data: {'listId': listId});
     return raw.map((key, value) => MapEntry(_asInt(key), _asInt(value)));
   }
 
-  Future<List<Map<String, dynamic>>> searchWord(
-    int userId,
-    String query,
-  ) async {
-    final rows = await _request<List<dynamic>>(
-      'searchWord',
-      data: {'userId': userId, 'query': query},
-    );
+  Future<Map<int, int>> getCategoryMasteryBreakdown(int userId, String category) async {
+    final raw = await _request<Map<String, dynamic>>('getCategoryMasteryBreakdown', data: {'userId': userId, 'category': category});
+    return raw.map((key, value) => MapEntry(_asInt(key), _asInt(value)));
+  }
+
+  // ---- Search ----
+  Future<List<Map<String, dynamic>>> searchWord(int userId, String query) async {
+    final rows = await _request<List<dynamic>>('searchWord', data: {'userId': userId, 'query': query});
     return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 

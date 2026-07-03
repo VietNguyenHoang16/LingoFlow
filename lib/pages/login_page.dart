@@ -10,22 +10,37 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
   bool _isRegisterMode = false;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    )..forward();
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   String _formatPhoneNumber(String phone) {
     String digits = phone.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 9) {
-      digits = digits.substring(0, 9);
-    }
+    if (digits.length > 9) digits = digits.substring(0, 9);
     return '+84$digits';
   }
 
@@ -36,43 +51,32 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleSubmit() async {
     final phone = _phoneController.text.trim();
-
     if (!_isValidPhone(phone)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập đủ 9 số'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Vui long nhap du 9 so')),
       );
       return;
     }
 
     setState(() => _isLoading = true);
-
     try {
       final db = DatabaseService();
       final formattedPhone = _formatPhoneNumber(phone);
 
       if (_isRegisterMode) {
         final success = await db.registerUser(formattedPhone);
-        if (success) {
-          if (mounted) {
+        if (mounted) {
+          if (success) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đăng ký thành công!'),
-                backgroundColor: Colors.green,
-              ),
+              const SnackBar(content: Text('Dang ky thanh cong!')),
             );
-            setState(() => _isRegisterMode = false);
-            _phoneController.clear();
-          }
-        } else {
-          if (mounted) {
+            setState(() {
+              _isRegisterMode = false;
+              _phoneController.clear();
+            });
+          } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Số điện thoại đã đăng ký'),
-                backgroundColor: Colors.orange,
-              ),
+              const SnackBar(content: Text('So dien thoai da dang ky')),
             );
           }
         }
@@ -81,9 +85,7 @@ class _LoginPageState extends State<LoginPage> {
         if (success) {
           if (mounted) {
             final userId = await db.getUserId(formattedPhone);
-            if (userId == null) {
-              throw Exception('User session could not be resolved.');
-            }
+            if (userId == null) throw Exception('User session error.');
             await AuthService().saveSession(formattedPhone, userId);
             if (!mounted) return;
             Navigator.pushReplacement(
@@ -96,10 +98,7 @@ class _LoginPageState extends State<LoginPage> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Số điện thoại chưa đăng ký'),
-                backgroundColor: Colors.orange,
-              ),
+              const SnackBar(content: Text('So dien thoai chua dang ky')),
             );
           }
         }
@@ -107,356 +106,354 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Loi: ${e.toString()}')),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () {},
-                        icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-                      ),
-                      Text(
-                        _isRegisterMode ? 'Register' : 'Login',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'LingoFlow',
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // Background decorative blobs
+          Positioned(
+            top: -size.height * 0.08,
+            right: -size.width * 0.2,
+            child: Container(
+              width: size.width * 0.7,
+              height: size.width * 0.7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.primary.withAlpha(isDark ? 20 : 25),
               ),
             ),
-            Expanded(
+          ),
+          Positioned(
+            bottom: -size.height * 0.05,
+            left: -size.width * 0.15,
+            child: Container(
+              width: size.width * 0.55,
+              height: size.width * 0.55,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color:
+                    theme.colorScheme.secondary.withAlpha(isDark ? 20 : 30),
+              ),
+            ),
+          ),
+
+          // Main content
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
+                    constraints: const BoxConstraints(maxWidth: 480),
                     child: Column(
                       children: [
-                        const SizedBox(height: 20),
-                        Container(
-                          width: 280,
-                          height: 280,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuDyrEXAFZSt7L2Hpmk8m9LBzxgTL8I88j9aMxrpp4_EG8BQ_pxBAx4FWfmsgRc4HsoTiNZcqbxcpy5_kg6cDpRW0BHeMkULm3KG7NepCxVKMVt1DeVKcvInJ1k23-_IrAVBbCUzw75lTgcaauq2i5qFQuTY-KWyWCSnZfGbmYj-w3moYQETSrVcHsLKpdwP1U1D6HN3YD8ihLfwpO7AhsqslIZmmfZ86DvAYzxpKq1N8O9RkETBlz2w5q9JjqU2JBkPUIrDi59TUtun',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    size: 80,
-                                    color: theme.colorScheme.outlineVariant,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          _isRegisterMode
-                              ? 'Create Account'
-                              : 'Welcome to LingoFlow',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isRegisterMode
-                              ? 'Enter your phone number to create account'
-                              : 'Master English with the most personalized cognitive lounge experience.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Be Vietnam Pro',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 16, bottom: 8),
-                              child: Text(
-                                'Phone Number',
-                                style: TextStyle(
-                                  fontFamily: 'Be Vietnam Pro',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLowest,
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: theme.colorScheme.outlineVariant.withAlpha(76),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: theme.colorScheme.outlineVariant.withAlpha(76),
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Text('🇻🇳', style: TextStyle(fontSize: 18)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '+84',
-                                          style: TextStyle(
-                                            fontFamily: 'Be Vietnam Pro',
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: theme.colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.expand_more,
-                                          size: 18,
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: TextField(
-                                        controller: _phoneController,
-                                        keyboardType: TextInputType.phone,
-                                        maxLength: 9,
-                                        decoration: InputDecoration(
-                                          hintText: 'Enter your number',
-                                          counterText: '',
-                                          hintStyle: TextStyle(
-                                            fontFamily: 'Be Vietnam Pro',
-                                            fontWeight: FontWeight.normal,
-                                            color: theme.colorScheme.onSurfaceVariant.withAlpha(128),
-                                          ),
-                                          border: InputBorder.none,
-                                        ),
-                                        style: TextStyle(
-                                          fontFamily: 'Be Vietnam Pro',
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: theme.colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 64,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleSubmit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.primary,
-                              foregroundColor: theme.colorScheme.onPrimary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: _isLoading
-                                ? SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      color: theme.colorScheme.onPrimary,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    _isRegisterMode
-                                        ? 'Create Account'
-                                        : 'Get Verification Code',
-                                    style: const TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                          ),
-                        ),
                         const SizedBox(height: 48),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                height: 1,
-                                color: theme.colorScheme.outlineVariant.withAlpha(51),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'Or login with',
-                                style: TextStyle(
-                                  fontFamily: 'Be Vietnam Pro',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                height: 1,
-                                color: theme.colorScheme.outlineVariant.withAlpha(51),
-                              ),
-                            ),
-                          ],
-                        ),
+
+                        // Logo + App name
+                        _buildHeroSection(theme),
+
+                        const SizedBox(height: 40),
+
+                        // Form card
+                        _buildFormCard(theme),
+
                         const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildSocialButton(
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuDk-MvnR8gFA_c65RP-GgBurD0JK9pEHU4ZoEeFYi6SMICUXNSsQ9gawRTmFlyXUbqmXPOLqr_Zl9j6sIZ6jFuIXFdsHX5NJAAQTkfYv19KiQS1XcMJ5tzKv8av2JEeGzm0TdBOP_sOqj4cnubUXTJRAVQALeuC9WPUy5-sIzDI9L3xKqioJpJuS4d2h2Wx9PqyLUN93cvrVkWC8DuAkZ91q-A3kbAz2A1IP60RZu8Jex-lD6VaaFjugYm_au6N4aHF5UXJR3PEtBYT',
-                            ),
-                            const SizedBox(width: 24),
-                            _buildSocialButton(
-                              'https://lh3.googleusercontent.com/aida-public/AB6AXuC6DogXHQokPbNIEiVzWl0M4h5Icr8OsggZEB4qOp8Qezv3zkrTyUbIOhh41G9R8RBMWaLPr4SrH0F51Y2MPDTq51M1BKpa68acnpRPXreKBXaF6ni-rwzZK09Dp973Raj3qA5ssVNFP6qhUZezj9UqKRdaJOEzR_eYEWbmEyvXReSw3IJIJRP6JXvYsVA59mtK5vQ_bbiEP8gW71GYUIA40Q0J55pAplFhdDedSlQ1Z5uyY9jJVlJZi9Yw2KfW8XC9j2dOVUzEz-Aa',
-                            ),
-                          ],
-                        ),
+
+                        // Toggle login/register
+                        _buildToggleRow(theme),
+
                         const SizedBox(height: 32),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isRegisterMode = !_isRegisterMode;
-                              _phoneController.clear();
-                            });
-                          },
-                          child: RichText(
-                            text: TextSpan(
-                              style: TextStyle(
-                                fontFamily: 'Be Vietnam Pro',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text: _isRegisterMode
-                                      ? 'Already have account? '
-                                      : 'New to LingoFlow? ',
-                                ),
-                                TextSpan(
-                                  text: _isRegisterMode
-                                      ? 'Login'
-                                      : 'Create an account',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSocialButton(String imageUrl) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        shape: BoxShape.circle,
-      ),
-      child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          width: 28,
-          height: 28,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Icon(Icons.image, size: 28, color: theme.colorScheme.onSurfaceVariant);
-          },
+  Widget _buildHeroSection(ThemeData theme) {
+    return Column(
+      children: [
+        // App icon
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withAlpha(80),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Text(
+              '🦉',
+              style: TextStyle(fontSize: 44),
+            ),
+          ),
         ),
+        const SizedBox(height: 20),
+
+        // App name
+        Text(
+          'LingoFlow',
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: 34,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.8,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _isRegisterMode
+              ? 'Tao tai khoan moi - Mien phi'
+              : 'Hoc tu vung thong minh moi ngay',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Be Vietnam Pro',
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCard(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.surfaceContainerLow
+            : theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant,
+          width: 1.5,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withAlpha(12),
+                  blurRadius: 40,
+                  offset: const Offset(0, 16),
+                ),
+                BoxShadow(
+                  color: Colors.black.withAlpha(8),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _isRegisterMode ? 'Dang ky' : 'Dang nhap',
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Nhap so dien thoai cua ban',
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Phone input label
+          Text(
+            'So dien thoai',
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Phone input
+          Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: theme.colorScheme.outlineVariant, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                // Country code prefix
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: theme.colorScheme.outlineVariant,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🇻🇳', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '+84',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Text field
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 9,
+                      decoration: InputDecoration(
+                        hintText: '9xx xxx xxx',
+                        counterText: '',
+                        hintStyle: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withAlpha(120),
+                          fontSize: 15,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Submit button
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _handleSubmit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                disabledBackgroundColor:
+                    theme.colorScheme.primary.withAlpha(100),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        color: theme.colorScheme.onPrimary,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : Text(
+                      _isRegisterMode ? 'Tao tai khoan' : 'Tiep tuc',
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleRow(ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          _isRegisterMode ? 'Da co tai khoan? ' : 'Chua co tai khoan? ',
+          style: TextStyle(
+            fontFamily: 'Be Vietnam Pro',
+            fontSize: 14,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() {
+            _isRegisterMode = !_isRegisterMode;
+            _phoneController.clear();
+          }),
+          child: Text(
+            _isRegisterMode ? 'Dang nhap' : 'Dang ky ngay',
+            style: TextStyle(
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

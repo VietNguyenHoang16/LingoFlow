@@ -98,9 +98,9 @@ flutter_launcher_icons:
 
 # Native Splash Configuration
 flutter_native_splash:
-  color: "#58CC02"
+  color: "#6366F1"
   image: "assets/images/logo.png"
   android_12:
     image: "assets/images/logo.png"
-    icon_background_color: "#58CC02"
+    icon_background_color: "#6366F1"
   fullscreen: true
