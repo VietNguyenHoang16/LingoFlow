@@ -5,11 +5,13 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/animated_pressable.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/bulk_import_dialog.dart';
 import 'dart:async';
 
 import 'review_page.dart';
 import 'profile_page.dart';
 import 'category_page.dart';
+import 'recent_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final int userId;
@@ -30,15 +32,16 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
-    setState(() => _currentIndex = index);
-    if (index == 1) {
+    if (index == 2) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ProfilePage(userId: widget.userId),
         ),
       );
+      return;
     }
+    setState(() => _currentIndex = index);
   }
 
   void _showSearchDialog() {
@@ -99,92 +102,124 @@ class _DashboardPageState extends State<DashboardPage> {
     if (result == true) await _loadData();
   }
 
+  Future<void> _bulkImport() async {
+    final inserted = await BulkImportDialog.show(
+      context,
+      userId: widget.userId,
+    );
+    if (inserted > 0 && mounted) {
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã thêm $inserted từ')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(theme),
-            Expanded(
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                  : _loadError != null
-                      ? _buildErrorState(theme, _loadError!)
-                      : RefreshIndicator(
-                          color: theme.colorScheme.primary,
-                          onRefresh: _loadData,
-                          child: CustomScrollView(
-                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                            slivers: [
-                              SliverPadding(
-                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                                sliver: SliverToBoxAdapter(child: _buildDailyReviewBanner()),
-                              ),
-                              SliverPadding(
-                                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                                sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
-                              ),
-                              SliverPadding(
-                                padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                                sliver: SliverGrid(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) {
-                                      final key = kWordTypeKeys[index];
-                                      final config = wordTypeConfig(key, context);
-                                      final stats = _categoryStats[key] as Map<String, dynamic>? ?? {};
-                                      return AnimatedPressable(
-                                        onTap: () async {
-                                          await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => CategoryPage(
-                                                userId: widget.userId,
-                                                category: key,
-                                              ),
-                                            ),
-                                          );
-                                          _loadData();
-                                        },
-                                        child: _buildCategoryCard(
-                                          key_: key,
-                                          config: config,
-                                          stats: stats,
-                                          index: index,
-                                        ),
-                                      );
-                                    },
-                                    childCount: kWordTypeKeys.length,
-                                  ),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 14,
-                                    mainAxisSpacing: 14,
-                                    childAspectRatio: 0.88,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-            ),
-          ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _bulkImport,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
+        icon: const Icon(Icons.playlist_add_rounded),
+        label: const Text(
+          'Import',
+          style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
         ),
       ),
+      body: _currentIndex == 1
+          ? RecentPage(userId: widget.userId)
+          : SafeArea(
+              child: _buildHomeBody(theme),
+            ),
       bottomNavigationBar: SafeArea(
         bottom: true,
         child: LingoBottomNavBar(
           currentIndex: _currentIndex,
           items: const [
             NavItem(icon: Icons.home_rounded, label: 'Home'),
+            NavItem(icon: Icons.history_rounded, label: 'Recent'),
             NavItem(icon: Icons.person_rounded, label: 'Profile'),
           ],
           onTap: _onTabTapped,
         ),
       ),
+    );
+  }
+
+  Widget _buildHomeBody(ThemeData theme) {
+    return Column(
+      children: [
+        _buildHeader(theme),
+        Expanded(
+          child: _isLoading
+              ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+              : _loadError != null
+                  ? _buildErrorState(theme, _loadError!)
+                  : RefreshIndicator(
+                      color: theme.colorScheme.primary,
+                      onRefresh: _loadData,
+                      child: CustomScrollView(
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                            sliver: SliverToBoxAdapter(child: _buildDailyReviewBanner()),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                            sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                            sliver: SliverGrid(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final key = kWordTypeKeys[index];
+                                  final config = wordTypeConfig(key, context);
+                                  final stats = _categoryStats[key] as Map<String, dynamic>? ?? {};
+                                  return AnimatedPressable(
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CategoryPage(
+                                            userId: widget.userId,
+                                            category: key,
+                                          ),
+                                        ),
+                                      );
+                                      _loadData();
+                                    },
+                                    child: _buildCategoryCard(
+                                      key_: key,
+                                      config: config,
+                                      stats: stats,
+                                      index: index,
+                                    ),
+                                  );
+                                },
+                                childCount: kWordTypeKeys.length,
+                              ),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 14,
+                                mainAxisSpacing: 14,
+                                childAspectRatio: 0.88,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+        ),
+      ],
     );
   }
 

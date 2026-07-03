@@ -58,6 +58,7 @@ function mapWordRow(row) {
     mastery_level: asInt(row.mastery_level),
     lapse_count: asInt(row.lapse_count),
     word_type: row.word_type || '',
+    created_at: normalizeDate(row.created_at),
     ...(row.list_name !== undefined ? { list_name: row.list_name || '' } : {}),
     ...(row.list_id !== undefined ? { list_id: asInt(row.list_id) } : {}),
     ...(row.category !== undefined ? { category: row.category || '' } : {}),
@@ -348,6 +349,24 @@ async function handleAction(action, data) {
          WHERE vl.user_id = $1 AND vw.word_type = $2
          ORDER BY vw.created_at DESC`,
         [data.userId, data.category],
+      );
+      return rows.map(mapWordRow);
+    }
+
+    case 'getRecentWords': {
+      const limit = Math.min(Math.max(asInt(data.limit) || 20, 1), 100);
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+                vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
+                vw.created_at,
+                vl.name AS list_name, vl.id AS list_id
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1
+         ORDER BY vw.created_at DESC
+         LIMIT $2`,
+        [data.userId, limit],
       );
       return rows.map(mapWordRow);
     }

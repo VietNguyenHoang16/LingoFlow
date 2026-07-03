@@ -85,6 +85,7 @@ class DatabaseService {
       'lastPracticed',
       'next_review_date',
       'last_reviewed_at',
+      'created_at',
     ]) {
       if (mapped.containsKey(key)) {
         mapped[key] = _parseDate(mapped[key]);
@@ -189,6 +190,11 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getWordsByCategory(int userId, String category) async {
     final rows = await _request<List<dynamic>>('getWordsByCategory', data: {'userId': userId, 'category': category});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20}) async {
+    final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
