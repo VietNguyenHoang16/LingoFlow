@@ -149,6 +149,7 @@ class DatabaseService {
     String meaning, {
     String? fullDetails,
     String? wordType,
+    String? exampleSentence,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
       'listId': listId,
@@ -157,6 +158,7 @@ class DatabaseService {
       'meaning': meaning,
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
+      'exampleSentence': exampleSentence ?? '',
     });
     return _asInt(id);
   }
@@ -169,6 +171,7 @@ class DatabaseService {
     String meaning, {
     String? fullDetails,
     String? wordType,
+    String? exampleSentence,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
       'userId': userId,
@@ -178,6 +181,7 @@ class DatabaseService {
       'meaning': meaning,
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
+      'exampleSentence': exampleSentence ?? '',
     });
     return _asInt(id);
   }
@@ -210,6 +214,7 @@ class DatabaseService {
     String? pronunciation,
     String? fullDetails,
     String? wordType,
+    String? exampleSentence,
   }) async {
     await _request<void>('updateVocabularyWordDetails', data: {
       'wordId': wordId,
@@ -217,6 +222,7 @@ class DatabaseService {
       'pronunciation': pronunciation ?? '',
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
+      'exampleSentence': exampleSentence ?? '',
     });
   }
 
@@ -227,6 +233,7 @@ class DatabaseService {
     String? pronunciation,
     String? fullDetails,
     String? wordType,
+    String? exampleSentence,
   }) async {
     await _request<void>('updateVocabularyWord', data: {
       'wordId': wordId,
@@ -235,6 +242,7 @@ class DatabaseService {
       'pronunciation': pronunciation ?? '',
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
+      'exampleSentence': exampleSentence ?? '',
     });
   }
 

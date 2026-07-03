@@ -130,6 +130,7 @@ async function ensureSchema() {
       await addColumnIfNotExists('vocabulary_words', 'mastery_level', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'lapse_count', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'word_type', "VARCHAR(255) DEFAULT ''");
+      await addColumnIfNotExists('vocabulary_words', 'example_sentence', 'TEXT');
 
       // Migrate old is_mastered -> mastery_level
       await query(`
@@ -305,10 +306,10 @@ async function handleAction(action, data) {
       }
       const wordType = (data.wordType || '').trim() || data.category || '';
       const rows = await query(
-        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, example_sentence)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id`,
-        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType],
+        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, data.exampleSentence || ''],
       );
       return asInt(rows[0].id);
     }
@@ -317,7 +318,8 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT id, word, pronunciation, meaning, full_details, is_mastered, is_difficult,
                 review_count, correct_streak, ease_factor, interval_days,
-                next_review_date, last_reviewed_at, mastery_level, lapse_count, word_type
+                next_review_date, last_reviewed_at, mastery_level, lapse_count, word_type,
+                example_sentence
          FROM vocabulary_words
          WHERE list_id = $1
          ORDER BY created_at DESC`,
@@ -331,7 +333,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
-                vl.name AS list_name, vl.id AS list_id
+                vw.example_sentence, vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.word_type = $2
@@ -355,15 +357,15 @@ async function handleAction(action, data) {
 
     case 'updateVocabularyWordDetails':
       await query(
-        `UPDATE vocabulary_words SET meaning = $1, pronunciation = $2, full_details = $3, word_type = $4 WHERE id = $5`,
-        [(data.meaning || '').trim(), (data.pronunciation || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), data.wordId],
+        `UPDATE vocabulary_words SET meaning = $1, pronunciation = $2, full_details = $3, word_type = $4, example_sentence = $5 WHERE id = $6`,
+        [(data.meaning || '').trim(), (data.pronunciation || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), data.exampleSentence || '', data.wordId],
       );
       return null;
 
     case 'updateVocabularyWord':
       await query(
-        `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5 WHERE id = $6`,
-        [(data.word || '').trim(), (data.pronunciation || '').trim(), (data.meaning || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), data.wordId],
+        `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5, example_sentence = $6 WHERE id = $7`,
+        [(data.word || '').trim(), (data.pronunciation || '').trim(), (data.meaning || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), data.exampleSentence || '', data.wordId],
       );
       return null;
 
@@ -385,7 +387,8 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT id, word, pronunciation, meaning, full_details, is_mastered, is_difficult,
                 review_count, correct_streak, ease_factor, interval_days,
-                next_review_date, last_reviewed_at, mastery_level, lapse_count, word_type
+                next_review_date, last_reviewed_at, mastery_level, lapse_count, word_type,
+                example_sentence
          FROM vocabulary_words
          WHERE list_id = $1 AND (next_review_date IS NULL OR next_review_date <= $2)
          ORDER BY COALESCE(next_review_date, CURRENT_TIMESTAMP) ASC`,
@@ -399,7 +402,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
-                vl.name AS list_name, vl.id AS list_id
+                vw.example_sentence, vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
@@ -414,7 +417,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
-                vl.name AS list_name, vl.id AS list_id
+                vw.example_sentence, vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.word_type = $2 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $3)
@@ -508,7 +511,8 @@ async function handleAction(action, data) {
         id: asInt(row.id),
         word: row.word || '',
         meaning: row.meaning || '',
-        word_type: row.word_type || '',
+    word_type: row.word_type || '',
+    example_sentence: row.example_sentence || '',
         list_id: asInt(row.list_id),
         list_name: row.list_name || '',
         category: row.category || '',

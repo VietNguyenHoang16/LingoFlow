@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
+import '../services/translation_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 
@@ -34,6 +35,7 @@ class _ReviewPageState extends State<ReviewPage>
   final SrsService _srs = SrsService();
   final FlutterTts _flutterTts = FlutterTts();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
+  final TranslationService _translation = TranslationService();
 
   final TextEditingController _answerController = TextEditingController();
   final FocusNode _answerFocusNode = FocusNode();
@@ -47,6 +49,8 @@ class _ReviewPageState extends State<ReviewPage>
   bool _showAnswer = false;
   int _hintLevel = 0;
   bool _isCompleted = false;
+  String? _exampleTranslation;
+  bool _loadingTranslation = false;
 
   int _totalReviewed = 0;
   int _masteryUps = 0;
@@ -234,6 +238,8 @@ class _ReviewPageState extends State<ReviewPage>
       _flipController.reset();
       _calculatedIntervals = {};
       _hintLevel = 0;
+      _exampleTranslation = null;
+      _loadingTranslation = false;
 
       if (_currentIndex < _dueWords.length - 1) {
         _currentIndex++;
@@ -701,6 +707,101 @@ class _ReviewPageState extends State<ReviewPage>
                 height: 1.4,
                 fontFamily: 'Be Vietnam Pro',
               ),
+            ),
+          ),
+        ],
+        if ((currentWord['example_sentence'] ?? '').isNotEmpty && !compact) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onPrimary.withAlpha(20),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: theme.colorScheme.onPrimary.withAlpha(40)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.format_quote_rounded, size: 14, color: theme.colorScheme.onPrimary.withAlpha(170)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        currentWord['example_sentence'],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: theme.colorScheme.onPrimary.withAlpha(200),
+                          height: 1.4,
+                          fontFamily: 'Be Vietnam Pro',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (_exampleTranslation != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _exampleTranslation!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Be Vietnam Pro',
+                      ),
+                    ),
+                  ),
+                GestureDetector(
+                  onTap: _loadingTranslation
+                      ? null
+                      : () async {
+                          if (_exampleTranslation != null) {
+                            setState(() => _exampleTranslation = null);
+                          } else {
+                            setState(() => _loadingTranslation = true);
+                            final result = await _translation.translateText(currentWord['example_sentence'] ?? '');
+                            setState(() {
+                              _exampleTranslation = result;
+                              _loadingTranslation = false;
+                            });
+                          }
+                        },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.onPrimary.withAlpha(25),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_loadingTranslation)
+                          SizedBox(
+                            width: 10, height: 10,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: theme.colorScheme.onPrimary),
+                          )
+                        else
+                          Icon(Icons.translate_rounded, size: 11, color: theme.colorScheme.onPrimary.withAlpha(180)),
+                        const SizedBox(width: 3),
+                        Text(
+                          _exampleTranslation != null ? 'An dich' : 'Dich',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onPrimary.withAlpha(180),
+                            fontFamily: 'Be Vietnam Pro',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

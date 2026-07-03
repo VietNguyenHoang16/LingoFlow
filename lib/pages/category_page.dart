@@ -76,6 +76,7 @@ class _CategoryPageState extends State<CategoryPage> {
     final wordCtl = TextEditingController();
     final meaningCtl = TextEditingController();
     final pronCtl = TextEditingController();
+    final exampleCtl = TextEditingController();
 
     final saved = await showDialog<bool>(
       context: context,
@@ -90,6 +91,8 @@ class _CategoryPageState extends State<CategoryPage> {
               TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia', hintText: 'xin chao')),
               const SizedBox(height: 8),
               TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am', hintText: '/həˈloʊ/')),
+              const SizedBox(height: 8),
+              TextField(controller: exampleCtl, decoration: const InputDecoration(labelText: 'Cau vi du', hintText: 'Example sentence')),
             ],
           ),
         ),
@@ -109,6 +112,7 @@ class _CategoryPageState extends State<CategoryPage> {
         widget.userId, widget.category,
         wordCtl.text.trim(), pronCtl.text.trim(), meaningCtl.text.trim(),
         wordType: widget.category,
+        exampleSentence: exampleCtl.text.trim(),
       );
       await _loadWords();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da them!')));
@@ -123,6 +127,7 @@ class _CategoryPageState extends State<CategoryPage> {
     final wordCtl = TextEditingController(text: word['word'] ?? '');
     final meaningCtl = TextEditingController(text: word['meaning'] ?? '');
     final pronCtl = TextEditingController(text: word['pronunciation'] ?? '');
+    final exampleCtl = TextEditingController(text: word['example_sentence'] ?? '');
 
     final saved = await showDialog<bool>(
       context: context,
@@ -137,6 +142,8 @@ class _CategoryPageState extends State<CategoryPage> {
               TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia')),
               const SizedBox(height: 8),
               TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am')),
+              const SizedBox(height: 8),
+              TextField(controller: exampleCtl, decoration: const InputDecoration(labelText: 'Cau vi du')),
             ],
           ),
         ),
@@ -157,6 +164,7 @@ class _CategoryPageState extends State<CategoryPage> {
         meaning: meaningCtl.text.trim(),
         pronunciation: pronCtl.text.trim(),
         wordType: (word['word_type'] as String?)?.trim() ?? widget.category,
+        exampleSentence: exampleCtl.text.trim(),
       );
       await _loadWords();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
