@@ -3,7 +3,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
-import '../services/translation_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_utils.dart';
 import '../widgets/mastery_badge.dart';
@@ -37,9 +36,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   final FlutterTts _flutterTts = FlutterTts();
   final SrsService _srs = SrsService();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
-  final TranslationService _translation = TranslationService();
-  final Map<int, String> _exampleTranslations = {};
-  final Set<int> _loadingTranslations = {};
   bool _isImporting = false;
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
@@ -92,7 +88,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String fullDetails,
     required String wordType,
     required bool isDifficult,
-    String exampleSentence = '',
   }) async {
     final theme = Theme.of(context);
     await showModalBottomSheet(
@@ -186,7 +181,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 _editWord(
                   wordId: wordId, word: word, meaning: meaning,
                   pronunciation: pronunciation, fullDetails: fullDetails,
-                  wordType: wordType, exampleSentence: exampleSentence,
+                  wordType: wordType,
                 );
               },
             ),
@@ -568,13 +563,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String pronunciation,
     required String fullDetails,
     required String wordType,
-    String exampleSentence = '',
   }) async {
     final wordController = TextEditingController(text: word);
     final meaningController = TextEditingController(text: meaning);
     final pronunciationController = TextEditingController(text: pronunciation);
     final detailsController = TextEditingController(text: fullDetails);
-    final exampleController = TextEditingController(text: exampleSentence);
     final selectedTypes = <String>{
       ...wordType
           .split(',')
@@ -687,17 +680,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                       hintText: 'Tuy chon',
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Text('Cau vi du', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: exampleController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Nhap cau tieng Anh',
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -732,7 +714,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         pronunciation: pronunciationController.text,
         fullDetails: detailsController.text,
         wordType: joinedTypes,
-        exampleSentence: exampleController.text,
       );
       await _loadWords();
       if (wasFlipped && mounted) setState(() => _flippedWords.add(wordId));
@@ -1235,7 +1216,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           meaning: word['meaning'],
                           fullDetails: word['full_details'] ?? '',
                           wordType: word['word_type'] ?? '',
-                          exampleSentence: word['example_sentence'] ?? '',
                           isMastered: word['is_mastered'] ?? false,
                           isDifficult: word['is_difficult'] ?? false,
                           masteryLevel: word['mastery_level'] ?? 0,
@@ -1599,7 +1579,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String meaning,
     required String fullDetails,
     required String wordType,
-    required String exampleSentence,
     required bool isMastered,
     required bool isDifficult,
     required int masteryLevel,
@@ -1634,7 +1613,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 fullDetails: fullDetails,
                 wordType: wordType,
                 isDifficult: isDifficult,
-                exampleSentence: exampleSentence,
               ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -1707,7 +1685,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         meaning: meaning,
                         fullDetails: fullDetails,
                         wordType: wordType,
-                        exampleSentence: exampleSentence,
                         isDifficult: isDifficult,
                         masteryLevel: masteryLevel,
                         nextReviewDate: nextReviewDate,
@@ -1734,9 +1711,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               ),
             ),
 
-            // Speaker icon (front only)
+            // Speaker + flip hint icons (front only)
             if (!isFlipped) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: _isSelectionMode ? null : () => _speak(word),
                 child: Container(
@@ -1750,6 +1727,19 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                     color: theme.colorScheme.primary,
                     size: 24,
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withAlpha(10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.flip_rounded,
+                  color: theme.colorScheme.onSurfaceVariant.withAlpha(120),
+                  size: 22,
                 ),
               ),
             ],
@@ -1885,7 +1875,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String meaning,
     required String fullDetails,
     required String wordType,
-    required String exampleSentence,
     required bool isDifficult,
     required int masteryLevel,
     required DateTime? nextReviewDate,
@@ -1971,102 +1960,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               fontSize: 12,
               color: theme.colorScheme.onSurface,
               height: 1.5,
-            ),
-          ),
-        ],
-        if (exampleSentence.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withAlpha(10),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: theme.colorScheme.primary.withAlpha(30)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.format_quote_rounded, size: 14, color: theme.colorScheme.primary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        exampleSentence,
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                          color: theme.colorScheme.onSurface,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                if (_exampleTranslations.containsKey(id))
-                  Padding(
-                    padding: const EdgeInsets.only(left: 18),
-                    child: Text(
-                      _exampleTranslations[id]!,
-                      style: TextStyle(
-                        fontFamily: 'Be Vietnam Pro',
-                        fontSize: 12,
-                        color: theme.colorScheme.primary.withAlpha(200),
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                GestureDetector(
-                  onTap: _loadingTranslations.contains(id)
-                      ? null
-                      : () async {
-                          if (_exampleTranslations.containsKey(id)) {
-                            setState(() => _exampleTranslations.remove(id));
-                          } else {
-                            setState(() => _loadingTranslations.add(id));
-                            final translation = await _translation.translateText(exampleSentence);
-                            setState(() {
-                              _exampleTranslations[id] = translation;
-                              _loadingTranslations.remove(id);
-                            });
-                          }
-                        },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _loadingTranslations.contains(id)
-                          ? theme.colorScheme.primary.withAlpha(30)
-                          : theme.colorScheme.primary.withAlpha(15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_loadingTranslations.contains(id))
-                          SizedBox(
-                            width: 12, height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 1.5, color: theme.colorScheme.primary),
-                          )
-                        else
-                          Icon(Icons.translate_rounded, size: 12, color: theme.colorScheme.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          _exampleTranslations.containsKey(id) ? 'An dich' : 'Dich',
-                          style: TextStyle(
-                            fontFamily: 'Be Vietnam Pro',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

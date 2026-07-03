@@ -22,6 +22,7 @@ class CategoryPage extends StatefulWidget {
 
 class _CategoryPageState extends State<CategoryPage> {
   final DatabaseService _db = DatabaseService();
+  final Set<int> _flippedWords = {};
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
   bool _isAdding = false;
@@ -76,7 +77,6 @@ class _CategoryPageState extends State<CategoryPage> {
     final wordCtl = TextEditingController();
     final meaningCtl = TextEditingController();
     final pronCtl = TextEditingController();
-    final exampleCtl = TextEditingController();
 
     final saved = await showDialog<bool>(
       context: context,
@@ -91,8 +91,6 @@ class _CategoryPageState extends State<CategoryPage> {
               TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia', hintText: 'xin chao')),
               const SizedBox(height: 8),
               TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am', hintText: '/həˈloʊ/')),
-              const SizedBox(height: 8),
-              TextField(controller: exampleCtl, decoration: const InputDecoration(labelText: 'Cau vi du', hintText: 'Example sentence')),
             ],
           ),
         ),
@@ -112,7 +110,6 @@ class _CategoryPageState extends State<CategoryPage> {
         widget.userId, widget.category,
         wordCtl.text.trim(), pronCtl.text.trim(), meaningCtl.text.trim(),
         wordType: widget.category,
-        exampleSentence: exampleCtl.text.trim(),
       );
       await _loadWords();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da them!')));
@@ -127,7 +124,6 @@ class _CategoryPageState extends State<CategoryPage> {
     final wordCtl = TextEditingController(text: word['word'] ?? '');
     final meaningCtl = TextEditingController(text: word['meaning'] ?? '');
     final pronCtl = TextEditingController(text: word['pronunciation'] ?? '');
-    final exampleCtl = TextEditingController(text: word['example_sentence'] ?? '');
 
     final saved = await showDialog<bool>(
       context: context,
@@ -142,8 +138,6 @@ class _CategoryPageState extends State<CategoryPage> {
               TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia')),
               const SizedBox(height: 8),
               TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am')),
-              const SizedBox(height: 8),
-              TextField(controller: exampleCtl, decoration: const InputDecoration(labelText: 'Cau vi du')),
             ],
           ),
         ),
@@ -164,7 +158,6 @@ class _CategoryPageState extends State<CategoryPage> {
         meaning: meaningCtl.text.trim(),
         pronunciation: pronCtl.text.trim(),
         wordType: (word['word_type'] as String?)?.trim() ?? widget.category,
-        exampleSentence: exampleCtl.text.trim(),
       );
       await _loadWords();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
@@ -424,10 +417,19 @@ class _CategoryPageState extends State<CategoryPage> {
     final pronunciation = word['pronunciation'] as String? ?? '';
     final mastery = word['mastery_level'] as int? ?? 0;
     final isDifficult = word['is_difficult'] as bool? ?? false;
+    final wordId = word['id'] as int;
+    final isFlipped = _flippedWords.contains(wordId);
 
     return GestureDetector(
-      onTap: () => _editWord(word),
-      onLongPress: () => _deleteWord(word['id'] as int),
+      onTap: () {
+        if (isFlipped) {
+          _flippedWords.remove(wordId);
+        } else {
+          _flippedWords.add(wordId);
+        }
+        setState(() {});
+      },
+      onLongPress: () => _editWord(word),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -437,6 +439,7 @@ class _CategoryPageState extends State<CategoryPage> {
           border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
               width: 36,
@@ -446,37 +449,114 @@ class _CategoryPageState extends State<CategoryPage> {
             Container(width: 1, height: 36, color: theme.colorScheme.outlineVariant.withAlpha(80)),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(wordText, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface, letterSpacing: -0.1)),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
+                child: isFlipped
+                    ? _buildWordCardBack(
+                        key: ValueKey('back-$wordId'),
+                        wordText: wordText,
+                        meaning: meaning,
+                        pronunciation: pronunciation,
+                        mastery: mastery,
+                        isDifficult: isDifficult,
+                        wordId: wordId,
+                        catColor: catColor,
+                        theme: theme,
+                      )
+                    : _buildWordCardFront(
+                        key: ValueKey('front-$wordId'),
+                        wordText: wordText,
+                        meaning: meaning,
+                        pronunciation: pronunciation,
+                        mastery: mastery,
+                        isDifficult: isDifficult,
+                        catColor: catColor,
+                        theme: theme,
                       ),
-                      if (isDifficult)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: Icon(Icons.whatshot_rounded, size: 16, color: Colors.orange),
-                        ),
-                      const SizedBox(width: 6),
-                      MasteryBadge(level: mastery),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(meaning, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
-                  if (pronunciation.isNotEmpty)
-                    Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, color: theme.colorScheme.onSurfaceVariant.withAlpha(150))),
-                ],
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant.withAlpha(100), size: 20),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: catColor.withAlpha(isFlipped ? 25 : 10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.flip_rounded,
+                color: catColor.withAlpha(isFlipped ? 180 : 100),
+                size: 16,
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildWordCardFront({
+    required Key key,
+    required String wordText,
+    required String meaning,
+    required String pronunciation,
+    required int mastery,
+    required bool isDifficult,
+    required Color catColor,
+    required ThemeData theme,
+  }) {
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(wordText, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface, letterSpacing: -0.1)),
+            ),
+            if (isDifficult)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.whatshot_rounded, size: 16, color: Colors.orange),
+              ),
+            const SizedBox(width: 6),
+            MasteryBadge(level: mastery),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(meaning, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+        if (pronunciation.isNotEmpty)
+          Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, color: theme.colorScheme.onSurfaceVariant.withAlpha(150))),
+      ],
+    );
+  }
+
+  Widget _buildWordCardBack({
+    required Key key,
+    required String wordText,
+    required String meaning,
+    required String pronunciation,
+    required int mastery,
+    required bool isDifficult,
+    required int wordId,
+    required Color catColor,
+    required ThemeData theme,
+  }) {
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Nghia:', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, fontWeight: FontWeight.w600, color: catColor)),
+        const SizedBox(height: 2),
+        Text(meaning, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+        if (pronunciation.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant.withAlpha(160))),
+        ],
+      ],
     );
   }
 }
