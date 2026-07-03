@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
+import '../services/tts_settings_service.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
 
@@ -14,6 +16,8 @@ class RecentPage extends StatefulWidget {
 
 class _RecentPageState extends State<RecentPage> {
   final DatabaseService _db = DatabaseService();
+  final FlutterTts _flutterTts = FlutterTts();
+  final TtsSettingsService _ttsSettings = TtsSettingsService();
   final Set<int> _flippedWords = {};
 
   List<Map<String, dynamic>> _words = [];
@@ -25,6 +29,7 @@ class _RecentPageState extends State<RecentPage> {
   @override
   void initState() {
     super.initState();
+    _ttsSettings.applyTo(_flutterTts);
     _loadRecent();
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
@@ -33,6 +38,7 @@ class _RecentPageState extends State<RecentPage> {
 
   @override
   void dispose() {
+    _flutterTts.stop();
     _searchController.dispose();
     super.dispose();
   }
@@ -43,6 +49,16 @@ class _RecentPageState extends State<RecentPage> {
       (w['word'] as String? ?? '').toLowerCase().contains(_searchQuery) ||
       (w['meaning'] as String? ?? '').toLowerCase().contains(_searchQuery)
     ).toList();
+  }
+
+  Future<void> _speak(String text) async {
+    try {
+      await _flutterTts.stop();
+      await _ttsSettings.applyTo(_flutterTts);
+      await _flutterTts.speak(text);
+    } catch (e) {
+      debugPrint('TTS Error: $e');
+    }
   }
 
   Future<void> _loadRecent() async {
@@ -391,6 +407,22 @@ class _RecentPageState extends State<RecentPage> {
               ),
             ),
             const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _speak(wordText),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withAlpha(15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.volume_up_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(

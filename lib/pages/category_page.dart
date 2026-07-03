@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
+import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/mastery_badge.dart';
@@ -22,10 +24,11 @@ class CategoryPage extends StatefulWidget {
 
 class _CategoryPageState extends State<CategoryPage> {
   final DatabaseService _db = DatabaseService();
+  final FlutterTts _flutterTts = FlutterTts();
+  final TtsSettingsService _ttsSettings = TtsSettingsService();
   final Set<int> _flippedWords = {};
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
-  bool _isAdding = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -39,12 +42,14 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   void initState() {
     super.initState();
+    _ttsSettings.applyTo(_flutterTts);
     _loadWords();
     _searchController.addListener(() => setState(() => _searchQuery = _searchController.text.trim().toLowerCase()));
   }
 
   @override
   void dispose() {
+    _flutterTts.stop();
     _searchController.dispose();
     super.dispose();
   }
@@ -55,6 +60,16 @@ class _CategoryPageState extends State<CategoryPage> {
       (w['word'] as String? ?? '').toLowerCase().contains(_searchQuery) ||
       (w['meaning'] as String? ?? '').toLowerCase().contains(_searchQuery)
     ).toList();
+  }
+
+  Future<void> _speak(String text) async {
+    try {
+      await _flutterTts.stop();
+      await _ttsSettings.applyTo(_flutterTts);
+      await _flutterTts.speak(text);
+    } catch (e) {
+      debugPrint('TTS Error: $e');
+    }
   }
 
   Future<void> _loadWords() async {
@@ -69,54 +84,6 @@ class _CategoryPageState extends State<CategoryPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
       }
-    }
-  }
-
-  Future<void> _addWord() async {
-    if (_isAdding) return;
-    final wordCtl = TextEditingController();
-    final meaningCtl = TextEditingController();
-    final pronCtl = TextEditingController();
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Them tu moi'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: wordCtl, autofocus: true, decoration: const InputDecoration(labelText: 'Tu', hintText: 'hello')),
-              const SizedBox(height: 8),
-              TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia', hintText: 'xin chao')),
-              const SizedBox(height: 8),
-              TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am', hintText: '/həˈloʊ/')),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huy')),
-          FilledButton(onPressed: () {
-            if (wordCtl.text.trim().isNotEmpty && meaningCtl.text.trim().isNotEmpty) Navigator.pop(ctx, true);
-          }, child: const Text('Luu')),
-        ],
-      ),
-    );
-
-    if (saved != true) return;
-    setState(() => _isAdding = true);
-    try {
-      await _db.addWordToCategory(
-        widget.userId, widget.category,
-        wordCtl.text.trim(), pronCtl.text.trim(), meaningCtl.text.trim(),
-        wordType: widget.category,
-      );
-      await _loadWords();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da them!')));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
-    } finally {
-      setState(() => _isAdding = false);
     }
   }
 
@@ -378,21 +345,6 @@ class _CategoryPageState extends State<CategoryPage> {
             ),
         ],
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: catColor.withAlpha(80), blurRadius: 20, offset: const Offset(0, 8))],
-        ),
-        child: FloatingActionButton(
-          onPressed: _isAdding ? null : _addWord,
-          backgroundColor: catColor,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          child: _isAdding
-              ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: theme.colorScheme.onPrimary, strokeWidth: 2.5))
-              : Icon(Icons.add_rounded, color: theme.colorScheme.onPrimary, size: 28),
-        ),
-      ),
     );
   }
 
@@ -468,8 +420,6 @@ class _CategoryPageState extends State<CategoryPage> {
                     : _buildWordCardFront(
                         key: ValueKey('front-$wordId'),
                         wordText: wordText,
-                        meaning: meaning,
-                        pronunciation: pronunciation,
                         mastery: mastery,
                         isDifficult: isDifficult,
                         catColor: catColor,
@@ -478,6 +428,22 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
             ),
             const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _speak(wordText),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: catColor.withAlpha(15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.volume_up_rounded,
+                  color: catColor,
+                  size: 20,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -499,8 +465,6 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget _buildWordCardFront({
     required Key key,
     required String wordText,
-    required String meaning,
-    required String pronunciation,
     required int mastery,
     required bool isDifficult,
     required Color catColor,
@@ -525,11 +489,6 @@ class _CategoryPageState extends State<CategoryPage> {
             MasteryBadge(level: mastery),
           ],
         ),
-        const SizedBox(height: 2),
-        Text(meaning, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
-        if (pronunciation.isNotEmpty)
-          Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, color: theme.colorScheme.onSurfaceVariant.withAlpha(150))),
       ],
     );
   }
