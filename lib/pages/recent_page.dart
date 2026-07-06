@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
-import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
+import 'practice_page.dart';
 
 class RecentPage extends StatefulWidget {
   final int userId;
@@ -19,9 +19,11 @@ class _RecentPageState extends State<RecentPage> {
   final FlutterTts _flutterTts = FlutterTts();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   final Set<int> _flippedWords = {};
+  final Set<int> _selectedWords = {};
 
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
+  bool _isSelectionMode = false;
   String? _loadError;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -117,6 +119,43 @@ class _RecentPageState extends State<RecentPage> {
     }
   }
 
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) _selectedWords.clear();
+    });
+  }
+
+  void _toggleWordSelection(int wordId) {
+    setState(() {
+      if (_selectedWords.contains(wordId)) {
+        _selectedWords.remove(wordId);
+      } else {
+        _selectedWords.add(wordId);
+      }
+    });
+  }
+
+  void _startPractice() {
+    if (_selectedWords.isEmpty) return;
+    final selected = _words.where((w) => _selectedWords.contains(w['id'] as int)).toList();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PracticePage(
+          userId: widget.userId,
+          listName: 'Recent (${selected.length} từ)',
+          preloadedWords: selected,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() => _isSelectionMode = false);
+        _selectedWords.clear();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -146,6 +185,38 @@ class _RecentPageState extends State<RecentPage> {
           ],
         ),
       ),
+      bottomNavigationBar: _isSelectionMode && _selectedWords.isNotEmpty
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(80)),
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _startPractice,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                    label: Text(
+                      'Luyện tập (${_selectedWords.length})',
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -182,12 +253,14 @@ class _RecentPageState extends State<RecentPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Recent', style: TextStyle(
+                    Text(_isSelectionMode ? 'Chọn từ để luyện' : 'Recent', style: TextStyle(
                       fontFamily: 'Plus Jakarta Sans',
                       fontSize: 22, fontWeight: FontWeight.w800,
                       letterSpacing: -0.5, color: theme.colorScheme.onSurface,
                     )),
-                    Text('20 từ mới nhất', style: TextStyle(
+                    Text(_isSelectionMode
+                        ? 'Đã chọn ${_selectedWords.length} từ'
+                        : '20 từ mới nhất', style: TextStyle(
                       fontFamily: 'Be Vietnam Pro',
                       fontSize: 12, fontWeight: FontWeight.w500,
                       color: theme.colorScheme.onSurfaceVariant,
@@ -195,6 +268,45 @@ class _RecentPageState extends State<RecentPage> {
                   ],
                 ),
               ),
+              if (!_isSelectionMode && _words.isNotEmpty)
+                GestureDetector(
+                  onTap: _toggleSelectionMode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withAlpha(15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, color: theme.colorScheme.primary, size: 18),
+                        const SizedBox(width: 4),
+                        Text('Luyện tập', style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 13, fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.primary,
+                        )),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_isSelectionMode)
+                GestureDetector(
+                  onTap: _toggleSelectionMode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.error.withAlpha(15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text('Hủy', style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.error,
+                    )),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 14),
@@ -346,12 +458,73 @@ class _RecentPageState extends State<RecentPage> {
     final wordText = word['word'] as String? ?? '';
     final meaning = word['meaning'] as String? ?? '';
     final pronunciation = word['pronunciation'] as String? ?? '';
-    final mastery = word['mastery_level'] as int? ?? 0;
-    final isDifficult = word['is_difficult'] as bool? ?? false;
     final wordType = (word['word_type'] as String? ?? '').trim();
     final createdAt = word['created_at'] as DateTime?;
     final wordId = word['id'] as int;
     final isFlipped = _flippedWords.contains(wordId);
+    final isSelected = _selectedWords.contains(wordId);
+
+    if (_isSelectionMode) {
+      return GestureDetector(
+        onTap: () => _toggleWordSelection(wordId),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primary.withAlpha(10)
+                : theme.colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? theme.colorScheme.primary.withAlpha(120)
+                  : theme.colorScheme.outlineVariant,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Checkbox(
+                value: isSelected,
+                onChanged: (_) => _toggleWordSelection(wordId),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(wordText, style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    )),
+                    if (meaning.isNotEmpty)
+                      Text(meaning, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro', fontSize: 13,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      )),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _speak(wordText),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withAlpha(15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.volume_up_rounded, color: theme.colorScheme.primary, size: 20),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+        ),
+      );
+    }
 
     return GestureDetector(
       onTap: () {
@@ -365,8 +538,8 @@ class _RecentPageState extends State<RecentPage> {
       },
       onLongPress: () => _deleteWord(wordId, wordText),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
@@ -379,12 +552,12 @@ class _RecentPageState extends State<RecentPage> {
               width: 28,
               child: Text('${index + 1}', textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: FontWeight.w700,
+                  fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800,
                   color: theme.colorScheme.primary.withAlpha(150),
                 )),
             ),
             Container(
-              width: 1, height: 36,
+              width: 1, height: 48,
               color: theme.colorScheme.outlineVariant.withAlpha(80),
             ),
             const SizedBox(width: 12),
@@ -401,16 +574,15 @@ class _RecentPageState extends State<RecentPage> {
                     : _buildCardFront(
                         key: ValueKey('front-$wordId'),
                         wordText: wordText, wordType: wordType,
-                        mastery: mastery, isDifficult: isDifficult,
                         createdAt: createdAt, theme: theme,
                       ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             GestureDetector(
               onTap: () => _speak(wordText),
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withAlpha(15),
                   borderRadius: BorderRadius.circular(10),
@@ -418,21 +590,8 @@ class _RecentPageState extends State<RecentPage> {
                 child: Icon(
                   Icons.volume_up_rounded,
                   color: theme.colorScheme.primary,
-                  size: 20,
+                  size: 24,
                 ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withAlpha(isFlipped ? 25 : 10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.flip_rounded,
-                color: theme.colorScheme.primary.withAlpha(isFlipped ? 180 : 100),
-                size: 16,
               ),
             ),
           ],
@@ -445,8 +604,6 @@ class _RecentPageState extends State<RecentPage> {
     required Key key,
     required String wordText,
     required String wordType,
-    required int mastery,
-    required bool isDifficult,
     required DateTime? createdAt,
     required ThemeData theme,
   }) {
@@ -454,25 +611,12 @@ class _RecentPageState extends State<RecentPage> {
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(wordText, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface, letterSpacing: -0.1,
-                )),
-            ),
-            if (isDifficult)
-              const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: Icon(Icons.whatshot_rounded, size: 16, color: Colors.orange),
-              ),
-            const SizedBox(width: 6),
-            MasteryBadge(level: mastery),
-          ],
-        ),
-        const SizedBox(height: 6),
+        Text(wordText,
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800,
+            color: theme.colorScheme.onSurface, letterSpacing: -0.3,
+          )),
+        const SizedBox(height: 8),
         Row(
           children: [
             if (wordType.isNotEmpty) ...[
@@ -483,12 +627,12 @@ class _RecentPageState extends State<RecentPage> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.schedule_rounded, size: 12,
+                  Icon(Icons.schedule_rounded, size: 14,
                     color: theme.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 4),
                   Text(_formatRelative(createdAt),
                     style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro', fontSize: 11,
+                      fontFamily: 'Be Vietnam Pro', fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurfaceVariant,
                     )),
@@ -512,20 +656,20 @@ class _RecentPageState extends State<RecentPage> {
       children: [
         Text('Nghĩa:',
           style: TextStyle(
-            fontFamily: 'Be Vietnam Pro', fontSize: 11, fontWeight: FontWeight.w600,
+            fontFamily: 'Be Vietnam Pro', fontSize: 14, fontWeight: FontWeight.w700,
             color: theme.colorScheme.primary,
           )),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(meaning,
           style: TextStyle(
-            fontFamily: 'Be Vietnam Pro', fontSize: 14, fontWeight: FontWeight.w600,
+            fontFamily: 'Be Vietnam Pro', fontSize: 18, fontWeight: FontWeight.w700,
             color: theme.colorScheme.onSurface,
           )),
         if (pronunciation.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(pronunciation,
             style: TextStyle(
-              fontFamily: 'Be Vietnam Pro', fontSize: 12, fontStyle: FontStyle.italic,
+              fontFamily: 'Be Vietnam Pro', fontSize: 14, fontStyle: FontStyle.italic,
               color: theme.colorScheme.onSurfaceVariant.withAlpha(160),
             )),
         ],

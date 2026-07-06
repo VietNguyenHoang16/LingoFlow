@@ -4,7 +4,6 @@ import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
-import '../widgets/mastery_badge.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
 
@@ -367,8 +366,6 @@ class _CategoryPageState extends State<CategoryPage> {
     final wordText = word['word'] as String? ?? '';
     final meaning = word['meaning'] as String? ?? '';
     final pronunciation = word['pronunciation'] as String? ?? '';
-    final mastery = word['mastery_level'] as int? ?? 0;
-    final isDifficult = word['is_difficult'] as bool? ?? false;
     final wordId = word['id'] as int;
     final isFlipped = _flippedWords.contains(wordId);
 
@@ -383,8 +380,8 @@ class _CategoryPageState extends State<CategoryPage> {
       },
       onLongPress: () => _editWord(word),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
@@ -396,9 +393,9 @@ class _CategoryPageState extends State<CategoryPage> {
             SizedBox(
               width: 36,
               child: Text('${index + 1}', textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: FontWeight.w700, color: catColor.withAlpha(150))),
+                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800, color: catColor.withAlpha(150))),
             ),
-            Container(width: 1, height: 36, color: theme.colorScheme.outlineVariant.withAlpha(80)),
+            Container(width: 1, height: 48, color: theme.colorScheme.outlineVariant.withAlpha(80)),
             const SizedBox(width: 12),
             Expanded(
               child: AnimatedSwitcher(
@@ -408,30 +405,24 @@ class _CategoryPageState extends State<CategoryPage> {
                 child: isFlipped
                     ? _buildWordCardBack(
                         key: ValueKey('back-$wordId'),
-                        wordText: wordText,
                         meaning: meaning,
                         pronunciation: pronunciation,
-                        mastery: mastery,
-                        isDifficult: isDifficult,
-                        wordId: wordId,
                         catColor: catColor,
                         theme: theme,
                       )
                     : _buildWordCardFront(
                         key: ValueKey('front-$wordId'),
                         wordText: wordText,
-                        mastery: mastery,
-                        isDifficult: isDifficult,
                         catColor: catColor,
                         theme: theme,
                       ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             GestureDetector(
               onTap: () => _speak(wordText),
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: catColor.withAlpha(15),
                   borderRadius: BorderRadius.circular(10),
@@ -439,21 +430,8 @@ class _CategoryPageState extends State<CategoryPage> {
                 child: Icon(
                   Icons.volume_up_rounded,
                   color: catColor,
-                  size: 20,
+                  size: 24,
                 ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: catColor.withAlpha(isFlipped ? 25 : 10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.flip_rounded,
-                color: catColor.withAlpha(isFlipped ? 180 : 100),
-                size: 16,
               ),
             ),
           ],
@@ -465,42 +443,17 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget _buildWordCardFront({
     required Key key,
     required String wordText,
-    required int mastery,
-    required bool isDifficult,
     required Color catColor,
     required ThemeData theme,
   }) {
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(wordText, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface, letterSpacing: -0.1)),
-            ),
-            if (isDifficult)
-              const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: Icon(Icons.whatshot_rounded, size: 16, color: Colors.orange),
-              ),
-            const SizedBox(width: 6),
-            MasteryBadge(level: mastery),
-          ],
-        ),
-      ],
-    );
+    return Text(wordText,
+      style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.3));
   }
 
   Widget _buildWordCardBack({
     required Key key,
-    required String wordText,
     required String meaning,
     required String pronunciation,
-    required int mastery,
-    required bool isDifficult,
-    required int wordId,
     required Color catColor,
     required ThemeData theme,
   }) {
@@ -508,12 +461,12 @@ class _CategoryPageState extends State<CategoryPage> {
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Nghia:', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, fontWeight: FontWeight.w600, color: catColor)),
-        const SizedBox(height: 2),
-        Text(meaning, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+        Text('Nghia:', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontWeight: FontWeight.w700, color: catColor)),
+        const SizedBox(height: 4),
+        Text(meaning, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 18, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface)),
         if (pronunciation.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant.withAlpha(160))),
+          const SizedBox(height: 6),
+          Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant.withAlpha(160))),
         ],
       ],
     );

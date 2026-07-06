@@ -15,6 +15,7 @@ class PracticePage extends StatefulWidget {
   final int userId;
   final String? category;
   final bool studyMode;
+  final List<Map<String, dynamic>>? preloadedWords;
 
   const PracticePage({
     super.key,
@@ -23,6 +24,7 @@ class PracticePage extends StatefulWidget {
     required this.userId,
     this.studyMode = true,
     this.category,
+    this.preloadedWords,
   });
 
   @override
@@ -108,13 +110,18 @@ class _PracticePageState extends State<PracticePage> {
 
   Future<void> _loadWords() async {
     try {
-      final List<Map<String, dynamic>> wordsResult;
-      if (widget.category != null) {
-        wordsResult = await _db.getWordsByCategory(widget.userId, widget.category!);
+      List<Map<String, dynamic>> words;
+      if (widget.preloadedWords != null) {
+        words = List<Map<String, dynamic>>.from(widget.preloadedWords!);
       } else {
-        wordsResult = await _db.getVocabularyWords(widget.listId);
+        final List<Map<String, dynamic>> wordsResult;
+        if (widget.category != null) {
+          wordsResult = await _db.getWordsByCategory(widget.userId, widget.category!);
+        } else {
+          wordsResult = await _db.getVocabularyWords(widget.listId);
+        }
+        words = List<Map<String, dynamic>>.from(wordsResult);
       }
-      final words = List<Map<String, dynamic>>.from(wordsResult);
       words.shuffle(Random());
       setState(() {
         _words = words;

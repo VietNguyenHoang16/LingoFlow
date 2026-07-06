@@ -76,6 +76,30 @@ const Map<String, List<String>> kWordTypeAbbreviations = {
   'grammar': ['gram', 'grammar', 'struct', 'structure', 'pattern'],
 };
 
+/// Số POS (1-based) → word_type key, theo đúng thứ tự kWordTypeKeys.
+/// 1=noun, 2=verb, 3=adjective, 4=adverb, ... 12=grammar.
+const Map<int, String> kPosNumberToKey = {
+  1: 'noun',
+  2: 'verb',
+  3: 'adjective',
+  4: 'adverb',
+  5: 'preposition',
+  6: 'conjunction',
+  7: 'pronoun',
+  8: 'interjection',
+  9: 'phrasal_verb',
+  10: 'idiom',
+  11: 'collocation',
+  12: 'grammar',
+};
+
+/// Parse số POS từ string. Trả về word_type key nếu hợp lệ, null nếu không.
+String? parsePosNumber(String raw) {
+  final n = int.tryParse(raw.trim());
+  if (n == null) return null;
+  return kPosNumberToKey[n];
+}
+
 String normalizeWordTypeAbbrev(String raw) {
   final lower = raw.toLowerCase().replaceAll(RegExp(r'[\s\.]+'), ' ').trim();
   final compact = lower.replaceAll(' ', '');
