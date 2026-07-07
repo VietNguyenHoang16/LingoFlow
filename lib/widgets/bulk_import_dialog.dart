@@ -36,10 +36,10 @@ class BulkImportDialog extends StatefulWidget {
 }
 
 class _BulkImportDialogState extends State<BulkImportDialog> {
-  static const _example = '''apple/1/quả táo
-run/2/chạy
-brutal/3/tàn nhẫn
-accidentally/4/vô tình, tình cờ
+  static const _example = '''12 :: I'd like to + V-inf :: Tôi muốn làm gì
+12 :: Before/After + V-ing :: Trước/Sau khi làm gì
+11 :: Work under pressure :: Làm việc dưới áp lực
+1 :: apple :: quả táo
 # Dòng bắt đầu # là comment''';
 
   final _controller = TextEditingController();
@@ -217,7 +217,7 @@ accidentally/4/vô tình, tình cờ
     return ListView(
       children: [
         Text(
-          'Mỗi dòng: từ / số_POS / nghĩa. Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
+          'Mỗi dòng: số_POS :: từ :: nghĩa (hoặc dùng || làm ngăn cách, hoặc giữ nguyên từ / POS / nghĩa cũ). Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withAlpha(150),
             fontFamily: 'Be Vietnam Pro',

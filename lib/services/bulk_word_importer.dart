@@ -47,9 +47,33 @@ class BulkWordImporter {
 
   final DatabaseService _db = DatabaseService();
 
-  // Match `word/pos/meaning` với chỉ 2 dấu `/` phân cách đầu/cuối.
-  // Lý do anchor ^ và $: nghĩa tiếng Việt có thể chứa `/` (vd: "đây / đó").
-  static final RegExp _linePattern = RegExp(r'^([^/]+)/([^/]+)/(.*)$');
+  // Các format được hỗ trợ (thử theo thứ tự):
+  //   1. Ưu tiên: số_POS :: từ :: nghĩa       (dấu `::` chắc chắn không nhầm)
+  //   2. Dự phòng: số_POS || từ || nghĩa      (pipe kép)
+  //   3. Cũ: từ / số_POS / nghĩa              (backward compat)
+  static final RegExp _fmtNew = RegExp(r'^(\d{1,2})\s*::\s*(.*?)\s*::\s*(.*)$');
+  static final RegExp _fmtPipe = RegExp(r'^(\d{1,2})\s*\|\|\s*(.*?)\s*\|\|\s*(.*)$');
+  static final RegExp _fmtOld = RegExp(r'^(.*)\/(\d{1,2})\/(.*)$');
+
+  /// Thử lần lượt các format, trả về (word, pos, meaning) nếu match, null nếu không.
+  static ({String word, String pos, String meaning})? _parseFormat(String line) {
+    // Format 1: POS :: word :: meaning
+    var m = _fmtNew.firstMatch(line);
+    if (m != null) {
+      return (word: m.group(2)!, pos: m.group(1)!, meaning: m.group(3)!);
+    }
+    // Format 2: POS || word || meaning
+    m = _fmtPipe.firstMatch(line);
+    if (m != null) {
+      return (word: m.group(2)!, pos: m.group(1)!, meaning: m.group(3)!);
+    }
+    // Format cũ: word / POS / meaning
+    m = _fmtOld.firstMatch(line);
+    if (m != null) {
+      return (word: m.group(1)!, pos: m.group(2)!, meaning: m.group(3)!);
+    }
+    return null;
+  }
 
   /// Tách text thành các dòng, bỏ dòng trống + dòng comment (bắt đầu `#`).
   /// Validate format. KHÔNG gọi API.
@@ -64,7 +88,9 @@ class BulkWordImporter {
       if (trimmed.startsWith('#')) continue;
 
       lineNumber++;
-      final match = _linePattern.firstMatch(trimmed);
+
+      String word = '', posStr = '', meaning = '';
+      final match = _parseFormat(trimmed);
       if (match == null) {
         lines.add(ImportLine(
           lineNumber: lineNumber,
@@ -72,14 +98,13 @@ class BulkWordImporter {
           word: '',
           posNumber: '',
           meaning: '',
-          error: 'Sai định dạng. Cần: từ / số_POS / nghĩa',
+          error: 'Sai định dạng. Cần: số_POS :: từ :: nghĩa',
         ));
         continue;
       }
-
-      final word = match.group(1)!.trim();
-      final posStr = match.group(2)!.trim();
-      final meaning = match.group(3)!.trim();
+      word = match.word.trim();
+      posStr = match.pos.trim();
+      meaning = match.meaning.trim();
       final wordType = parsePosNumber(posStr);
 
       if (word.isEmpty) {
