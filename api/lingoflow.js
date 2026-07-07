@@ -246,7 +246,7 @@ async function handleAction(action, data) {
                  (SELECT COUNT(*) FROM vocabulary_words vw
                   WHERE vw.list_id = vl.id
                   AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-                  AND vw.word_type != 'grammar') AS due_count
+                  AND vw.word_type NOT IN ('grammar', 'collocation')) AS due_count
          FROM vocabulary_lists vl
          WHERE vl.user_id = $1
          ORDER BY vl.category, vl.created_at DESC`,
@@ -419,7 +419,7 @@ async function handleAction(action, data) {
                 next_review_date, last_reviewed_at, mastery_level, lapse_count, word_type
          FROM vocabulary_words
          WHERE list_id = $1 AND (next_review_date IS NULL OR next_review_date <= $2)
-               AND word_type != 'grammar'
+               AND word_type NOT IN ('grammar', 'collocation')
          ORDER BY COALESCE(next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.listId, new Date()],
       );
@@ -435,7 +435,7 @@ async function handleAction(action, data) {
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-               AND vw.word_type != 'grammar'
+               AND vw.word_type NOT IN ('grammar', 'collocation')
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.userId, new Date()],
       );
@@ -462,28 +462,28 @@ async function handleAction(action, data) {
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-               AND vw.word_type != 'grammar'`,
+               AND vw.word_type NOT IN ('grammar', 'collocation')`,
         [data.userId, new Date()],
       );
       const mastered = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.mastery_level = 3
-               AND vw.word_type != 'grammar'`,
+               AND vw.word_type NOT IN ('grammar', 'collocation')`,
         [data.userId],
       );
       const total = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
-               AND vw.word_type != 'grammar'`,
+               AND vw.word_type NOT IN ('grammar', 'collocation')`,
         [data.userId],
       );
       const reviewedToday = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.last_reviewed_at IS NOT NULL AND vw.last_reviewed_at >= CURRENT_DATE
-               AND vw.word_type != 'grammar'`,
+               AND vw.word_type NOT IN ('grammar', 'collocation')`,
         [data.userId],
       );
       const breakdownRows = await query(
@@ -491,7 +491,7 @@ async function handleAction(action, data) {
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
-               AND vw.word_type != 'grammar'
+               AND vw.word_type NOT IN ('grammar', 'collocation')
          GROUP BY vw.mastery_level ORDER BY vw.mastery_level`,
         [data.userId],
       );
