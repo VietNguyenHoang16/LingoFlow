@@ -393,8 +393,13 @@ class _ReviewPageState extends State<ReviewPage>
     final currentWord = _dueWords[_currentIndex];
     final progress = (_currentIndex + 1) / _dueWords.length;
 
-    return KeyboardListener(
-      focusNode: _pageFocusNode,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.digit0): _tapHint,
+        const SingleActivator(LogicalKeyboardKey.numpad0): _tapHint,
+      },
+      child: KeyboardListener(
+        focusNode: _pageFocusNode,
       onKeyEvent: (event) {
         if (event is KeyDownEvent) {
           final key = event.logicalKey;
@@ -533,6 +538,7 @@ class _ReviewPageState extends State<ReviewPage>
             ],
           ),
         ),
+      ),
       ),
     );
 }
@@ -767,7 +773,7 @@ class _ReviewPageState extends State<ReviewPage>
                     label: Text(
                       _hintLevel > 0
                           ? 'Hint ($_hintLevel/$maxHints)'
-                          : 'Hint',
+                          : 'Hint (0)',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: compact ? 14 : 16,
