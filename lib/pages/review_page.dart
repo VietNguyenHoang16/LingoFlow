@@ -9,6 +9,7 @@ import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
+import '../widgets/word_type_badge.dart';
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -555,6 +556,13 @@ class _ReviewPageState extends State<ReviewPage>
           const Icon(Icons.translate_rounded, color: Colors.white54, size: 28),
           const SizedBox(height: 10),
         ],
+        if ((currentWord['word_type'] ?? '').isNotEmpty) ...[
+          WordTypeBadge(
+            typeKey: currentWord['word_type'] as String,
+            showIcon: false,
+          ),
+          const SizedBox(height: 10),
+        ],
         Text(
           'What is the English word?',
           style: TextStyle(
@@ -659,6 +667,13 @@ class _ReviewPageState extends State<ReviewPage>
               fontStyle: FontStyle.italic,
               fontFamily: 'Be Vietnam Pro',
             ),
+          ),
+        ],
+        if ((currentWord['word_type'] ?? '').isNotEmpty) ...[
+          const SizedBox(height: 8),
+          WordTypeBadge(
+            typeKey: currentWord['word_type'] as String,
+            showIcon: false,
           ),
         ],
         SizedBox(height: compact ? 8 : 12),

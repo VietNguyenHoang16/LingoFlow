@@ -4,12 +4,14 @@ import 'word_type_utils.dart';
 class WordTypeBadge extends StatelessWidget {
   final String typeKey;
   final bool compact;
+  final bool showIcon;
   final double? fontSize;
 
   const WordTypeBadge({
     super.key,
     required this.typeKey,
     this.compact = false,
+    this.showIcon = true,
     this.fontSize,
   });
 
@@ -38,7 +40,7 @@ class WordTypeBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!compact) ...[
+          if (showIcon && !compact) ...[
             Icon(config['icon'] as IconData, size: 13, color: color),
             const SizedBox(width: 4),
           ],
