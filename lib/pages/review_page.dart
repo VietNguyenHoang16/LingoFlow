@@ -560,6 +560,7 @@ class _ReviewPageState extends State<ReviewPage>
           WordTypeBadge(
             typeKey: currentWord['word_type'] as String,
             showIcon: false,
+            onColoredSurface: true,
           ),
           const SizedBox(height: 10),
         ],
@@ -674,6 +675,7 @@ class _ReviewPageState extends State<ReviewPage>
           WordTypeBadge(
             typeKey: currentWord['word_type'] as String,
             showIcon: false,
+            onColoredSurface: true,
           ),
         ],
         SizedBox(height: compact ? 8 : 12),

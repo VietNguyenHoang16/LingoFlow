@@ -5,6 +5,7 @@ class WordTypeBadge extends StatelessWidget {
   final String typeKey;
   final bool compact;
   final bool showIcon;
+  final bool onColoredSurface;
   final double? fontSize;
 
   const WordTypeBadge({
@@ -12,6 +13,7 @@ class WordTypeBadge extends StatelessWidget {
     required this.typeKey,
     this.compact = false,
     this.showIcon = true,
+    this.onColoredSurface = false,
     this.fontSize,
   });
 
@@ -20,6 +22,7 @@ class WordTypeBadge extends StatelessWidget {
     if (typeKey.isEmpty || !kWordTypeLabel.containsKey(typeKey)) {
       return const SizedBox.shrink();
     }
+    final theme = Theme.of(context);
     final config = wordTypeConfig(typeKey, context);
     final color = config['color'] as Color;
     final label = compact
@@ -27,15 +30,22 @@ class WordTypeBadge extends StatelessWidget {
         : config['label'] as String;
     final size = fontSize ?? (compact ? 11.0 : 11.0);
 
+    final backgroundColor = onColoredSurface
+        ? theme.colorScheme.onPrimary.withAlpha(35)
+        : color.withAlpha(compact ? 30 : 25);
+    final borderColor = onColoredSurface
+        ? color.withAlpha(120)
+        : color.withAlpha(compact ? 80 : 50);
+
     final pill = Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 10,
         vertical: compact ? 3 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withAlpha(compact ? 30 : 25),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(compact ? 10 : 14),
-        border: Border.all(color: color.withAlpha(compact ? 80 : 50)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
