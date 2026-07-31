@@ -22,8 +22,11 @@ function normalizeDate(value) {
 
 const CATEGORIES = [
   'noun', 'verb', 'adjective', 'adverb', 'preposition',
-  'conjunction', 'pronoun', 'interjection', 'phrasal_verb',
-  'idiom', 'collocation', 'grammar',
+  'conjunction',
+];
+
+const REMOVED_WORD_TYPES = [
+  'collocation', 'grammar', 'phrasal_verb', 'idiom', 'interjection', 'pronoun',
 ];
 
 
@@ -570,6 +573,58 @@ async function handleAction(action, data) {
         meaning: rows[0].meaning || '',
         list_name: rows[0].list_name || '',
       };
+    }
+
+    // ---- Export / Delete removed word types ----
+    case 'exportWordsByTypes': {
+      const placeholders = REMOVED_WORD_TYPES.map((_, i) => `$${i + 2}`).join(', ');
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details,
+                vw.is_mastered, vw.is_difficult, vw.review_count, vw.correct_streak,
+                vw.ease_factor, vw.interval_days, vw.next_review_date, vw.last_reviewed_at,
+                vw.mastery_level, vw.lapse_count, vw.word_type, vw.created_at,
+                vl.name AS list_name, vl.id AS list_id, vl.category
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND vw.word_type ILIKE ANY(ARRAY[${placeholders}])
+         ORDER BY vw.created_at DESC`,
+        [data.userId, ...REMOVED_WORD_TYPES],
+      );
+      return rows.map((row) => ({
+        id: asInt(row.id),
+        word: row.word || '',
+        pronunciation: row.pronunciation || '',
+        meaning: row.meaning || '',
+        full_details: row.full_details || '',
+        is_mastered: Boolean(row.is_mastered),
+        is_difficult: Boolean(row.is_difficult),
+        review_count: asInt(row.review_count),
+        correct_streak: asInt(row.correct_streak),
+        ease_factor: Number(row.ease_factor ?? 2.5),
+        interval_days: asInt(row.interval_days),
+        next_review_date: normalizeDate(row.next_review_date),
+        last_reviewed_at: normalizeDate(row.last_reviewed_at),
+        mastery_level: asInt(row.mastery_level),
+        lapse_count: asInt(row.lapse_count),
+        word_type: row.word_type || '',
+        created_at: normalizeDate(row.created_at),
+        list_name: row.list_name || '',
+        list_id: asInt(row.list_id),
+        category: row.category || '',
+      }));
+    }
+
+    case 'deleteWordsByTypes': {
+      const placeholders = REMOVED_WORD_TYPES.map((_, i) => `$${i + 2}`).join(', ');
+      const result = await query(
+        `DELETE FROM vocabulary_words
+         WHERE list_id IN (
+           SELECT id FROM vocabulary_lists WHERE user_id = $1
+         ) AND word_type ILIKE ANY(ARRAY[${placeholders}])
+         RETURNING id`,
+        [data.userId, ...REMOVED_WORD_TYPES],
+      );
+      return { deletedCount: result.length };
     }
 
     default:

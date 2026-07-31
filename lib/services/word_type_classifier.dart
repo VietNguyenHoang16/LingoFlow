@@ -17,9 +17,6 @@ class WordTypeClassifier {
     'adverb': 'adverb',
     'preposition': 'preposition',
     'conjunction': 'conjunction',
-    'pronoun': 'pronoun',
-    'interjection': 'interjection',
-    'exclamation': 'interjection',
   };
 
   /// Classifies all words with empty `word_type` for the given user.

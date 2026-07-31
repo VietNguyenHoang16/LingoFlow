@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 // LingoFlowColors — ThemeExtension for app-specific colors
 // ============================================================
 
-// Word type color palette (11 parts of speech).
+// Word type color palette (6 parts of speech).
 // Light = mid-saturation 500-600, Dark = lighter 400 for legibility on dark bg.
 // Distinct from mastery colors and cardPalettes.
 const Map<String, Color> _wordTypeColorsLight = {
@@ -14,12 +14,6 @@ const Map<String, Color> _wordTypeColorsLight = {
   'adverb': Color(0xFF7C3AED),       // Violet 600
   'preposition': Color(0xFF64748B),  // Slate 500
   'conjunction': Color(0xFF475569),  // Slate 600
-  'pronoun': Color(0xFF0891B2),      // Cyan 600
-  'interjection': Color(0xFFDB2777), // Pink 600
-  'phrasal_verb': Color(0xFFEA580C), // Orange 600
-  'idiom': Color(0xFF9333EA),        // Purple 600
-  'collocation': Color(0xFF0D9488),  // Teal 600
-  'grammar': Color(0xFF1E40AF),      // Blue 800
 };
 
 const Map<String, Color> _wordTypeColorsDark = {
@@ -29,12 +23,6 @@ const Map<String, Color> _wordTypeColorsDark = {
   'adverb': Color(0xFF8B5CF6),       // Violet 500 (avoid cardPalettes dark Violet 400)
   'preposition': Color(0xFF94A3B8),  // Slate 400
   'conjunction': Color(0xFF64748B),  // Slate 500
-  'pronoun': Color(0xFF22D3EE),      // Cyan 400
-  'interjection': Color(0xFFF472B6), // Pink 400
-  'phrasal_verb': Color(0xFFFB923C), // Orange 400
-  'idiom': Color(0xFFC084FC),        // Purple 400
-  'collocation': Color(0xFF2DD4BF),  // Teal 400
-  'grammar': Color(0xFF60A5FA),      // Blue 400
 };
 
 class LingoFlowColors extends ThemeExtension<LingoFlowColors> {

@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
+import '../services/download_service.dart';
 import '../services/tts_settings_service.dart';
 import 'login_page.dart';
 
@@ -16,11 +21,14 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   final AuthService _auth = AuthService();
+  final DatabaseService _db = DatabaseService();
 
   TtsVoiceOption? _selectedVoice;
   double _speechRate = 0.85;
   String _phone = '';
   bool _isLoading = true;
+  bool _isExporting = false;
+  bool _isDeleting = false;
   FlutterTts? _previewTts;
 
   @override
@@ -86,6 +94,77 @@ class _ProfilePageState extends State<ProfilePage> {
           duration: const Duration(seconds: 1),
         ),
       );
+    }
+  }
+
+  Future<void> _exportRemovedTypes() async {
+    setState(() => _isExporting = true);
+    try {
+      final words = await _db.exportWordsByTypes(widget.userId);
+      final jsonStr = jsonEncode(words);
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+      await DownloadService.downloadJson(
+        filename: 'vocab_export_$timestamp.json',
+        jsonContent: jsonStr,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(kIsWeb
+              ? 'Đã tải xuống ${words.length} từ!'
+              : 'Đã sao chép ${words.length} từ vào clipboard. Hãy lưu thành file JSON!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi export: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _deleteRemovedTypes() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa từ loại đã loại bỏ?'),
+        content: Text(
+          'Hành động này sẽ xóa vĩnh viễn tất cả từ thuộc các loại: '
+          'collocation, grammar, phrasal_verb, idiom, interjection, pronoun.\n\n'
+          'Hãy chắc chắn đã export dữ liệu trước khi thực hiện!',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      final deletedCount = await _db.deleteWordsByTypes(widget.userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã xóa $deletedCount từ!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
     }
   }
 
@@ -455,6 +534,71 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 28),
+
+                // Export / Delete removed word types
+                _buildCard(
+                  theme: theme,
+                  isDark: isDark,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle('Chuyển dữ liệu', Icons.cloud_download_rounded, theme),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Export rồi xóa các loại từ: collocation, grammar, phrasal_verb, idiom, interjection, pronoun',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _isExporting ? null : _exportRemovedTypes,
+                        icon: _isExporting
+                            ? SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                  color: theme.colorScheme.onPrimary,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(Icons.file_download_rounded, size: 18),
+                        label: Text(
+                          _isExporting ? 'Đang export...' : 'Export dữ liệu',
+                          style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w700),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _isDeleting ? null : _deleteRemovedTypes,
+                        icon: _isDeleting
+                            ? SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.red,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(Icons.delete_sweep_rounded, size: 18),
+                        label: Text(
+                          _isDeleting ? 'Đang xóa...' : 'Xóa khỏi database',
+                          style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: BorderSide(color: Colors.red.withAlpha(120)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Logout
                 SizedBox(

@@ -303,6 +303,17 @@ class DatabaseService {
     return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
+  // ---- Export / Delete removed word types ----
+  Future<List<Map<String, dynamic>>> exportWordsByTypes(int userId) async {
+    final rows = await _request<List<dynamic>>('exportWordsByTypes', data: {'userId': userId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
+  Future<int> deleteWordsByTypes(int userId) async {
+    final result = await _request<Map<String, dynamic>>('deleteWordsByTypes', data: {'userId': userId});
+    return _asInt(result['deletedCount']);
+  }
+
   Future<void> close() async {
     _isInitialized = false;
   }
