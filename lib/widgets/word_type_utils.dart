@@ -8,6 +8,12 @@ const List<String> kWordTypeKeys = [
   'adverb',
   'preposition',
   'conjunction',
+  'pronoun',
+  'interjection',
+  'phrasal_verb',
+  'idiom',
+  'collocation',
+  'grammar',
 ];
 
 const Map<String, String> kWordTypeLabel = {
@@ -17,6 +23,12 @@ const Map<String, String> kWordTypeLabel = {
   'adverb': 'Adverbs',
   'preposition': 'Prepositions',
   'conjunction': 'Conjunctions',
+  'pronoun': 'Pronouns',
+  'interjection': 'Interjections',
+  'phrasal_verb': 'Phrasal Verbs',
+  'idiom': 'Idioms',
+  'collocation': 'Collocations',
+  'grammar': 'Grammar',
 };
 
 const Map<String, String> kWordTypeShortLabel = {
@@ -26,6 +38,12 @@ const Map<String, String> kWordTypeShortLabel = {
   'adverb': 'Adv',
   'preposition': 'Prep',
   'conjunction': 'Conj',
+  'pronoun': 'Pron',
+  'interjection': 'Interj',
+  'phrasal_verb': 'PhrV',
+  'idiom': 'Idiom',
+  'collocation': 'Coll',
+  'grammar': 'Gram',
 };
 
 const Map<String, IconData> kWordTypeIcons = {
@@ -35,6 +53,12 @@ const Map<String, IconData> kWordTypeIcons = {
   'adverb': Icons.bolt_rounded,
   'preposition': Icons.link_rounded,
   'conjunction': Icons.join_right_rounded,
+  'pronoun': Icons.person_rounded,
+  'interjection': Icons.campaign_rounded,
+  'phrasal_verb': Icons.alt_route_rounded,
+  'idiom': Icons.format_quote_rounded,
+  'collocation': Icons.style_rounded,
+  'grammar': Icons.schema_rounded,
 };
 
 const Map<String, List<String>> kWordTypeAbbreviations = {
@@ -44,10 +68,17 @@ const Map<String, List<String>> kWordTypeAbbreviations = {
   'adverb': ['adv', 'adv.', 'adverb'],
   'preposition': ['prep', 'preposition'],
   'conjunction': ['conj', 'con', 'conjunction'],
+  'pronoun': ['pron', 'pronoun'],
+  'interjection': ['interj', 'int', 'interjection', 'exclamation'],
+  'phrasal_verb': ['phrv', 'phrasal', 'phrasal_verb', 'phrasal verb'],
+  'idiom': ['idiom'],
+  'collocation': ['coll', 'collocation'],
+  'grammar': ['gram', 'grammar', 'struct', 'structure', 'pattern'],
 };
 
 /// Số POS (1-based) -> word_type key, theo dung thu tu kWordTypeKeys.
-/// 1=noun, 2=verb, 3=adjective, 4=adverb, 5=preposition, 6=conjunction.
+/// 1=noun, 2=verb, 3=adjective, 4=adverb, 5=preposition, 6=conjunction,
+/// 7=pronoun, 8=interjection, 9=phrasal_verb, 10=idiom, 11=collocation, 12=grammar.
 const Map<int, String> kPosNumberToKey = {
   1: 'noun',
   2: 'verb',
@@ -55,6 +86,12 @@ const Map<int, String> kPosNumberToKey = {
   4: 'adverb',
   5: 'preposition',
   6: 'conjunction',
+  7: 'pronoun',
+  8: 'interjection',
+  9: 'phrasal_verb',
+  10: 'idiom',
+  11: 'collocation',
+  12: 'grammar',
 };
 
 /// Parse số POS từ string. Trả về word_type key nếu hợp lệ, null nếu không.
