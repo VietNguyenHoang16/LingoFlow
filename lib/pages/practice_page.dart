@@ -346,6 +346,12 @@ class _PracticePageState extends State<PracticePage> {
     }
   }
 
+  void _handleKeyNext() {
+    if (_showResult && !_isCompleted) {
+      _nextQuestion();
+    }
+  }
+
   void _tapHint() {
     if (_showResult ||
         _words.isEmpty ||
@@ -413,7 +419,14 @@ class _PracticePageState extends State<PracticePage> {
 
     if (_isCompleted) {
       final percentage = _totalAnswered > 0 ? (_score * 100 / _totalAnswered).round() : 0;
-      return ConfettiOverlay(
+      return CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.enter): _restart,
+          const SingleActivator(LogicalKeyboardKey.numpadEnter): _restart,
+        },
+        child: Focus(
+          autofocus: true,
+          child: ConfettiOverlay(
         play: _showConfetti,
         child: Scaffold(
         backgroundColor: theme.colorScheme.surface,
@@ -547,6 +560,8 @@ class _PracticePageState extends State<PracticePage> {
           ),
         ),
       ),
+      ),
+      ),
     );
     }
 
@@ -561,6 +576,8 @@ class _PracticePageState extends State<PracticePage> {
         const SingleActivator(LogicalKeyboardKey.digit2): () => _handleKeyOption(1),
         const SingleActivator(LogicalKeyboardKey.digit3): () => _handleKeyOption(2),
         const SingleActivator(LogicalKeyboardKey.digit4): () => _handleKeyOption(3),
+        const SingleActivator(LogicalKeyboardKey.enter): _handleKeyNext,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): _handleKeyNext,
       },
       child: Focus(
         autofocus: true,
