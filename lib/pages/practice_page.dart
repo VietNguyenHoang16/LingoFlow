@@ -347,8 +347,11 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   void _handleKeyNext() {
-    if (_showResult && !_isCompleted) {
+    if (_isCompleted) return;
+    if (_showResult) {
       _nextQuestion();
+    } else if (_practiceMode == 1) {
+      _checkSpell();
     }
   }
 
