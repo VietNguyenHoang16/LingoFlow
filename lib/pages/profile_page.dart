@@ -52,8 +52,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _selectedVoice = voice);
 
     final previewTts = FlutterTts();
-    await _ttsSettings.applyTo(previewTts);
-    await previewTts.speak('This is a voice preview');
+    await _ttsSettings.speakWith('This is a voice preview', previewTts);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

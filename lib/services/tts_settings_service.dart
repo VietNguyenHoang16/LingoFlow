@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'google_voice_service.dart';
 
 class TtsVoiceOption {
   final String id;
@@ -19,14 +20,27 @@ class TtsVoiceOption {
 }
 
 class TtsSettingsService {
+  TtsSettingsService({GoogleVoiceService? googleVoiceService})
+      : _googleVoiceService = googleVoiceService ?? GoogleVoiceService();
+
+  final GoogleVoiceService _googleVoiceService;
   static const String _voiceIdKey = 'tts_voice_id';
   static const String _voiceNameKey = 'tts_voice_real_name';
   static const String _voiceLocaleKey = 'tts_voice_real_locale';
   static const String _speechRateKey = 'tts_speech_rate';
-  static const String _defaultVoiceId = 'en-US-female';
+  static const String _defaultVoiceId = 'google-translate';
   static const double _defaultSpeechRate = 0.85;
 
+  static const TtsVoiceOption googleVoice = TtsVoiceOption(
+    id: 'google-translate',
+    code: 'en',
+    name: 'Google Translate Voice',
+    gender: 'Female',
+    pitch: 1.0,
+  );
+
   static const List<TtsVoiceOption> voices = [
+    googleVoice,
     TtsVoiceOption(id: 'en-US-female', code: 'en-US', name: 'English US Female', gender: 'Female', pitch: 1.0),
     TtsVoiceOption(id: 'en-GB-female', code: 'en-GB', name: 'English UK Female', gender: 'Female', pitch: 1.0),
     TtsVoiceOption(id: 'en-AU-female', code: 'en-AU', name: 'English Australia Female', gender: 'Female', pitch: 1.0),
@@ -119,6 +133,19 @@ class TtsSettingsService {
   Future<void> saveSelectedVoice(String voiceId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_voiceIdKey, voiceId);
+  }
+
+  Future<bool> isGoogleVoiceSelected() async {
+    return (await getSelectedVoice()).id == googleVoice.id;
+  }
+
+  Future<void> speakWith(String text, FlutterTts fallbackTts) async {
+    if (await isGoogleVoiceSelected()) {
+      final ok = await _googleVoiceService.speak(text);
+      if (ok) return;
+    }
+    await applyTo(fallbackTts);
+    await fallbackTts.speak(text);
   }
 
   Future<double> getSpeechRate() async {
@@ -229,7 +256,13 @@ class TtsSettingsService {
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
-                      subtitle: Text(realVoice != null ? realVoice['name']! : voice.gender),
+                      subtitle: Text(
+                        realVoice != null
+                            ? realVoice['name']!
+                            : voice.id == googleVoice.id
+                                ? 'Google Translate'
+                                : voice.gender,
+                      ),
                       selected: isSelected,
                       onTap: () async {
                         await saveSelectedVoice(voice.id);

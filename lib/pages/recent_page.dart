@@ -56,8 +56,7 @@ class _RecentPageState extends State<RecentPage> {
   Future<void> _speak(String text) async {
     try {
       await _flutterTts.stop();
-      await _ttsSettings.applyTo(_flutterTts);
-      await _flutterTts.speak(text);
+      await _ttsSettings.speakWith(text, _flutterTts);
     } catch (e) {
       debugPrint('TTS Error: $e');
     }

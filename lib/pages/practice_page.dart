@@ -73,8 +73,7 @@ class _PracticePageState extends State<PracticePage> {
   Future<void> _speak(String text) async {
     try {
       await _flutterTts.stop();
-      await _ttsSettings.applyTo(_flutterTts);
-      await _flutterTts.speak(text);
+      await _ttsSettings.speakWith(text, _flutterTts);
     } catch (e) {
       debugPrint('Practice TTS error: $e');
     }
