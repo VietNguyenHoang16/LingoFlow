@@ -72,7 +72,7 @@ void main() {
     expect(fallback.spoken, isEmpty);
   });
 
-  test('falls back to system voice when google voice fails', () async {
+  test('does not fall back to system voice when google voice fails', () async {
     SharedPreferences.setMockInitialValues({
       'tts_voice_id': 'google-translate',
     });
@@ -83,7 +83,7 @@ void main() {
     await settings.speakWith('hello', fallback);
 
     expect(google.calls, 1);
-    expect(fallback.spoken, ['hello']);
+    expect(fallback.spoken, isEmpty);
   });
 
   test('uses system voice when a system voice is selected', () async {

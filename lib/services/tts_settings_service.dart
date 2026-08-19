@@ -139,13 +139,13 @@ class TtsSettingsService {
     return (await getSelectedVoice()).id == googleVoice.id;
   }
 
-  Future<void> speakWith(String text, FlutterTts fallbackTts) async {
+  Future<bool> speakWith(String text, FlutterTts fallbackTts) async {
     if (await isGoogleVoiceSelected()) {
-      final ok = await _googleVoiceService.speak(text);
-      if (ok) return;
+      return _googleVoiceService.speak(text);
     }
     await applyTo(fallbackTts);
     await fallbackTts.speak(text);
+    return true;
   }
 
   Future<double> getSpeechRate() async {
@@ -181,26 +181,28 @@ class TtsSettingsService {
     await flutterTts.setPitch(voice.pitch);
     await flutterTts.setVolume(1.0);
 
-    await _getSystemVoices();
-    final realVoice = findRealVoice(voice.code, voice.gender);
+    if (voice.id != googleVoice.id) {
+      await _getSystemVoices();
+      final realVoice = findRealVoice(voice.code, voice.gender);
 
-    if (realVoice != null) {
-      await flutterTts.setVoice({
-        'name': realVoice['name']!,
-        'locale': realVoice['locale']!,
-      });
-    } else if (_cachedVoices != null && _cachedVoices!.isNotEmpty) {
-      var englishVoice = _cachedVoices!.firstWhere(
-        (v) {
-          final vLocale = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-');
-          return vLocale.startsWith('en');
-        },
-        orElse: () => _cachedVoices!.first,
-      );
-      await flutterTts.setVoice({
-        'name': englishVoice['name']!,
-        'locale': englishVoice['locale']!,
-      });
+      if (realVoice != null) {
+        await flutterTts.setVoice({
+          'name': realVoice['name']!,
+          'locale': realVoice['locale']!,
+        });
+      } else if (_cachedVoices != null && _cachedVoices!.isNotEmpty) {
+        var englishVoice = _cachedVoices!.firstWhere(
+          (v) {
+            final vLocale = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-');
+            return vLocale.startsWith('en');
+          },
+          orElse: () => _cachedVoices!.first,
+        );
+        await flutterTts.setVoice({
+          'name': englishVoice['name']!,
+          'locale': englishVoice['locale']!,
+        });
+      }
     }
 
     await flutterTts.setSpeechRate(speechRate);

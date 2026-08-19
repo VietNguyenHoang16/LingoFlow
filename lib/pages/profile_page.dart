@@ -73,8 +73,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _onSpeedChangeEnd(double rate) async {
     await _ttsSettings.saveSpeechRate(rate);
     if (_previewTts != null) {
-      await _ttsSettings.applyTo(_previewTts!);
-      await _previewTts!.speak('Speed test');
+      await _ttsSettings.speakWith('Speed test', _previewTts!);
     }
     _previewTts = null;
     if (mounted) {
