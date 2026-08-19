@@ -58,6 +58,14 @@ void main() {
     expect(voice.id, 'google-translate');
   });
 
+  test('builds audio URLs through the production TTS proxy', () {
+    final uri = GoogleVoiceService.buildAudioUri('hello & world');
+
+    expect(uri.path, '/api/tts');
+    expect(uri.queryParameters['q'], 'hello & world');
+    expect(uri.queryParameters['tl'], 'en');
+  });
+
   test('speaks via google voice when selected and google succeeds', () async {
     SharedPreferences.setMockInitialValues({
       'tts_voice_id': 'google-translate',

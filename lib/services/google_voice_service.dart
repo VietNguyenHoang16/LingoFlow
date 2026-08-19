@@ -7,6 +7,14 @@ class GoogleVoiceService {
   DateTime _lastPlayedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const Duration _minGap = Duration(milliseconds: 150);
+  static const String _proxyBaseUrl = 'https://vocab-virid.vercel.app/api/tts';
+
+  static Uri buildAudioUri(String text) {
+    return Uri.parse(_proxyBaseUrl).replace(queryParameters: {
+      'tl': 'en',
+      'q': text,
+    });
+  }
 
   Future<bool> speak(String text) async {
     try {
@@ -14,13 +22,7 @@ class GoogleVoiceService {
       if (gap < _minGap) {
         await Future.delayed(_minGap - gap);
       }
-      final uri = Uri.parse('https://translate.google.com/translate_tts')
-          .replace(queryParameters: {
-        'ie': 'UTF-8',
-        'client': 'tw-ob',
-        'tl': 'en',
-        'q': text,
-      });
+      final uri = buildAudioUri(text);
       final player = _player ??= AudioPlayer();
       await player.stop();
       await player.play(UrlSource(uri.toString()));
