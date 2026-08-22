@@ -24,4 +24,16 @@ void main() {
       expect(result?['pronunciation'], isNull);
     });
   });
+
+  group('stripSlashes', () {
+    test('bo dau / o dau va cuoi', () {
+      expect(DictionaryService.stripSlashes('/kənˈfɛti/'), 'kənˈfɛti');
+    });
+    test('giu nguyen ipa khong co slash', () {
+      expect(DictionaryService.stripSlashes('kənˈfɛti'), 'kənˈfɛti');
+    });
+    test('chuoi rong van rong', () {
+      expect(DictionaryService.stripSlashes(''), '');
+    });
+  });
 }

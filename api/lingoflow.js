@@ -150,6 +150,13 @@ async function ensureSchema() {
         WHERE is_mastered = TRUE AND (mastery_level IS NULL OR mastery_level = 0)
       `);
 
+      // Strip duplicate wrapping slashes from IPA (dictionaryapi.dev returns "/ipa/")
+      await query(`
+        UPDATE vocabulary_words
+        SET pronunciation = btrim(pronunciation, '/')
+        WHERE pronunciation LIKE '/%'
+      `);
+
       await addColumnIfNotExists('vocabulary_lists', 'word_count', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_lists', 'progress', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_lists', 'last_practiced', 'TIMESTAMP');

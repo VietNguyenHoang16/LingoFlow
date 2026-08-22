@@ -25,10 +25,14 @@ class DictionaryService {
     return null;
   }
 
+  @visibleForTesting
+  static String stripSlashes(String ipa) =>
+      ipa.replaceAll(RegExp(r'^/+|/+$'), '');
+
   /// Lay chi phien am IPA cua [word]. Tra ve '' neu khong tim thay.
   Future<String> fetchPronunciation(String word) async {
     final info = await getWordInfo(word);
-    return (info?['pronunciation'] as String?) ?? '';
+    return stripSlashes((info?['pronunciation'] as String?) ?? '');
   }
 
   @visibleForTesting
