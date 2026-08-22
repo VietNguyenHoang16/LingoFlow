@@ -25,6 +25,15 @@ class DictionaryService {
     return null;
   }
 
+  /// Lay chi phien am IPA cua [word]. Tra ve '' neu khong tim thay.
+  Future<String> fetchPronunciation(String word) async {
+    final info = await getWordInfo(word);
+    return (info?['pronunciation'] as String?) ?? '';
+  }
+
+  @visibleForTesting
+  Map<String, dynamic>? parseWordData(dynamic entry) => _parseWordData(entry);
+
   Map<String, dynamic>? _parseWordData(dynamic entry) {
     try {
       final phonetics = entry['phonetics'] as List?;
@@ -33,7 +42,9 @@ class DictionaryService {
       
       if (phonetics != null) {
         for (var p in phonetics) {
-          if (p['text'] != null && p['text'].toString().isNotEmpty) {
+          if (pronunciation == null &&
+              p['text'] != null &&
+              p['text'].toString().isNotEmpty) {
             pronunciation = p['text'];
           }
           if (p['audio'] != null && p['audio'].toString().isNotEmpty) {
