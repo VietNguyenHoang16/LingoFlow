@@ -9,22 +9,15 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install latest postgres-client
-        run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -sSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
-            | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
       - name: Dump database
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          pg_dump --version
-          pg_dump "$DATABASE_URL" --no-owner --no-privileges -Fc -f backup.dump
+          docker run --rm \
+            -e DATABASE_URL \
+            -v "$PWD:/io" \
+            postgres:17 \
+            sh -c 'pg_dump --version && pg_dump "$DATABASE_URL" --no-owner --no-privileges -Fc -f /io/backup.dump'
           ls -lh backup.dump
 
       - name: Push to private backup repo
