@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:vocab/widgets/word_type_badge.dart';
+import 'package:lingoflow/widgets/word_type_badge.dart';
 
 void main() {
   testWidgets('WordTypeBadge shows full English label and icon by default',

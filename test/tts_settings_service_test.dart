@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vocab/services/google_voice_service.dart';
-import 'package:vocab/services/tts_settings_service.dart';
+import 'package:lingoflow/services/google_voice_service.dart';
+import 'package:lingoflow/services/tts_settings_service.dart';
 
 class _FakeGoogleVoice extends GoogleVoiceService {
   _FakeGoogleVoice({this.succeeds = true});

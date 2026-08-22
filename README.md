@@ -1,4 +1,4 @@
-# vocab
+# LingoFlow
 
 A new Flutter project.
 

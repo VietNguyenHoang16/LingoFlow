@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "vocab" "\0"
+            VALUE "FileDescription", "LingoFlow" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "vocab" "\0"
+            VALUE "InternalName", "lingoflow" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "vocab.exe" "\0"
-            VALUE "ProductName", "vocab" "\0"
+            VALUE "OriginalFilename", "lingoflow.exe" "\0"
+            VALUE "ProductName", "LingoFlow" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
