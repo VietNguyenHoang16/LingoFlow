@@ -957,6 +957,17 @@ class _PracticePageState extends State<PracticePage> {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                                         ),
+                                        if ((currentWord['pronunciation'] ?? '').isNotEmpty)
+                                          Text(
+                                            '/${currentWord['pronunciation']}/',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                              color: theme.colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),

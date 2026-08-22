@@ -1705,6 +1705,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         key: ValueKey('front-$id'),
                         id: id,
                         word: word,
+                        pronunciation: pronunciation,
                         wordType: wordType,
                         isMasteredOrHigh: isMasteredOrHigh,
                         isDifficult: isDifficult,
@@ -1758,6 +1759,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required Key key,
     required int id,
     required String word,
+    required String pronunciation,
     required String wordType,
     required bool isMasteredOrHigh,
     required bool isDifficult,
@@ -1825,7 +1827,22 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        if (pronunciation.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            '/$pronunciation/',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 5),
+        ] else
+          const SizedBox(height: 8),
         Row(
           children: [
             Container(

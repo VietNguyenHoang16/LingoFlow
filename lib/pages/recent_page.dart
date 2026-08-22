@@ -573,6 +573,7 @@ class _RecentPageState extends State<RecentPage> {
                     : _buildCardFront(
                         key: ValueKey('front-$wordId'),
                         wordText: wordText, wordType: wordType,
+                        pronunciation: pronunciation,
                         createdAt: createdAt, theme: theme,
                       ),
               ),
@@ -603,6 +604,7 @@ class _RecentPageState extends State<RecentPage> {
     required Key key,
     required String wordText,
     required String wordType,
+    required String pronunciation,
     required DateTime? createdAt,
     required ThemeData theme,
   }) {
@@ -615,6 +617,15 @@ class _RecentPageState extends State<RecentPage> {
             fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800,
             color: theme.colorScheme.onSurface, letterSpacing: -0.3,
           )),
+        if (pronunciation.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text('/$pronunciation/',
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro', fontSize: 13, fontStyle: FontStyle.italic,
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+        ],
         const SizedBox(height: 8),
         Row(
           children: [

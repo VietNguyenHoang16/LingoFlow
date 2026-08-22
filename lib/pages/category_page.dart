@@ -412,6 +412,7 @@ class _CategoryPageState extends State<CategoryPage> {
                     : _buildWordCardFront(
                         key: ValueKey('front-$wordId'),
                         wordText: wordText,
+                        pronunciation: pronunciation,
                         catColor: catColor,
                         theme: theme,
                       ),
@@ -442,11 +443,23 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget _buildWordCardFront({
     required Key key,
     required String wordText,
+    required String pronunciation,
     required Color catColor,
     required ThemeData theme,
   }) {
-    return Text(wordText,
-      style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.3));
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(wordText, maxLines: 2, overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.3)),
+        if (pronunciation.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text('/$pronunciation/', maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      ],
+    );
   }
 
   Widget _buildWordCardBack({
