@@ -1,0 +1,31 @@
+name: DB backup
+
+on:
+  schedule:
+    - cron: '30 18 * * *' # 01:30 sáng giờ Việt Nam (UTC+7)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges -Fc -f backup.dump
+          ls -lh backup.dump
+
+      - name: Push to private backup repo
+        env:
+          TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+        run: |
+          git config --global user.name "backup-bot"
+          git config --global user.email "backup-bot@users.noreply.github.com"
+          git clone "https://x-access-token:${TOKEN}@github.com/VietNguyenHoang16/lingoflow-backups.git" tmp
+          mkdir -p tmp/backups
+          cp backup.dump "tmp/backups/$(date -u +%Y-%m-%d).dump"
+          cd tmp
+          git add .
+          git commit -m "backup $(date -u +%F)" || echo "Khong co thay doi moi"
+          git push
