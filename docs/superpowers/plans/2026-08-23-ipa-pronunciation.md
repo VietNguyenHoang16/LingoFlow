@@ -1,6 +1,6 @@
 # Auto-fill Phiên âm IPA Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Mọi card từ vựng hiển thị `/ˈleɪ.bər/` — tự điền IPA khi thêm/import từ + nút backfill trong Profile.
 
@@ -26,7 +26,7 @@
 **Interfaces:**
 - Produces: `Future<String> fetchPronunciation(String word)` — trả `''` nếu không tìm thấy; `@visibleForTesting Map<String, dynamic>? parseWordData(dynamic entry)`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```dart
 // test/dictionary_service_test.dart
@@ -59,9 +59,9 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails** — `flutter test test/dictionary_service_test.dart` → FAIL (`parseWordData` chưa tồn tại)
+- [x] **Step 2: Run test to verify it fails** — `flutter test test/dictionary_service_test.dart` → FAIL (`parseWordData` chưa tồn tại)
 
-- [ ] **Step 3: Write minimal implementation** — expose `parseWordData`; vòng lặp phonetics chỉ set lần đầu:
+- [x] **Step 3: Write minimal implementation** — expose `parseWordData`; vòng lặp phonetics chỉ set lần đầu:
 
 ```dart
 if (pronunciation == null &&
@@ -81,9 +81,9 @@ Future<String> fetchPronunciation(String word) async {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes** — `flutter test test/dictionary_service_test.dart` → PASS
+- [x] **Step 4: Run test to verify it passes** — `flutter test test/dictionary_service_test.dart` → PASS
 
-- [ ] **Step 5: Commit** — `feat(dictionary): pick first IPA phonetic, add fetchPronunciation helper`
+- [x] **Step 5: Commit** — `feat(dictionary): pick first IPA phonetic, add fetchPronunciation helper`
 
 ### Task 2: API — 2 actions mới
 
@@ -94,7 +94,7 @@ Future<String> fetchPronunciation(String word) async {
 **Interfaces:**
 - Produces: `getWordsMissingPronunciation(int userId) → List<Map>` (id, word); `updateWordPronunciation({required int wordId, required String pronunciation}) → void`
 
-- [ ] **Step 1: Thêm JS cases**
+- [x] **Step 1: Thêm JS cases**
 
 ```js
 case 'getWordsMissingPronunciation': {
@@ -115,7 +115,7 @@ case 'updateWordPronunciation':
   return null;
 ```
 
-- [ ] **Step 2: Thêm Dart methods** (pattern y hệt các method hiện có)
+- [x] **Step 2: Thêm Dart methods** (pattern y hệt các method hiện có)
 
 ```dart
 Future<List<Map<String, dynamic>>> getWordsMissingPronunciation(int userId) async {
@@ -129,7 +129,7 @@ Future<void> updateWordPronunciation({required int wordId, required String pronu
 }
 ```
 
-- [ ] **Step 3: Verify + commit** — `flutter analyze` sạch; commit `feat(api): list/update word pronunciation backfill endpoints`
+- [x] **Step 3: Verify + commit** — `flutter analyze` sạch; commit `feat(api): list/update word pronunciation backfill endpoints`
 
 ### Task 3: PronunciationService (fetch + backfill)
 
@@ -140,7 +140,7 @@ Future<void> updateWordPronunciation({required int wordId, required String pronu
 - Consumes: `DictionaryService.fetchPronunciation`, `DatabaseService.getWordsMissingPronunciation`, `DatabaseService.updateWordPronunciation`
 - Produces: `PronunciationService().backfillUser(int userId, {void Function(int,int)? onProgress, bool Function()? isCancelled}) → Future<BackfillResult>`; `BackfillResult{updated, notFound}`
 
-- [ ] **Step 1: Viết service** (không unit-test — phụ thuộc network/singleton DB; verify bằng Task 6)
+- [x] **Step 1: Viết service** (không unit-test — phụ thuộc network/singleton DB; verify bằng Task 6)
 
 ```dart
 import 'package:flutter/foundation.dart';
@@ -192,7 +192,7 @@ class PronunciationService {
 }
 ```
 
-- [ ] **Step 2:** `flutter analyze` sạch → commit `feat(pronunciation): add backfill service`
+- [x] **Step 2:** `flutter analyze` sạch → commit `feat(pronunciation): add backfill service`
 
 ### Task 4: Hai luồng import tự fetch IPA
 
@@ -200,7 +200,7 @@ class PronunciationService {
 - Modify: `lib/services/bulk_word_importer.dart` (~dòng 233-242)
 - Modify: `lib/pages/vocabulary_set_page.dart` (~dòng 494-508)
 
-- [ ] **Step 1: bulk_word_importer** — thêm field `final DictionaryService _dict = DictionaryService();` + import; trong vòng insert:
+- [x] **Step 1: bulk_word_importer** — thêm field `final DictionaryService _dict = DictionaryService();` + import; trong vòng insert:
 
 ```dart
 final l = valid[i];
@@ -217,7 +217,7 @@ try {
 
 (fetch fail → vẫn insert với `''`)
 
-- [ ] **Step 2: vocabulary_set_page** import-loop — trước `addVocabularyWord`:
+- [x] **Step 2: vocabulary_set_page** import-loop — trước `addVocabularyWord`:
 
 ```dart
 String pronunciation = '';
@@ -230,7 +230,7 @@ await _db.addVocabularyWord(
 );
 ```
 
-- [ ] **Step 3:** `flutter analyze` → commit `feat(import): auto-fetch IPA on both import flows`
+- [x] **Step 3:** `flutter analyze` → commit `feat(import): auto-fetch IPA on both import flows`
 
 ### Task 5: Nút backfill trong Profile
 
@@ -239,13 +239,13 @@ await _db.addVocabularyWord(
 
 *Lệch so với thiết kế: progress bar inline trong card thay vì dialog — ít code hơn, cùng UX.*
 
-- [ ] **Step 1: State vars** trong `_ProfilePageState`: `bool _isBackfilling = false; int _bfDone = 0; int _bfTotal = 0;`
-- [ ] **Step 2: Method `_runPronunciationBackfill`** — gọi `backfillUser` với onProgress cập nhật state; snackbar tổng kết `'Cap nhat X tu, khong tim thay Y tu'`; finally reset `_isBackfilling`.
-- [ ] **Step 3: Card "Du lieu"** — chèn sau voice card; `_buildSectionTitle('Du lieu', ...)`, subtitle `'Tu dong dien phien am IPA cho tu con thieu'`, `FilledButton.icon` disabled khi loading, label `'Cap nhat phien am'`; khi loading hiện LinearProgressIndicator + `Text('$_bfDone/$_bfTotal')`.
-- [ ] **Step 4:** `flutter analyze` → commit `feat(profile): pronunciation backfill button with progress`
+- [x] **Step 1: State vars** trong `_ProfilePageState`: `bool _isBackfilling = false; int _bfDone = 0; int _bfTotal = 0;`
+- [x] **Step 2: Method `_runPronunciationBackfill`** — gọi `backfillUser` với onProgress cập nhật state; snackbar tổng kết `'Cap nhat X tu, khong tim thay Y tu'`; finally reset `_isBackfilling`.
+- [x] **Step 3: Card "Du lieu"** — chèn sau voice card; `_buildSectionTitle('Du lieu', ...)`, subtitle `'Tu dong dien phien am IPA cho tu con thieu'`, `FilledButton.icon` disabled khi loading, label `'Cap nhat phien am'`; khi loading hiện LinearProgressIndicator + `Text('$_bfDone/$_bfTotal')`.
+- [x] **Step 4:** `flutter analyze` → commit `feat(profile): pronunciation backfill button with progress`
 
 ### Task 6: Verify toàn bộ
 
-- [ ] `flutter analyze` — 0 error mới
-- [ ] `flutter test` — tất cả pass
-- [ ] Deploy web (Vercel auto) → smoke test: import từ mới → card hiện IPA; nút Profile backfill từ cũ; review/practice card cũng hiện
+- [x] `flutter analyze` — 0 error mới
+- [x] `flutter test` — tất cả pass
+- [ ] Deploy web (Vercel auto) → smoke test: import từ mới → card hiện IPA; nút Profile backfill từ cũ; review/practice card cũng hiện *(chờ push/deploy)*
