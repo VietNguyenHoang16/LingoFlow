@@ -23,10 +23,10 @@
 - Modify: `README.md:1`
 - Modify: `test/tts_settings_service_test.dart`, `test/widget_test.dart`, `test/word_type_badge_test.dart`
 
-- [ ] Change `name: vocab` to `name: lingoflow` and update only `package:vocab/...` imports to `package:lingoflow/...`.
-- [ ] Change the README heading to `# LingoFlow`.
-- [ ] Run `flutter pub get`.
-- [ ] Run `flutter test` and confirm the package imports compile.
+- [x] Change `name: vocab` to `name: lingoflow` and update only `package:vocab/...` imports to `package:lingoflow/...`.
+- [x] Change the README heading to `# LingoFlow`.
+- [x] Run `flutter pub get`.
+- [x] Run targeted Flutter tests and confirm the package imports compile.
 
 ### Task 2: Rename platform product/display names without changing identity
 
@@ -38,10 +38,10 @@
 - Modify: `windows/CMakeLists.txt`, `windows/runner/Runner.rc`, `windows/runner/main.cpp`
 - Modify: `linux/CMakeLists.txt`, `linux/runner/my_application.cc`
 
-- [ ] Set user-facing display/window/product names to `LingoFlow`.
-- [ ] Set lowercase executable/product names to `lingoflow` where the platform build system requires a machine name.
-- [ ] Preserve all `com.example.vocab` IDs and external URLs.
-- [ ] Run `flutter analyze` after the edits.
+- [x] Set user-facing display/window/product names to `LingoFlow`.
+- [x] Set lowercase executable names to `lingoflow` where the platform build system requires a machine name.
+- [x] Preserve all `com.example.vocab` IDs and external URLs.
+- [x] Run `flutter analyze` after the edits.
 
 ### Task 3: Rename local module file and project directory
 
@@ -49,16 +49,16 @@
 - Rename: `vocab.iml` to `lingoflow.iml` if present.
 - Rename directory: `C:\Users\ASUS\Desktop\Ung dung\vocab` to `C:\Users\ASUS\Desktop\Ung dung\lingoflow`.
 
-- [ ] Confirm no process is using the project directory.
-- [ ] Move the exact directory only after Tasks 1-2 pass.
-- [ ] From the parent directory, confirm `lingoflow` exists and `vocab` does not.
+- [x] Confirmed Flutter checks had finished before moving the directory.
+- [x] Moved the exact directory after Tasks 1-2 passed.
+- [x] From the parent directory, confirmed `lingoflow` exists and `vocab` does not.
 
 ### Task 4: Final compatibility verification
 
 **Files:**
 - Verify only; no additional source edits unless a direct rename reference is found.
 
-- [ ] Search tracked source/config for old project-name references and classify each remaining one as an intentional stable ID, URL, data/schema name, or unrelated vocabulary term.
-- [ ] Run `flutter test` and `flutter analyze` from the renamed directory.
-- [ ] Run `flutter build windows --debug` if Windows desktop support is available.
-- [ ] Review `git diff` and `git status` to confirm unrelated user changes were preserved.
+- [x] Searched source/config for old project-name references and classified remaining matches as intentional stable IDs, URLs, data/schema names, or unrelated vocabulary terms.
+- [x] Ran `flutter test` and `flutter analyze` from the renamed directory; existing widget-test/analyzer issues remain documented in the handoff.
+- [x] Attempted `flutter build windows --debug`; the machine lacks the required Visual Studio toolchain.
+- [x] Reviewed `git diff` and `git status`; unrelated user changes were preserved.
