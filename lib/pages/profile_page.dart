@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/auth_service.dart';
+import '../services/pronunciation_service.dart';
 import '../services/tts_settings_service.dart';
 import 'login_page.dart';
 
@@ -23,6 +24,10 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
   FlutterTts? _previewTts;
 
+  bool _isBackfilling = false;
+  int _bfDone = 0;
+  int _bfTotal = 0;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +44,35 @@ class _ProfilePageState extends State<ProfilePage> {
       _phone = session?['phone'] ?? '';
       _isLoading = false;
     });
+  }
+
+  Future<void> _runPronunciationBackfill() async {
+    setState(() => _isBackfilling = true);
+    try {
+      final res = await PronunciationService().backfillUser(
+        widget.userId,
+        onProgress: (done, total) {
+          if (mounted) {
+            setState(() {
+              _bfDone = done;
+              _bfTotal = total;
+            });
+          }
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text('Cap nhat ${res.updated} tu, khong tim thay ${res.notFound} tu')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Loi: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isBackfilling = false);
+    }
   }
 
   Future<void> _onVoiceChanged(TtsVoiceOption voice) async {
@@ -449,6 +483,74 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Pronunciation data card
+                _buildCard(
+                  theme: theme,
+                  isDark: isDark,
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle('Du lieu',
+                          Icons.graphic_eq_rounded, theme),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tu dong dien phien am IPA cho tu con thieu',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          color:
+                              theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _isBackfilling
+                              ? null
+                              : _runPronunciationBackfill,
+                          icon: _isBackfilling
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.auto_fix_high_rounded,
+                                  size: 18),
+                          label: Text(
+                            _isBackfilling
+                                ? 'Dang cap nhat...'
+                                : 'Cap nhat phien am',
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_isBackfilling && _bfTotal > 0) ...[
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(
+                          value: _bfDone / _bfTotal,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '$_bfDone/$_bfTotal',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontSize: 12,
+                            color:
+                                theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
