@@ -198,6 +198,16 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getWordsMissingPronunciation(int userId) async {
+    final rows = await _request<List<dynamic>>('getWordsMissingPronunciation', data: {'userId': userId});
+    return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  Future<void> updateWordPronunciation({required int wordId, required String pronunciation}) async {
+    await _request<void>('updateWordPronunciation',
+        data: {'wordId': wordId, 'pronunciation': pronunciation});
+  }
+
   Future<void> updateWordMastered(int wordId, bool isMastered) async {
     await _request<void>('updateWordMastered', data: {'wordId': wordId, 'isMastered': isMastered});
   }

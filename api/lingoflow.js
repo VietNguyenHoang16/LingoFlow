@@ -372,6 +372,23 @@ async function handleAction(action, data) {
       return rows.map(mapWordRow);
     }
 
+    case 'getWordsMissingPronunciation': {
+      const rows = await query(
+        `SELECT vw.id, vw.word
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND (vw.pronunciation IS NULL OR vw.pronunciation = '')
+         ORDER BY vw.created_at ASC`,
+        [data.userId],
+      );
+      return rows;
+    }
+
+    case 'updateWordPronunciation':
+      await query('UPDATE vocabulary_words SET pronunciation = $1 WHERE id = $2',
+        [data.pronunciation || '', data.wordId]);
+      return null;
+
     case 'updateWordDifficult':
       await query('UPDATE vocabulary_words SET is_difficult = $1 WHERE id = $2', [data.isDifficult, data.wordId]);
       return null;
