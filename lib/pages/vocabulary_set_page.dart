@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
+import '../services/dictionary_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
@@ -498,10 +499,15 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           );
           if (alreadyExists) continue;
 
+          String pronunciation = '';
+          try {
+            pronunciation =
+                await DictionaryService().fetchPronunciation(word);
+          } catch (_) {}
           await _db.addVocabularyWord(
             widget.listId,
             word,
-            '',
+            pronunciation,
             meaning,
             fullDetails: fullDetails,
             wordType: wordType,

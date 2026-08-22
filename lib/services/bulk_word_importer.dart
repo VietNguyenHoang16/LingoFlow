@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'database_service.dart';
+import 'dictionary_service.dart';
 import '../widgets/word_type_utils.dart';
 
 /// Một dòng sau khi parse từ text. Lưu cả dữ liệu thô và kết quả validate.
@@ -46,6 +47,7 @@ class BulkWordImporter {
   BulkWordImporter._internal();
 
   final DatabaseService _db = DatabaseService();
+  final DictionaryService _dict = DictionaryService();
 
   // Các format được hỗ trợ (thử theo thứ tự):
   //   1. Ưu tiên: số_POS :: từ :: nghĩa       (dấu `::` chắc chắn không nhầm)
@@ -231,12 +233,16 @@ class BulkWordImporter {
         );
       }
       final l = valid[i];
+      String pronunciation = '';
+      try {
+        pronunciation = await _dict.fetchPronunciation(l.word);
+      } catch (_) {}
       try {
         await _db.addWordToCategory(
           userId,
           l.wordType!,
           l.word,
-          '', // pronunciation
+          pronunciation, // fetch tu dictionaryapi.dev, '' neu loi
           l.meaning,
           wordType: l.wordType,
         );
