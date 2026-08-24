@@ -1,5 +1,4 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/dictionary_service.dart';
 import '../services/srs_service.dart';
@@ -34,7 +33,6 @@ class VocabularyListPage extends StatefulWidget {
 
 class _VocabularyListPageState extends State<VocabularyListPage> {
   final DatabaseService _db = DatabaseService();
-  final FlutterTts _flutterTts = FlutterTts();
   final SrsService _srs = SrsService();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   bool _isImporting = false;
@@ -267,10 +265,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     if (confirm == true) {
       final countToDelete = _selectedWords.length;
       try {
-        for (int wordId in _selectedWords) {
-          await _db.deleteVocabularyWord(wordId);
-        }
-        await _loadWords();
+        await _db.bulkDeleteWords(_selectedWords.toList());
+        await _loadWords(persistProgress: true);
         setState(() {
           _selectedWords.clear();
           _isSelectionMode = false;
@@ -307,36 +303,26 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   void initState() {
     super.initState();
     _loadWords();
-    _initTts();
-  }
-
-  Future<void> _initTts() async {
-    await _ttsSettings.applyTo(_flutterTts);
   }
 
   Future<void> _speak(String text) async {
     try {
-      await _flutterTts.stop();
-      await _ttsSettings.speakWith(text, _flutterTts);
+      await _ttsSettings.speakWith(text);
     } catch (e) {
       debugPrint('TTS Error: $e');
     }
   }
 
-  @override
-  void dispose() {
-    _flutterTts.stop();
-    super.dispose();
-  }
-
-  Future<void> _loadWords() async {
+  Future<void> _loadWords({bool persistProgress = false}) async {
     try {
       final words = await _db.getVocabularyWords(widget.listId);
       final total = words.length;
       final mastered = words.where((w) => (w['mastery_level'] ?? 0) >= 3).length;
       final progress = total > 0 ? ((mastered / total) * 100).round() : 0;
       final now = DateTime.now();
+      // Dung giong logic server: bo qua tu 'grammar', null = den han.
       final localDueCount = words.where((w) {
+        if ((w['word_type'] ?? '').toString() == 'grammar') return false;
         final dynamic rawDate = w['next_review_date'];
         if (rawDate == null) return true;
         final dueDate = rawDate is DateTime ? rawDate : DateTime.tryParse(rawDate.toString());
@@ -373,8 +359,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         _isLoading = false;
       });
 
-      _refreshDueCount();
-      await _db.updateListProgress(widget.listId, progress, total);
+      if (persistProgress) {
+        await _db.updateListProgress(widget.listId, progress, total);
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -382,16 +369,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           SnackBar(content: Text('Error: $e')),
         );
       }
-    }
-  }
-
-  Future<void> _refreshDueCount() async {
-    try {
-      final dueWords = await _db.getWordsDueForReview(widget.listId);
-      if (!mounted) return;
-      setState(() => _dueCount = dueWords.length);
-    } catch (e) {
-      debugPrint('Due count refresh failed: $e');
     }
   }
 
@@ -453,8 +430,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             .toList();
         if (lines.isEmpty) return;
 
-        final orderedLines = lines.reversed.toList();
-        for (String rawLine in orderedLines) {
+        // Parse toan bo dong truoc (khong goi mang)
+        final parsed = <Map<String, dynamic>>[];
+        for (String rawLine in lines) {
           String line = rawLine.trim();
           if (line.isEmpty) continue;
           int colonIdx = line.indexOf(':');
@@ -467,6 +445,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             word = line;
             remainder = '';
           }
+          if (word.isEmpty) continue;
 
           String meaning = '';
           String fullDetails = '';
@@ -491,33 +470,45 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               meaning = cleanedRemainder;
             }
           }
-
-          final existingWords = await _db.searchWord(widget.userId, word);
-          final alreadyExists = existingWords.any(
-            (w) => (w['word']?.toString().toLowerCase() ?? '') ==
-                word.toLowerCase(),
-          );
-          if (alreadyExists) continue;
-
-          String pronunciation = '';
-          try {
-            pronunciation =
-                await DictionaryService().fetchPronunciation(word);
-          } catch (_) {}
-          await _db.addVocabularyWord(
-            widget.listId,
-            word,
-            pronunciation,
-            meaning,
-            fullDetails: fullDetails,
-            wordType: wordType,
-          );
+          parsed.add({
+            'word': word,
+            'meaning': meaning,
+            'fullDetails': fullDetails,
+            'wordType': wordType,
+          });
         }
 
-        await _loadWords();
+        // Kiem tra trung 1 request duy nhat
+        final existing = await _db.filterExistingWords(
+          widget.userId,
+          parsed.map((p) => p['word'] as String).toList(),
+        );
+        final newWords = parsed
+            .where((p) => !existing.contains((p['word'] as String).toLowerCase()))
+            .toList();
+
+        // Lay phat am song song (gioi han 6 luc mot)
+        for (int i = 0; i < newWords.length; i += 6) {
+          final batch = newWords.sublist(
+              i, (i + 6).clamp(0, newWords.length));
+          await Future.wait(batch.map((w) async {
+            try {
+              w['pronunciation'] =
+                  await DictionaryService().fetchPronunciation(w['word'] as String);
+            } catch (_) {
+              w['pronunciation'] = '';
+            }
+          }));
+        }
+
+        // Chen 1 lan (server tu loai tu trung con xot)
+        final insertedCount =
+            await _db.bulkAddVocabularyWords(widget.listId, newWords.reversed.toList());
+
+        await _loadWords(persistProgress: true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Da them ${lines.length} tu!')),
+            SnackBar(content: Text('Da them $insertedCount tu!')),
           );
         }
       } catch (e) {
@@ -550,7 +541,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     if (confirm == true) {
       try {
         await _db.deleteVocabularyWord(wordId);
-        await _loadWords();
+        await _loadWords(persistProgress: true);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -720,7 +711,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         fullDetails: detailsController.text,
         wordType: joinedTypes,
       );
-      await _loadWords();
+      await _loadWords(persistProgress: true);
       if (wasFlipped && mounted) setState(() => _flippedWords.add(wordId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1071,9 +1062,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             )
-          else
+          else ...[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   // Due review banner
@@ -1101,7 +1092,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                                 ),
                               ),
                             );
-                            if (result == true) await _loadWords();
+                            if (result == true) await _loadWords(persistProgress: true);
                           },
                         ),
                       ),
@@ -1123,7 +1114,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                                 ),
                               ),
                             );
-                            if (result == true) await _loadWords();
+                            if (result == true) await _loadWords(persistProgress: true);
                           },
                         ),
                       ),
@@ -1207,34 +1198,40 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   const SizedBox(height: 14),
 
                   // Words
-                  if (displayWords.isEmpty)
-                    _buildEmptyWords(theme)
-                  else
-                    ...List.generate(displayWords.length, (index) {
-                      final word = displayWords[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildWordCard(
-                          id: word['id'],
-                          word: word['word'],
-                          pronunciation: word['pronunciation'] ?? '',
-                          meaning: word['meaning'],
-                          fullDetails: word['full_details'] ?? '',
-                          wordType: word['word_type'] ?? '',
-                          isMastered: word['is_mastered'] ?? false,
-                          isDifficult: word['is_difficult'] ?? false,
-                          masteryLevel: word['mastery_level'] ?? 0,
-                          nextReviewDate: word['next_review_date'],
-                          intervalDays: word['interval_days'] ?? 0,
-                          correctStreak: word['correct_streak'] ?? 0,
-                          lapseCount: word['lapse_count'] ?? 0,
-                          isDark: isDark,
-                        ),
-                      );
-                    }),
+                  if (displayWords.isEmpty) _buildEmptyWords(theme),
                 ]),
               ),
             ),
+            if (displayWords.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                sliver: SliverList.builder(
+                  itemCount: displayWords.length,
+                  itemBuilder: (context, index) {
+                    final word = displayWords[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _buildWordCard(
+                        id: word['id'],
+                        word: word['word'],
+                        pronunciation: word['pronunciation'] ?? '',
+                        meaning: word['meaning'],
+                        fullDetails: word['full_details'] ?? '',
+                        wordType: word['word_type'] ?? '',
+                        isMastered: word['is_mastered'] ?? false,
+                        isDifficult: word['is_difficult'] ?? false,
+                        masteryLevel: word['mastery_level'] ?? 0,
+                        nextReviewDate: word['next_review_date'],
+                        intervalDays: word['interval_days'] ?? 0,
+                        correctStreak: word['correct_streak'] ?? 0,
+                        lapseCount: word['lapse_count'] ?? 0,
+                        isDark: isDark,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
         ],
       ),
       floatingActionButton: _isSelectionMode && _selectedWords.isNotEmpty
@@ -1393,7 +1390,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             ),
           ),
         );
-        if (result == true) await _loadWords();
+        if (result == true) await _loadWords(persistProgress: true);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1410,7 +1407,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         ),
         child: Row(
           children: [
-            const Text('ðŸ“š', style: TextStyle(fontSize: 22)),
+            const Text('📚', style: TextStyle(fontSize: 22)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1549,7 +1546,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       child: Center(
         child: Column(
           children: [
-            Text('ðŸ“–', style: const TextStyle(fontSize: 52)),
+            Text('📖', style: const TextStyle(fontSize: 52)),
             const SizedBox(height: 16),
             Text(
               subject.isNotEmpty
@@ -1709,6 +1706,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         wordType: wordType,
                         isMasteredOrHigh: isMasteredOrHigh,
                         isDifficult: isDifficult,
+                        masteryLevel: masteryLevel,
                         masteryColor: masteryColor,
                         lapseCount: lapseCount,
                         theme: theme,
@@ -1763,6 +1761,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String wordType,
     required bool isMasteredOrHigh,
     required bool isDifficult,
+    required int masteryLevel,
     required Color masteryColor,
     required int lapseCount,
     required ThemeData theme,
@@ -1852,7 +1851,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                SrsService.masteryName(0),
+                SrsService.masteryName(masteryLevel),
                 style: TextStyle(
                   fontFamily: 'Be Vietnam Pro',
                   fontSize: 10,

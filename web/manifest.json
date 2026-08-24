@@ -1,13 +1,18 @@
 {
     "name": "LingoFlow",
     "short_name": "LingoFlow",
+    "id": "/",
+    "scope": ".",
     "start_url": ".",
     "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone"],
     "background_color": "#faf4ff",
     "theme_color": "#4a40e0",
     "description": "LingoFlow vocabulary learning app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["education", "productivity"],
+    "launch_handler": {"client_mode": "navigate-existing"},
     "icons": [
         {
             "src": "icons/Icon-192.png",

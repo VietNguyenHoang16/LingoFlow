@@ -81,12 +81,12 @@ class _LoginPageState extends State<LoginPage>
           }
         }
       } else {
-        final success = await db.loginUser(formattedPhone);
-        if (success) {
+        final result = await db.loginUser(formattedPhone);
+        if (result != null) {
           if (mounted) {
-            final userId = await db.getUserId(formattedPhone);
-            if (userId == null) throw Exception('User session error.');
-            await AuthService().saveSession(formattedPhone, userId);
+            final userId = result['userId'] as int;
+            final token = result['token'] as String;
+            await AuthService().saveSession(formattedPhone, userId, token: token);
             if (!mounted) return;
             Navigator.pushReplacement(
               context,

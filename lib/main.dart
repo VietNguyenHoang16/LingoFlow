@@ -21,13 +21,13 @@ void main() async {
     }),
   );
   // Background classify existing words once per app launch.
-  // Triggered after a short delay so login/session restore can finish first.
+  // Delayed long enough that the first screens finish their network loads first.
   scheduleMicrotask(_backgroundClassify);
   runApp(const MyApp());
 }
 
 void _backgroundClassify() {
-  Future.delayed(const Duration(seconds: 4), () async {
+  Future.delayed(const Duration(seconds: 20), () async {
     try {
       final session = await AuthService().getSession();
       if (session == null) return;

@@ -29,20 +29,8 @@ class WordTypeClassifier {
     required int userId,
     void Function(int done, int total)? onProgress,
   }) async {
-    final lists = await _db.getAllLists(userId);
-    if (lists.isEmpty) return 0;
-
-    final untagged = <Map<String, dynamic>>[];
-    for (final list in lists) {
-      final listId = list['id'] as int;
-      final words = await _db.getVocabularyWords(listId);
-      for (final w in words) {
-        final wt = (w['word_type'] as String? ?? '').trim();
-        if (wt.isEmpty) {
-          untagged.add(w);
-        }
-      }
-    }
+    // Mot query duy nhat thay vi getAllLists + getVocabularyWords tung list.
+    final untagged = await _db.getUntaggedWords(userId);
     if (untagged.isEmpty) return 0;
 
     int classified = 0;

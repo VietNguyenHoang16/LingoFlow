@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
@@ -53,7 +52,6 @@ class _PracticePageState extends State<PracticePage> {
 
   final TextEditingController _spellController = TextEditingController();
   final FocusNode _spellFocusNode = FocusNode();
-  final FlutterTts _flutterTts = FlutterTts();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _practiceMode = 0;
   int _hintLevel = 0;
@@ -62,18 +60,12 @@ class _PracticePageState extends State<PracticePage> {
   @override
   void initState() {
     super.initState();
-    _initTts();
     _loadWords();
-  }
-
-  Future<void> _initTts() async {
-    await _ttsSettings.applyTo(_flutterTts);
   }
 
   Future<void> _speak(String text) async {
     try {
-      await _flutterTts.stop();
-      await _ttsSettings.speakWith(text, _flutterTts);
+      await _ttsSettings.speakWith(text);
     } catch (e) {
       debugPrint('Practice TTS error: $e');
     }
@@ -91,20 +83,17 @@ class _PracticePageState extends State<PracticePage> {
       _currentOptions = [];
       return;
     }
-    final currentWord = _words[_currentIndex]['word'];
-    final options = <String>{currentWord};
-
-    final int targetLength = min(4, _words.length);
-    while (options.length < targetLength) {
-      final random = _words[Random().nextInt(_words.length)];
-      if (random['word'] != currentWord) {
-        options.add(random['word']);
-      }
-    }
-
-    final list = options.toList();
-    list.shuffle(Random());
-    _currentOptions = list;
+    final currentWord = (_words[_currentIndex]['word'] ?? '').toString();
+    // Shuffle thay vi rejection sampling - luon ket thuc, khong the bi treo.
+    final candidates = _words
+        .map((w) => (w['word'] ?? '').toString())
+        .where((w) => w != currentWord)
+        .toSet()
+        .toList()
+      ..shuffle(Random());
+    final options = [currentWord, ...candidates.take(3)];
+    options.shuffle(Random());
+    _currentOptions = options;
   }
 
   Future<void> _loadWords() async {
@@ -204,6 +193,14 @@ class _PracticePageState extends State<PracticePage> {
     if (_pendingReviewUpdates.isEmpty) return;
     final pending = List<Future<void>>.from(_pendingReviewUpdates);
     await Future.wait(pending);
+  }
+
+  /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh.
+  Future<void> _popWithFlush([bool result = false]) async {
+    try {
+      await _flushPendingUpdates();
+    } catch (_) {}
+    if (mounted) Navigator.pop(context, result);
   }
 
   Future<void> _checkAnswer(String answer) async {
@@ -388,7 +385,6 @@ class _PracticePageState extends State<PracticePage> {
   void dispose() {
     _spellController.dispose();
     _spellFocusNode.dispose();
-    _flutterTts.stop();
     super.dispose();
   }
 
@@ -411,7 +407,7 @@ class _PracticePageState extends State<PracticePage> {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => _popWithFlush(),
           ),
           title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
@@ -437,7 +433,7 @@ class _PracticePageState extends State<PracticePage> {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => _popWithFlush(true),
           ),
           title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         ),
@@ -591,7 +587,7 @@ class _PracticePageState extends State<PracticePage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => _popWithFlush(true),
         ),
         title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         actions: [

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,7 +75,7 @@ void main() {
     final fallback = _FakeTts();
     final settings = TtsSettingsService(googleVoiceService: google);
 
-    await settings.speakWith('hello', fallback);
+    await settings.speakWith('hello');
 
     expect(google.calls, 1);
     expect(fallback.spoken, isEmpty);
@@ -88,7 +89,7 @@ void main() {
     final fallback = _FakeTts();
     final settings = TtsSettingsService(googleVoiceService: google);
 
-    await settings.speakWith('hello', fallback);
+    await settings.speakWith('hello');
 
     expect(google.calls, 1);
     expect(fallback.spoken, isEmpty);
@@ -96,13 +97,47 @@ void main() {
 
   test('uses system voice when a system voice is selected', () async {
     SharedPreferences.setMockInitialValues({'tts_voice_id': 'en-US-female'});
+    TtsEngine.testReset();
+    addTearDown(TtsEngine.testReset);
     final google = _FakeGoogleVoice();
     final fallback = _FakeTts();
+    TtsEngine.ttsFactory = () => fallback;
+    addTearDown(() => TtsEngine.ttsFactory = null);
     final settings = TtsSettingsService(googleVoiceService: google);
 
-    await settings.speakWith('hello', fallback);
+    await settings.speakWith('hello');
 
     expect(google.calls, 0);
     expect(fallback.spoken, ['hello']);
   });
+
+  test('reuses the shared engine without re-applying settings', () async {
+    SharedPreferences.setMockInitialValues({'tts_voice_id': 'en-US-female'});
+    TtsEngine.testReset();
+    addTearDown(TtsEngine.testReset);
+    int applies = 0;
+    final fake = _CountingTts(onApply: () => applies++);
+    TtsEngine.ttsFactory = () => fake;
+    addTearDown(() => TtsEngine.ttsFactory = null);
+    final settings = TtsSettingsService(googleVoiceService: _FakeGoogleVoice());
+
+    await settings.speakWith('one');
+    await settings.speakWith('two');
+    await settings.speakWith('three');
+
+    expect(applies, 1);
+    expect(fake.spoken, ['one', 'two', 'three']);
+  });
+}
+
+class _CountingTts extends _FakeTts {
+  _CountingTts({required this.onApply});
+
+  final VoidCallback onApply;
+
+  @override
+  Future<dynamic> setLanguage(String language) async {
+    onApply();
+    return 1;
+  }
 }

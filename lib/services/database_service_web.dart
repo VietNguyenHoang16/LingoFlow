@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'auth_service.dart';
+
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
@@ -30,12 +32,16 @@ class DatabaseService {
     String action, {
     Map<String, dynamic> data = const {},
   }) async {
+    final token = await AuthService().getToken();
     late http.Response response;
     try {
       response = await http
           .post(
             Uri.parse(_endpoint),
-            headers: const {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
             body: jsonEncode({'action': action, 'data': data}),
           )
           .timeout(const Duration(seconds: 15));
@@ -49,6 +55,11 @@ class DatabaseService {
         throw Exception('Khong co ket noi mang. Kiem tra WiFi / mobile data va thu lai.');
       }
       rethrow;
+    }
+
+    if (response.statusCode == 401) {
+      await AuthService().clearSession();
+      throw Exception('Phien dang nhap het han. Vui long dang nhap lai.');
     }
 
     Map<String, dynamic> payload;
@@ -99,17 +110,10 @@ class DatabaseService {
     return _request<bool>('registerUser', data: {'phoneNumber': phoneNumber});
   }
 
-  Future<int?> getUserId(String phoneNumber) async {
-    final value = await _request<dynamic>('getUserId', data: {'phoneNumber': phoneNumber});
-    return value == null ? null : _asInt(value);
-  }
-
-  Future<bool> loginUser(String phoneNumber) async {
-    return _request<bool>('loginUser', data: {'phoneNumber': phoneNumber});
-  }
-
-  Future<bool> userExists(int userId) async {
-    return _request<bool>('userExists', data: {'userId': userId});
+  Future<Map<String, dynamic>?> loginUser(String phoneNumber) async {
+    final value = await _request<dynamic>('loginUser', data: {'phoneNumber': phoneNumber});
+    if (value == null) return null;
+    return Map<String, dynamic>.from(value as Map);
   }
 
   // ---- Lists ----
@@ -137,9 +141,17 @@ class DatabaseService {
   }
 
   // ---- Categories ----
-  Future<Map<String, dynamic>> getCategoryStats(int userId) async {
-    final stats = await _request<Map<String, dynamic>>('getCategoryStats', data: {'userId': userId});
-    return Map<String, dynamic>.from(stats);
+  /// Gop category stats + review stats trong 1 request.
+  Future<({Map<String, dynamic> categoryStats, Map<String, dynamic> reviewStats})>
+      getDashboardStats(int userId) async {
+    final result = await _request<Map<String, dynamic>>(
+      'getDashboardStats',
+      data: {'userId': userId},
+    );
+    return (
+      categoryStats: Map<String, dynamic>.from(result['categoryStats'] as Map),
+      reviewStats: Map<String, dynamic>.from(result['reviewStats'] as Map),
+    );
   }
 
   // ---- Words ----
@@ -183,6 +195,45 @@ class DatabaseService {
     return _asInt(id);
   }
 
+  /// Kiem tra nhieu tu cung luc - tra ve cac tu da ton tai (lowercase).
+  Future<Set<String>> filterExistingWords(int userId, List<String> words) async {
+    if (words.isEmpty) return {};
+    final rows = await _request<List<dynamic>>(
+      'filterExistingWords',
+      data: {'userId': userId, 'words': words},
+    );
+    return rows.map((w) => w.toString()).toSet();
+  }
+
+  /// Them hang loat vao mot list. Tra ve so tu chen thanh cong.
+  Future<int> bulkAddVocabularyWords(int listId, List<Map<String, dynamic>> words) async {
+    final result = await _request<Map<String, dynamic>>(
+      'bulkAddWords',
+      data: {'listId': listId, 'words': words},
+    );
+    return _asInt(result['insertedCount']);
+  }
+
+  /// Them hang loat theo category. Tra ve so tu chen thanh cong.
+  Future<int> bulkAddCategoryWords(
+    int userId,
+    String category,
+    List<Map<String, dynamic>> words,
+  ) async {
+    final result = await _request<Map<String, dynamic>>(
+      'bulkAddWords',
+      data: {'userId': userId, 'category': category, 'words': words},
+    );
+    return _asInt(result['insertedCount']);
+  }
+
+  Future<void> bulkDeleteWords(List<int> wordIds) async {
+    await _request<void>(
+      'bulkDeleteWords',
+      data: {'wordIds': wordIds},
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getVocabularyWords(int listId) async {
     final rows = await _request<List<dynamic>>('getVocabularyWords', data: {'listId': listId});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
@@ -200,6 +251,11 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getWordsMissingPronunciation(int userId) async {
     final rows = await _request<List<dynamic>>('getWordsMissingPronunciation', data: {'userId': userId});
+    return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getUntaggedWords(int userId) async {
+    final rows = await _request<List<dynamic>>('getUntaggedWords', data: {'userId': userId});
     return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
@@ -290,11 +346,6 @@ class DatabaseService {
   Future<List<Map<String, dynamic>>> getWordsDueForReviewByCategory(int userId, String category) async {
     final rows = await _request<List<dynamic>>('getWordsDueForReviewByCategory', data: {'userId': userId, 'category': category});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
-  }
-
-  Future<Map<String, dynamic>> getReviewStats(int userId) async {
-    final stats = await _request<Map<String, dynamic>>('getReviewStats', data: {'userId': userId});
-    return Map<String, dynamic>.from(stats);
   }
 
   Future<Map<int, int>> getListMasteryBreakdown(int listId) async {

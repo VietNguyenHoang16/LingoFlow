@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
+import '../services/review_word_utils.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
@@ -33,7 +33,6 @@ class _ReviewPageState extends State<ReviewPage>
     with SingleTickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
   final SrsService _srs = SrsService();
-  final FlutterTts _flutterTts = FlutterTts();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
 
   final TextEditingController _answerController = TextEditingController();
@@ -70,18 +69,12 @@ class _ReviewPageState extends State<ReviewPage>
     _flipAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _flipController, curve: Curves.easeInOut),
     );
-    _initTts();
     _loadDueWords();
-  }
-
-  Future<void> _initTts() async {
-    await _ttsSettings.applyTo(_flutterTts);
   }
 
   Future<void> _speak(String text) async {
     try {
-      await _flutterTts.stop();
-      await _ttsSettings.speakWith(text, _flutterTts);
+      await _ttsSettings.speakWith(text);
     } catch (e) {
       debugPrint('Review TTS error: $e');
     }
@@ -92,6 +85,15 @@ class _ReviewPageState extends State<ReviewPage>
     await Future.wait(List<Future<void>>.from(_pendingUpdates));
   }
 
+  /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh,
+  /// tranh mat du lieu tien do neu app bi tat.
+  Future<void> _popWithFlush([bool result = false]) async {
+    try {
+      await _flushUpdates();
+    } catch (_) {}
+    if (mounted) Navigator.pop(context, result);
+  }
+
   @override
   void dispose() {
     unawaited(_flushUpdates());
@@ -100,7 +102,6 @@ class _ReviewPageState extends State<ReviewPage>
     _answerFocusNode.dispose();
     _pageFocusNode.dispose();
     _flipController.dispose();
-    _flutterTts.stop();
     super.dispose();
   }
 
@@ -117,7 +118,9 @@ class _ReviewPageState extends State<ReviewPage>
       words.shuffle();
 
       setState(() {
-        _dueWords = words;
+        // Chuan hoa kieu du lieu ngay tu dau - cac cast phia sau luon an toan.
+        _dueWords = words.map(normalizeWord).toList();
+        _currentIndex = 0;
         _isLoading = false;
       });
       _requestInputFocus();
@@ -195,10 +198,13 @@ class _ReviewPageState extends State<ReviewPage>
     future.whenComplete(() => _pendingUpdates.remove(future));
   }
 
-  void _rateWord(int quality) {
-    if (_dueWords.isEmpty || _currentIndex >= _dueWords.length) return;
+  /// Tu hien tai - null neu index ngoai pham vi (khong bao gio RangeError).
+  Map<String, dynamic>? get _currentWordSafe => wordAt(_dueWords, _currentIndex);
 
-    final word = _dueWords[_currentIndex];
+  void _rateWord(int quality) {
+    final word = _currentWordSafe;
+    if (word == null) return;
+
     final oldMastery = word['mastery_level'] as int;
 
     final result = _srs.calculateNextReview(
@@ -248,12 +254,12 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   void _showAnswerCard() {
-    if (_dueWords.isEmpty || _currentIndex >= _dueWords.length) return;
+    final word = _currentWordSafe;
+    if (word == null) return;
 
     _answerFocusNode.unfocus();
     _pageFocusNode.requestFocus();
 
-    final word = _dueWords[_currentIndex];
     final intervals = <int, String>{};
     for (final q in [
       SrsService.qualityAgain,
@@ -273,24 +279,19 @@ class _ReviewPageState extends State<ReviewPage>
 
     setState(() {
       _showAnswer = true;
-      _isAnswerCorrect =
-          _answerController.text.trim().toLowerCase() ==
-          (_dueWords[_currentIndex]['word'] ?? '').toString().toLowerCase();
+      _isAnswerCorrect = _answerController.text.trim().toLowerCase() ==
+          (word['word'] ?? '').toString().toLowerCase();
       _calculatedIntervals = intervals;
     });
 
     _flipController.forward();
-    unawaited(_speak((_dueWords[_currentIndex]['word'] ?? '').toString()));
+    unawaited(_speak((word['word'] ?? '').toString()));
   }
 
   void _tapHint() {
-    if (_showAnswer ||
-        _dueWords.isEmpty ||
-        _currentIndex >= _dueWords.length) {
-      return;
-    }
-    final word = _dueWords[_currentIndex]['word'] ?? '';
-    final wordStr = word.toString();
+    if (_showAnswer) return;
+    final wordStr = (_currentWordSafe?['word'] ?? '').toString();
+    if (wordStr.isEmpty) return;
     final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
     if (_hintLevel < maxHints) {
       setState(() => _hintLevel++);
@@ -390,7 +391,12 @@ class _ReviewPageState extends State<ReviewPage>
       return _buildCompletedScreen();
     }
 
-    final currentWord = _dueWords[_currentIndex];
+    final currentWord = _currentWordSafe;
+    if (currentWord == null) {
+      // Index ngoai pham vi (du lieu thay doi giua chay) - ket thuc phien
+      // mot cach an toan thay vi crash RangeError.
+      return _buildCompletedScreen();
+    }
     final progress = (_currentIndex + 1) / _dueWords.length;
 
     return CallbackShortcuts(
@@ -424,7 +430,7 @@ class _ReviewPageState extends State<ReviewPage>
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: theme.colorScheme.onSurface),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => _popWithFlush(true),
           ),
           title: Text(
             widget.listName ?? 'Daily Review',
@@ -731,43 +737,43 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   Widget _buildInputSection(ThemeData theme, bool compact) {
-    final wordStr = _dueWords.isNotEmpty
-        ? (_dueWords[_currentIndex]['word'] ?? '').toString()
-        : '';
+    final wordStr = (_currentWordSafe?['word'] ?? '').toString();
     final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Text field
-        TextField(
-          key: _answerFieldKey,
-          controller: _answerController,
-          focusNode: _answerFocusNode,
-          textAlign: TextAlign.center,
-          textInputAction: TextInputAction.done,
-          style: TextStyle(
-            fontSize: compact ? 16 : 18,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-            fontFamily: 'Be Vietnam Pro',
-          ),
-          decoration: InputDecoration(
-            hintText: 'Type the English word...',
-            hintStyle: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant.withAlpha(140),
-              fontSize: compact ? 14 : 16,
+        // Text field - chi build lai TextField khi text doi, khong rebuild ca trang
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _answerController,
+          builder: (context, value, _) => TextField(
+            key: _answerFieldKey,
+            controller: _answerController,
+            focusNode: _answerFocusNode,
+            textAlign: TextAlign.center,
+            textInputAction: TextInputAction.done,
+            style: TextStyle(
+              fontSize: compact ? 16 : 18,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+              fontFamily: 'Be Vietnam Pro',
             ),
-            suffixIcon: _answerController.text.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        color: theme.colorScheme.onSurfaceVariant, size: 18),
-                    onPressed: () => setState(() => _answerController.clear()),
-                  )
-                : null,
+            decoration: InputDecoration(
+              hintText: 'Type the English word...',
+              hintStyle: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant.withAlpha(140),
+                fontSize: compact ? 14 : 16,
+              ),
+              suffixIcon: value.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.close_rounded,
+                          color: theme.colorScheme.onSurfaceVariant, size: 18),
+                      onPressed: () => _answerController.clear(),
+                    )
+                  : null,
+            ),
+            onSubmitted: (_) => _showAnswerCard(),
           ),
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => _showAnswerCard(),
         ),
         const SizedBox(height: 8),
         // Hint + Check buttons row
@@ -1018,7 +1024,7 @@ class _ReviewPageState extends State<ReviewPage>
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: theme.colorScheme.primary),
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => _popWithFlush(true),
         ),
       ),
       body: SingleChildScrollView(
@@ -1184,7 +1190,7 @@ class _ReviewPageState extends State<ReviewPage>
               width: double.infinity,
               height: 54,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => _popWithFlush(true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   shape: RoundedRectangleBorder(

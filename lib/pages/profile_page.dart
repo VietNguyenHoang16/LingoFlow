@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../services/auth_service.dart';
 import '../services/pronunciation_service.dart';
 import '../services/tts_settings_service.dart';
+import '../widgets/pwa_install_banner.dart';
 import 'login_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -22,7 +23,6 @@ class _ProfilePageState extends State<ProfilePage> {
   double _speechRate = 0.85;
   String _phone = '';
   bool _isLoading = true;
-  FlutterTts? _previewTts;
 
   bool _isBackfilling = false;
   int _bfDone = 0;
@@ -85,8 +85,8 @@ class _ProfilePageState extends State<ProfilePage> {
     }
     setState(() => _selectedVoice = voice);
 
-    final previewTts = FlutterTts();
-    await _ttsSettings.speakWith('This is a voice preview', previewTts);
+    await TtsEngine().invalidate();
+    await _ttsSettings.speakWith('This is a voice preview');
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,16 +100,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _onSpeedChangeStart(double rate) async {
-    _previewTts = FlutterTts();
-    await _previewTts?.stop();
+    await TtsEngine().stop();
   }
 
   Future<void> _onSpeedChangeEnd(double rate) async {
     await _ttsSettings.saveSpeechRate(rate);
-    if (_previewTts != null) {
-      await _ttsSettings.speakWith('Speed test', _previewTts!);
-    }
-    _previewTts = null;
+    await TtsEngine().invalidate();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -304,6 +300,31 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // PWA install card (web only, auto hides when installed/dismissed)
+                if (kIsWeb)
+                  _buildCard(
+                    theme: theme,
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionTitle('Ung dung', Icons.install_mobile_rounded, theme),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Cai LingoFlow nhu app de mo nhanh va toan man hinh',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const PwaInstallBanner(compact: true),
+                      ],
+                    ),
+                  ),
+                if (kIsWeb) const SizedBox(height: 16),
 
                 // Voice settings card
                 _buildCard(

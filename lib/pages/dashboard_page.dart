@@ -6,6 +6,7 @@ import '../widgets/animated_pressable.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/bulk_import_dialog.dart';
+import '../widgets/pwa_install_banner.dart';
 import 'dart:async';
 
 import 'review_page.dart';
@@ -65,30 +66,20 @@ class _DashboardPageState extends State<DashboardPage> {
       _loadError = null;
     });
     try {
-      final stats = await _db.getCategoryStats(widget.userId);
+      final data = await _db.getDashboardStats(widget.userId);
       if (!mounted) return;
       setState(() {
-        _categoryStats = stats;
+        _categoryStats = data.categoryStats;
+        _reviewStats = data.reviewStats;
         _isLoading = false;
         _loadError = null;
       });
-      unawaited(_loadReviewStats());
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _loadError = e.toString().replaceFirst('Exception: ', '');
       });
-    }
-  }
-
-  Future<void> _loadReviewStats() async {
-    try {
-      final stats = await _db.getReviewStats(widget.userId);
-      if (!mounted) return;
-      setState(() => _reviewStats = stats);
-    } catch (e) {
-      debugPrint('Review stats load failed: $e');
     }
   }
 
@@ -171,6 +162,10 @@ class _DashboardPageState extends State<DashboardPage> {
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                             sliver: SliverToBoxAdapter(child: _buildDailyReviewBanner()),
+                          ),
+                          const SliverPadding(
+                            padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+                            sliver: SliverToBoxAdapter(child: PwaInstallBanner()),
                           ),
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -258,6 +253,8 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
             ),
           ),
+          const PwaInstallIconButton(),
+          const SizedBox(width: 8),
           _buildIconButton(icon: Icons.search_rounded, onTap: _showSearchDialog, theme: theme),
         ],
       ),
@@ -497,25 +494,43 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
   final DatabaseService _db = DatabaseService();
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
+  Timer? _debounce;
+  int _searchSeq = 0;
+  final Map<String, List<Map<String, dynamic>>> _searchCache = {};
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _search(String query) async {
-    if (query.isEmpty) {
+  void _onQueryChanged(String query) {
+    _debounce?.cancel();
+    setState(() {});
+    if (query.trim().isEmpty) {
       setState(() { _searchResults = []; _isSearching = false; });
       return;
     }
+    _debounce = Timer(const Duration(milliseconds: 300), () => _runSearch(query));
+  }
+
+  Future<void> _runSearch(String query) async {
+    final key = query.trim().toLowerCase();
+    final cached = _searchCache[key];
+    if (cached != null) {
+      setState(() { _searchResults = cached; _isSearching = false; });
+      return;
+    }
+    final seq = ++_searchSeq;
     setState(() => _isSearching = true);
     try {
       final results = await _db.searchWord(widget.userId, query);
-      if (!mounted) return;
+      _searchCache[key] = results;
+      if (!mounted || seq != _searchSeq) return;
       setState(() { _searchResults = results; _isSearching = false; });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _searchSeq) return;
       setState(() => _isSearching = false);
     }
   }
@@ -542,7 +557,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                   child: TextField(
                     controller: _searchController,
                     autofocus: true,
-                    onChanged: _search,
+                    onChanged: _onQueryChanged,
                     style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 16, color: theme.colorScheme.onSurface),
                     decoration: InputDecoration(
                       hintText: 'Search words...',
@@ -550,7 +565,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
                               icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurfaceVariant),
-                              onPressed: () { _searchController.clear(); _search(''); },
+                              onPressed: () { _searchController.clear(); _onQueryChanged(''); },
                             )
                           : null,
                     ),

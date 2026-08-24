@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/word_type_badge.dart';
@@ -16,7 +17,6 @@ class RecentPage extends StatefulWidget {
 
 class _RecentPageState extends State<RecentPage> {
   final DatabaseService _db = DatabaseService();
-  final FlutterTts _flutterTts = FlutterTts();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   final Set<int> _flippedWords = {};
   final Set<int> _selectedWords = {};
@@ -27,20 +27,27 @@ class _RecentPageState extends State<RecentPage> {
   String? _loadError;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _ttsSettings.applyTo(_flutterTts);
     _loadRecent();
-    _searchController.addListener(() {
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    // Debounce de khong rebuild ca trang moi ky tu.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
   }
 
   @override
   void dispose() {
-    _flutterTts.stop();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -55,8 +62,7 @@ class _RecentPageState extends State<RecentPage> {
 
   Future<void> _speak(String text) async {
     try {
-      await _flutterTts.stop();
-      await _ttsSettings.speakWith(text, _flutterTts);
+      await _ttsSettings.speakWith(text);
     } catch (e) {
       debugPrint('TTS Error: $e');
     }

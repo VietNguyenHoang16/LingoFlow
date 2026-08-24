@@ -139,12 +139,15 @@ class TtsSettingsService {
     return (await getSelectedVoice()).id == googleVoice.id;
   }
 
-  Future<bool> speakWith(String text, FlutterTts fallbackTts) async {
+  Future<bool> speakWith(String text) async {
     if (await isGoogleVoiceSelected()) {
       return _googleVoiceService.speak(text);
     }
-    await applyTo(fallbackTts);
-    await fallbackTts.speak(text);
+    final tts = await TtsEngine().sharedTts;
+    try {
+      await tts.stop();
+    } catch (_) {}
+    await tts.speak(text);
     return true;
   }
 
@@ -283,5 +286,51 @@ class TtsSettingsService {
         ),
       ),
     );
+  }
+}
+
+/// Engine TTS dung chung cho ca app: mot FlutterTts duy nhat,
+/// chi apply lai settings khi voice / speech rate thay doi.
+class TtsEngine {
+  TtsEngine._internal();
+  static final TtsEngine _instance = TtsEngine._internal();
+  factory TtsEngine() => _instance;
+
+  /// Test seam: thay the FlutterTts that trong unit test.
+  @visibleForTesting
+  // ignore: library_private_types_in_public_api
+  static FlutterTts Function()? ttsFactory;
+
+  @visibleForTesting
+  static void testReset() {
+    _instance._tts = null;
+    _instance._appliedSignature = null;
+  }
+
+  final TtsSettingsService _settings = TtsSettingsService();
+  FlutterTts? _tts;
+  String? _appliedSignature;
+
+  /// Goi sau khi thay doi voice / speech rate de buoc apply moi.
+  Future<void> invalidate() async {
+    _appliedSignature = null;
+  }
+
+  Future<FlutterTts> get sharedTts async {
+    final tts = _tts ??= (ttsFactory?.call() ?? FlutterTts());
+    if (_appliedSignature == null) {
+      await _settings.applyTo(tts);
+      final voice = await _settings.getSelectedVoice();
+      final rate = await _settings.getSpeechRate();
+      final realName = await _settings.getSavedRealVoiceName();
+      _appliedSignature = '${voice.id}|$rate|$realName';
+    }
+    return tts;
+  }
+
+  Future<void> stop() async {
+    try {
+      await _tts?.stop();
+    } catch (_) {}
   }
 }

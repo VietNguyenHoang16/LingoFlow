@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import 'database_service.dart';
 import 'dictionary_service.dart';
 import '../widgets/word_type_utils.dart';
@@ -158,9 +156,8 @@ class BulkWordImporter {
     return lines;
   }
 
-  /// Gọi searchWord cho từng từ unique. Đánh dấu `Trùng từ` trên tất cả dòng
-  /// có cùng word (case-insensitive) nếu từ đó đã tồn tại trong DB.
-  /// Bỏ qua dòng đã có lỗi khác.
+  /// Kiem tra tu trung bang 1 request duy nhat. Danh dau `Trùng từ`
+  /// trên tất cả dòng có cùng word (case-insensitive).
   Future<List<ImportLine>> checkDuplicates(
     int userId,
     List<ImportLine> lines,
@@ -173,20 +170,12 @@ class BulkWordImporter {
     }
     if (candidates.isEmpty) return lines;
 
-    final existing = <String>{};
-    for (final word in candidates) {
-      try {
-        final matches = await _db.searchWord(userId, word);
-        for (final m in matches) {
-          final w = (m['word'] as String? ?? '').toLowerCase();
-          if (w == word) {
-            existing.add(word);
-            break;
-          }
-        }
-      } catch (_) {
-        // Skip nếu lỗi 1 từ — không chặn cả batch.
-      }
+    Set<String> existing;
+    try {
+      existing = await _db.filterExistingWords(userId, candidates.toList());
+    } catch (_) {
+      // Khong kiem tra duoc thi khong danh dau trung.
+      return lines;
     }
 
     if (existing.isEmpty) return lines;
@@ -208,10 +197,22 @@ class BulkWordImporter {
     }).toList();
   }
 
-  /// Insert tuần tự các dòng hợp lệ. Check cancel mỗi vòng.
-  /// Caller đã chạy `parseLines` + `checkDuplicates` trước đó.
-  /// Trả về [isCancelled] cho caller — nếu true, caller set cờ cancel
-  /// (qua [onCancel]) trước vòng lặp tiếp theo.
+  /// Fetch phát âm song song giới hạn [limit] request cùng lúc.
+  Future<void> _fetchPronunciations(List<ImportLine> words) async {
+    for (int i = 0; i < words.length; i += 6) {
+      final batch = words.sublist(i, (i + 6).clamp(0, words.length));
+      await Future.wait(batch.map((l) async {
+        try {
+          final p = await _dict.fetchPronunciation(l.word);
+          pronunciations[l.word.toLowerCase()] = p;
+        } catch (_) {}
+      }));
+    }
+  }
+
+  final Map<String, String> pronunciations = {};
+
+  /// Insert các dòng hợp lệ theo lô. Check cancel giữa các lô.
   Future<ImportResult> importBatch(
     int userId,
     List<ImportLine> lines, {
@@ -223,37 +224,65 @@ class BulkWordImporter {
       return const ImportResult(insertedCount: 0, totalValid: 0, cancelled: false);
     }
 
+    if (isCancelled?.call() ?? false) {
+      return ImportResult(insertedCount: 0, totalValid: valid.length, cancelled: true);
+    }
+
+    // Giai doan 1: fetch phat am song song
+    pronunciations.clear();
+    onProgress?.call(0, valid.length);
+    await _fetchPronunciations(valid);
+
+    if (isCancelled?.call() ?? false) {
+      return ImportResult(insertedCount: 0, totalValid: valid.length, cancelled: true);
+    }
+
+    // Giai doan 2: chen theo lo 100 dong / request, nhom theo wordType
     int inserted = 0;
-    for (int i = 0; i < valid.length; i++) {
-      if (isCancelled?.call() ?? false) {
-        return ImportResult(
-          insertedCount: inserted,
-          totalValid: valid.length,
-          cancelled: true,
-        );
-      }
-      final l = valid[i];
-      String pronunciation = '';
-      try {
-        pronunciation = await _dict.fetchPronunciation(l.word);
-      } catch (_) {}
-      try {
-        await _db.addWordToCategory(
-          userId,
-          l.wordType!,
-          l.word,
-          pronunciation, // fetch tu dictionaryapi.dev, '' neu loi
-          l.meaning,
-          wordType: l.wordType,
-        );
-        inserted++;
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('BulkWordImporter: failed to insert "${l.word}" → $e');
+    const chunkSize = 100;
+    final groups = <String, List<ImportLine>>{};
+    for (final l in valid) {
+      groups.putIfAbsent(l.wordType!, () => []).add(l);
+    }
+    int done = 0;
+    for (final entry in groups.entries) {
+      final group = entry.value;
+      for (int i = 0; i < group.length; i += chunkSize) {
+        if (isCancelled?.call() ?? false) {
+          return ImportResult(
+            insertedCount: inserted,
+            totalValid: valid.length,
+            cancelled: true,
+          );
         }
-        // Tiếp tục dòng tiếp theo — lỗi insert từng từ không chặn batch.
+        final chunk = group.sublist(i, (i + chunkSize).clamp(0, group.length));
+        final payload = chunk.map((l) => {
+              'word': l.word,
+              'pronunciation': pronunciations[l.word.toLowerCase()] ?? '',
+              'meaning': l.meaning,
+              'wordType': l.wordType,
+            }).toList();
+        try {
+          inserted += await _db.bulkAddCategoryWords(userId, entry.key, payload);
+        } catch (_) {
+          // Loi ca lo - thu tung dong de giu toi da du lieu.
+          for (final line in chunk) {
+            try {
+              await _db.addWordToCategory(
+                userId,
+                line.wordType!,
+                line.word,
+                pronunciations[line.word.toLowerCase()] ?? '',
+                line.meaning,
+                wordType: line.wordType,
+              );
+              inserted++;
+            } catch (_) {}
+          }
+        }
+        done += chunk.length;
+        onProgress?.call(done.clamp(0, valid.length), valid.length);
       }
-      onProgress?.call(i + 1, valid.length);
     }
     return ImportResult(
       insertedCount: inserted,
