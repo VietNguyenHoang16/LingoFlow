@@ -561,9 +561,17 @@ class _PracticePageState extends State<PracticePage> {
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: Text(
-                    widget.studyMode ? 'Learn Again' : 'Practice Again',
-                    style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.studyMode ? 'Learn Again' : 'Practice Again',
+                        style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 10),
+                      _buildKeyChip(),
+                    ],
                   ),
                 ),
               ),
@@ -988,7 +996,7 @@ class _PracticePageState extends State<PracticePage> {
                           ],
                         ],
                         const Spacer(),
-                        if (_showResult)
+                        if (_showResult) ...[
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
@@ -998,16 +1006,35 @@ class _PracticePageState extends State<PracticePage> {
                                 padding: EdgeInsets.symmetric(vertical: compact ? 14 : 16),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: Text(
-                                _currentIndex < _words.length - 1 ? 'Next' : 'Finish',
-                                style: TextStyle(
-                                  color: theme.colorScheme.onPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _currentIndex < _words.length - 1 ? 'Next' : 'Finish',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onPrimary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  _buildKeyChip(),
+                                ],
                               ),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Text(
+                              'Nhấn Enter để tiếp tục',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -1124,6 +1151,34 @@ class _PracticePageState extends State<PracticePage> {
         const SizedBox(height: 4),
         Text(label, style: TextStyle(fontSize: 12, color: color.withAlpha(204))),
       ],
+    );
+  }
+
+  Widget _buildKeyChip() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onPrimary.withAlpha(38),
+        border: Border.all(color: theme.colorScheme.onPrimary.withAlpha(120), width: 1.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.keyboard_return, size: 13, color: theme.colorScheme.onPrimary),
+          const SizedBox(width: 4),
+          Text(
+            'Enter',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onPrimary,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
