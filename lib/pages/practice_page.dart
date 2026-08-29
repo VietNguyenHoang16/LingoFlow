@@ -60,6 +60,7 @@ class _PracticePageState extends State<PracticePage> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     _loadWords();
   }
 
@@ -342,6 +343,20 @@ class _PracticePageState extends State<PracticePage> {
     }
   }
 
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      if (_isCompleted) {
+        _restart();
+      } else {
+        _handleKeyNext();
+      }
+      return true;
+    }
+    return false;
+  }
+
   void _handleKeyNext() {
     if (_isCompleted) return;
     if (_showResult) {
@@ -383,6 +398,7 @@ class _PracticePageState extends State<PracticePage> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _spellController.dispose();
     _spellFocusNode.dispose();
     super.dispose();
@@ -418,10 +434,7 @@ class _PracticePageState extends State<PracticePage> {
     if (_isCompleted) {
       final percentage = _totalAnswered > 0 ? (_score * 100 / _totalAnswered).round() : 0;
       return CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.enter): _restart,
-          const SingleActivator(LogicalKeyboardKey.numpadEnter): _restart,
-        },
+        bindings: <ShortcutActivator, VoidCallback>{},
         child: Focus(
           autofocus: true,
           child: ConfettiOverlay(
@@ -574,8 +587,6 @@ class _PracticePageState extends State<PracticePage> {
         const SingleActivator(LogicalKeyboardKey.digit2): () => _handleKeyOption(1),
         const SingleActivator(LogicalKeyboardKey.digit3): () => _handleKeyOption(2),
         const SingleActivator(LogicalKeyboardKey.digit4): () => _handleKeyOption(3),
-        const SingleActivator(LogicalKeyboardKey.enter): _handleKeyNext,
-        const SingleActivator(LogicalKeyboardKey.numpadEnter): _handleKeyNext,
       },
       child: Focus(
         autofocus: true,
