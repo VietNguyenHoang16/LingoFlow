@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/dictionary_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/example_card.dart';
 import '../widgets/mastery_utils.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_utils.dart';
@@ -12,6 +13,7 @@ import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
 import 'review_page.dart';
 import 'profile_page.dart';
+import '../services/word_details_parser.dart';
 
 class VocabularyListPage extends StatefulWidget {
   final int listId;
@@ -725,6 +727,112 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         );
       }
     }
+  }
+
+  void _showAddExampleSheet({
+    required int id,
+    required String word,
+    required String meaning,
+    required String fullDetails,
+  }) {
+    final exampleController = TextEditingController();
+    final theme = Theme.of(context);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Thêm ví dụ cho "$word"',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: exampleController,
+              maxLines: 3,
+              minLines: 1,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Ví dụ (tiếng Việt)',
+                hintText: 'VD: Anh ấy ăn táo mỗi sáng',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Hủy'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      final example = exampleController.text.trim();
+                      if (example.isEmpty) return;
+                      Navigator.pop(context);
+                      final newFullDetails = addExampleToFullDetails(fullDetails, example);
+                      try {
+                        await _db.updateVocabularyWordDetails(
+                          wordId: id,
+                          meaning: meaning,
+                          fullDetails: newFullDetails,
+                        );
+                        await _loadWords(persistProgress: true);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Đã thêm ví dụ')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Lỗi: $e')),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text('Thêm'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showFilterSheet() {
@@ -1715,8 +1823,46 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               ),
             ),
 
-            // Speaker + flip hint icons (front only)
+            // Speaker + flip hint + add example icons (front only)
             if (!isFlipped) ...[
+              const SizedBox(width: 8),
+              Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (_) {},
+                child: GestureDetector(
+                  onTap: _isSelectionMode
+                      ? null
+                      : () => _showAddExampleSheet(
+                            id: id,
+                            word: word,
+                            meaning: meaning,
+                            fullDetails: fullDetails,
+                          ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondary.withAlpha(15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_circle_outline_rounded, size: 18, color: theme.colorScheme.secondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Thêm ví dụ',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: _isSelectionMode ? null : () => _speak(word),
@@ -1912,6 +2058,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         .map((t) => t.trim())
         .where((t) => t.isNotEmpty)
         .toList();
+    final example = extractFirstExample(parseFullDetails(fullDetails));
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1961,16 +2108,20 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           ),
         ],
         const SizedBox(height: 8),
-        Text(
-          meaning,
-          style: TextStyle(
-            fontFamily: 'Be Vietnam Pro',
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
-          ),
+Text(
+        meaning,
+        style: TextStyle(
+          fontFamily: 'Be Vietnam Pro',
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.primary,
         ),
-        if (fullDetails.isNotEmpty) ...[
+      ),
+      if (example.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        ExampleCard(example: example),
+      ],
+      if (fullDetails.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(
             fullDetails,
@@ -2016,6 +2167,40 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _isSelectionMode
+                  ? null
+                  : () => _showAddExampleSheet(
+                        id: id,
+                        word: word,
+                        meaning: meaning,
+                        fullDetails: fullDetails,
+                      ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondary.withAlpha(15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_circle_outline_rounded, size: 14, color: theme.colorScheme.secondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Thêm ví dụ',
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.secondary,
                       ),
                     ),
                   ],
