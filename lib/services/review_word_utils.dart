@@ -2,6 +2,8 @@
 /// Regression cho bug RangeError (index ngoai pham vi) va
 /// TypeError (cast cung `as int` tren map chua chuan hoa).
 
+import 'word_details_parser.dart';
+
 /// Tra ve tu tai vi tri [index], hoac null neu index nam ngoai danh sach.
 Map<String, dynamic>? wordAt(List<Map<String, dynamic>> words, int index) {
   if (index < 0 || index >= words.length) return null;
@@ -59,5 +61,9 @@ Map<String, dynamic> normalizeWord(Map<String, dynamic> raw) {
   word['word_type'] = _safeString(word['word_type']);
   word['next_review_date'] = _safeDate(word['next_review_date']);
   word['last_reviewed_at'] = _safeDate(word['last_reviewed_at']);
+  // Parse full_details for structured data and extract first example.
+  final parsed = parseFullDetails(word['full_details'] ?? '');
+  word['details_parsed'] = parsed;
+  word['example'] = extractFirstExample(parsed);
   return word;
 }

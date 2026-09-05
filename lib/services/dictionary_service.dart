@@ -7,11 +7,14 @@ class DictionaryService {
   factory DictionaryService() => _instance;
   DictionaryService._internal();
 
-  Future<Map<String, dynamic>?> getWordInfo(String word) async {
+  Future<Map<String, dynamic>?> getWordInfo(
+    String word, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     try {
       final response = await http.get(
         Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/$word'),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(timeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -30,8 +33,11 @@ class DictionaryService {
       ipa.replaceAll(RegExp(r'^/+|/+$'), '');
 
   /// Lay chi phien am IPA cua [word]. Tra ve '' neu khong tim thay.
-  Future<String> fetchPronunciation(String word) async {
-    final info = await getWordInfo(word);
+  Future<String> fetchPronunciation(
+    String word, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final info = await getWordInfo(word, timeout: timeout);
     return stripSlashes((info?['pronunciation'] as String?) ?? '');
   }
 

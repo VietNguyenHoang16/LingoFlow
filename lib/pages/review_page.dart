@@ -5,11 +5,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/review_word_utils.dart';
+import '../services/word_details_parser.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/example_card.dart';
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -591,6 +593,13 @@ class _ReviewPageState extends State<ReviewPage>
             height: 1.3,
           ),
         ),
+        if ((currentWord['example'] ?? '').isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ExampleCard(
+            example: currentWord['example'] as String,
+            pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
+          ),
+        ],
         SizedBox(height: compact ? 10 : 16),
         Container(
           padding: EdgeInsets.symmetric(
@@ -698,6 +707,13 @@ class _ReviewPageState extends State<ReviewPage>
             color: theme.colorScheme.onPrimary,
           ),
         ),
+        if ((currentWord['example'] ?? '').isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ExampleCard(
+            example: currentWord['example'] as String,
+            pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
+          ),
+        ],
         if (_answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
           SizedBox(height: compact ? 6 : 10),
           Text(

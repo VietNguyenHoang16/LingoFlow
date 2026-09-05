@@ -713,6 +713,37 @@ async function handleAction(action, data) {
       };
     }
 
+    // Read-only: dung luong DB (toan DB + cua user hien tai)
+    case 'getStorageStats': {
+      const db = await query('SELECT pg_database_size(current_database()) AS bytes');
+      const tables = await query(
+        `SELECT relname AS name, pg_total_relation_size(relid) AS bytes
+         FROM pg_catalog.pg_statio_user_tables
+         ORDER BY pg_total_relation_size(relid) DESC`,
+      );
+      const counts = await query(
+        `SELECT (SELECT COUNT(*) FROM users) AS users,
+                (SELECT COUNT(*) FROM vocabulary_lists) AS lists,
+                (SELECT COUNT(*) FROM vocabulary_words) AS words`,
+      );
+      const mine = await query(
+        `SELECT COUNT(vw.id) AS words, COALESCE(SUM(pg_column_size(vw)), 0) AS bytes
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1`,
+        [data.userId],
+      );
+      return {
+        dbBytes: Number(db[0].bytes),
+        tables: tables.map((t) => ({ name: t.name, bytes: Number(t.bytes) })),
+        totalUsers: asInt(counts[0].users),
+        totalLists: asInt(counts[0].lists),
+        totalWords: asInt(counts[0].words),
+        myWords: asInt(mine[0].words),
+        myBytes: Number(mine[0].bytes),
+      };
+    }
+
     case 'getListMasteryBreakdown': {
       const rows = await query(
         `SELECT vw.mastery_level, COUNT(*) AS count FROM vocabulary_words vw

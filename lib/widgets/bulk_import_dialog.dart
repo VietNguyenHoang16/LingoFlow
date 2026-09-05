@@ -57,9 +57,14 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
 
   int _done = 0;
   int _total = 0;
+  int _fetched = 0;
+  int _fetchTotal = 0;
+  // 0: đang lấy phát âm, 1: đang lưu
+  int _phase = 0;
   int _inserted = 0;
   bool _wasCancelled = false;
   String? _fatalError;
+  DateTime _lastProgressTick = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void dispose() {
@@ -108,20 +113,42 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       _cancelled = false;
       _done = 0;
       _total = _validCount;
+      _fetched = 0;
+      _fetchTotal = _validCount;
+      _phase = 0;
       _inserted = 0;
       _wasCancelled = false;
       _fatalError = null;
       _isProcessing = true;
     });
 
+    bool shouldTick(int done, int total) {
+      if (done >= total) return true;
+      final now = DateTime.now();
+      if (now.difference(_lastProgressTick).inMilliseconds < 80) return false;
+      _lastProgressTick = now;
+      return true;
+    }
+
     final result = await _importer.importBatch(
       widget.userId,
       _lines,
+      onFetchProgress: (fetched, total) {
+        if (!mounted) return;
+        if (!shouldTick(fetched, total)) return;
+        setState(() {
+          _fetched = fetched;
+          _fetchTotal = total;
+          _phase = 0;
+        });
+      },
       onProgress: (done, total) {
         if (!mounted) return;
+        if (!shouldTick(done, total)) return;
         setState(() {
           _done = done;
           _total = total;
+          _phase = 1;
         });
       },
       isCancelled: () => _cancelled,
@@ -199,22 +226,32 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   }
 
   Widget _buildStage(ThemeData theme) {
-    switch (_stage) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: _buildStageChild(theme, _stage),
+    );
+  }
+
+  Widget _buildStageChild(ThemeData theme, int stage) {
+    switch (stage) {
       case 0:
-        return _buildPaste(theme);
+        return _buildPaste(theme, key: const ValueKey(0));
       case 1:
-        return _buildPreview(theme);
+        return _buildPreview(theme, key: const ValueKey(1));
       case 2:
-        return _buildImporting(theme);
+        return _buildImporting(theme, key: const ValueKey(2));
       case 3:
-        return _buildResult(theme);
+        return _buildResult(theme, key: const ValueKey(3));
       default:
         return const SizedBox.shrink();
     }
   }
 
-  Widget _buildPaste(ThemeData theme) {
+  Widget _buildPaste(ThemeData theme, {Key? key}) {
     return ListView(
+      key: key,
       children: [
         Text(
           'Mỗi dòng: số_POS :: từ :: nghĩa (hoặc dùng || làm ngăn cách, hoặc giữ nguyên từ / POS / nghĩa cũ). Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
@@ -257,8 +294,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     );
   }
 
-  Widget _buildPreview(ThemeData theme) {
+  Widget _buildPreview(ThemeData theme, {Key? key}) {
     return Column(
+      key: key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Wrap(
@@ -281,6 +319,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             child: _lines.isEmpty
                 ? const Center(child: Text('Không có dòng nào hợp lệ'))
                 : ListView.separated(
+                    cacheExtent: 300,
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: true,
                     itemCount: _lines.length,
                     separatorBuilder: (_, _) =>
                         Divider(height: 1, color: theme.dividerColor),
@@ -295,21 +336,146 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     );
   }
 
-  Widget _buildImporting(ThemeData theme) {
-    final pct = _total == 0 ? 0.0 : _done / _total;
-    return Center(
+  Widget _buildImporting(ThemeData theme, {Key? key}) {
+    final total = _total == 0 ? 1 : _total;
+    // Fetch chiếm 70%, lưu chiếm 30% để bar chạy đơn điệu, không giật lùi.
+    final fetchPct = (_fetchTotal == 0 ? 0.0 : _fetched / _fetchTotal).clamp(0.0, 1.0);
+    final savePct = (_done / total).clamp(0.0, 1.0);
+    final pct = (_phase == 0 ? fetchPct * 0.7 : 0.7 + savePct * 0.3).clamp(0.0, 1.0);
+    final phaseLabel = _phase == 0
+        ? 'Đang lấy phát âm $_fetched/$_fetchTotal…'
+        : 'Đang lưu $_done/$_total…';
+
+    final validWords = _lines.where((l) => l.isValid).take(20).toList();
+    // Số từ đã xong ở phase hiện tại để tick list.
+    final tickDone = _phase == 0 ? _fetched : _done;
+
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 220,
-            child: LinearProgressIndicator(value: pct, minHeight: 8),
-          ),
+          _ImportSteps(active: _phase, theme: theme),
           const SizedBox(height: 16),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: pct),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: Container(
+                  height: 8,
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: value.clamp(0.02, 1.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(
+              phaseLabel,
+              key: ValueKey(phaseLabel),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: 'Be Vietnam Pro',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
           Text(
-            'Đang thêm từ $_done/$_total…',
-            style: theme.textTheme.bodyMedium?.copyWith(
+            '${(pct * 100).round()}% • ${(_phase == 0 ? 'phát âm' : 'lưu trữ')}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withAlpha(140),
               fontFamily: 'Be Vietnam Pro',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: theme.dividerColor),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.separated(
+                cacheExtent: 200,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: true,
+                itemCount: validWords.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: theme.dividerColor),
+                itemBuilder: (ctx, i) {
+                  final w = validWords[i];
+                  final isDone = i < tickDone;
+                  final isDoing = i == tickDone && tickDone < validWords.length;
+                  return AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: isDone ? 1.0 : 0.75,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isDone
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.surfaceContainerHighest,
+                            ),
+                            child: isDone
+                                ? const Icon(Icons.check_rounded,
+                                    size: 14, color: Colors.white)
+                                : isDoing
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(5),
+                                        child: SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              w.word,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Be Vietnam Pro',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -317,17 +483,26 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     );
   }
 
-  Widget _buildResult(ThemeData theme) {
+  Widget _buildResult(ThemeData theme, {Key? key}) {
     return Center(
+      key: key,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            _inserted > 0 ? Icons.check_circle_rounded : Icons.info_rounded,
-            size: 56,
-            color: _inserted > 0
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface.withAlpha(150),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.6, end: 1.0),
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.elasticOut,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Icon(
+              _inserted > 0 ? Icons.check_circle_rounded : Icons.info_rounded,
+              size: 56,
+              color: _inserted > 0
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withAlpha(150),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -389,8 +564,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           children: [
             const Spacer(),
             TextButton(
-              onPressed: _isProcessing ? null : () => setState(() => _cancelled = true),
-              child: const Text('Hủy'),
+              onPressed: () => setState(() => _cancelled = true),
+              child: const Text('Hủy import'),
             ),
           ],
         );
@@ -426,6 +601,79 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13),
         ),
       ],
+    );
+  }
+}
+
+class _ImportSteps extends StatelessWidget {
+  final int active;
+  final ThemeData theme;
+  const _ImportSteps({required this.active, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _dot(0, Icons.record_voice_over_rounded, 'Phát âm'),
+        _line(0),
+        _dot(1, Icons.save_rounded, 'Lưu'),
+      ],
+    );
+  }
+
+  Widget _dot(int index, IconData icon, String label) {
+    final isDone = index < active;
+    final isActive = index == active;
+    final color = (isDone || isActive)
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface.withAlpha(90);
+    final bg = (isDone || isActive)
+        ? theme.colorScheme.primary.withAlpha(25)
+        : theme.colorScheme.surfaceContainerHighest;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+          child: Icon(
+            isDone ? Icons.check_rounded : icon,
+            size: 16,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Be Vietnam Pro',
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _line(int leftIndex) {
+    final filled = leftIndex < active;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          height: 2,
+          decoration: BoxDecoration(
+            color: filled
+                ? theme.colorScheme.primary
+                : theme.dividerColor,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -197,16 +197,42 @@ class BulkWordImporter {
     }).toList();
   }
 
-  /// Fetch phát âm song song giới hạn [limit] request cùng lúc.
-  Future<void> _fetchPronunciations(List<ImportLine> words) async {
-    for (int i = 0; i < words.length; i += 6) {
-      final batch = words.sublist(i, (i + 6).clamp(0, words.length));
-      await Future.wait(batch.map((l) async {
-        try {
-          final p = await _dict.fetchPronunciation(l.word);
-          pronunciations[l.word.toLowerCase()] = p;
-        } catch (_) {}
-      }));
+  /// Fetch phát âm song song, báo tiến độ từng từ để UI mượt.
+  /// Dedup theo lowercase để không fetch trùng. Timeout ngắn cho import.
+  Future<void> _fetchPronunciations(
+    List<ImportLine> words, {
+    void Function(int fetched, int total)? onFetchProgress,
+    Duration fetchTimeout = const Duration(seconds: 4),
+    bool Function()? isCancelled,
+  }) async {
+    final unique = <String, ImportLine>{};
+    for (final l in words) {
+      unique.putIfAbsent(l.word.toLowerCase(), () => l);
+    }
+    final targets = unique.values.toList();
+    if (targets.isEmpty) return;
+
+    int fetched = 0;
+    onFetchProgress?.call(0, targets.length);
+
+    Future<void> fetchOne(ImportLine l) async {
+      if (isCancelled?.call() ?? false) return;
+      try {
+        final p = await _dict.fetchPronunciation(l.word, timeout: fetchTimeout);
+        pronunciations[l.word.toLowerCase()] = p;
+      } catch (_) {
+        pronunciations[l.word.toLowerCase()] = '';
+      }
+      fetched++;
+      onFetchProgress?.call(fetched, targets.length);
+    }
+
+    // <20 từ: 1 batch duy nhất cho nhanh nhất. Nhiều hơn: chia batch 10.
+    const batchSize = 10;
+    for (int i = 0; i < targets.length; i += batchSize) {
+      if (isCancelled?.call() ?? false) return;
+      final batch = targets.sublist(i, (i + batchSize).clamp(0, targets.length));
+      await Future.wait(batch.map(fetchOne));
     }
   }
 
@@ -217,6 +243,7 @@ class BulkWordImporter {
     int userId,
     List<ImportLine> lines, {
     void Function(int done, int total)? onProgress,
+    void Function(int fetched, int total)? onFetchProgress,
     bool Function()? isCancelled,
   }) async {
     final valid = lines.where((l) => l.isValid).toList();
@@ -228,10 +255,15 @@ class BulkWordImporter {
       return ImportResult(insertedCount: 0, totalValid: valid.length, cancelled: true);
     }
 
-    // Giai doan 1: fetch phat am song song
+    // Giai doan 1: fetch phat am song song (có progress từng từ)
     pronunciations.clear();
     onProgress?.call(0, valid.length);
-    await _fetchPronunciations(valid);
+    onFetchProgress?.call(0, valid.length);
+    await _fetchPronunciations(
+      valid,
+      onFetchProgress: onFetchProgress,
+      isCancelled: isCancelled,
+    );
 
     if (isCancelled?.call() ?? false) {
       return ImportResult(insertedCount: 0, totalValid: valid.length, cancelled: true);
