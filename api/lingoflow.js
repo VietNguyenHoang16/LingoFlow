@@ -60,6 +60,7 @@ function mapWordRow(row) {
     mastery_level: asInt(row.mastery_level),
     lapse_count: asInt(row.lapse_count),
     word_type: row.word_type || '',
+    topic_tag: row.topic_tag || '',
     created_at: normalizeDate(row.created_at),
     ...(row.list_name !== undefined ? { list_name: row.list_name || '' } : {}),
     ...(row.list_id !== undefined ? { list_id: asInt(row.list_id) } : {}),
