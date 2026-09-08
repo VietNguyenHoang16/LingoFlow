@@ -125,6 +125,129 @@ class _RecentPageState extends State<RecentPage> {
     }
   }
 
+  void _showWordOptions(Map<String, dynamic> word) {
+    final theme = Theme.of(context);
+    final wordText = word['word'] as String? ?? '';
+    final meaning = word['meaning'] as String? ?? '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              wordText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            if (meaning.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                meaning,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
+              title: const Text('Chinh sua / them nhan',
+                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _editWord(word);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: Colors.red),
+              title: const Text('Xoa tu',
+                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteWord(word['id'] as int, wordText);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editWord(Map<String, dynamic> word) async {
+    final wordCtl = TextEditingController(text: word['word'] ?? '');
+    final meaningCtl = TextEditingController(text: word['meaning'] ?? '');
+    final pronCtl = TextEditingController(text: word['pronunciation'] ?? '');
+    final topicCtl = TextEditingController(text: word['topic_tag'] ?? '');
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sua tu'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: wordCtl, autofocus: true, decoration: const InputDecoration(labelText: 'Tu')),
+              const SizedBox(height: 8),
+              TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia')),
+              const SizedBox(height: 8),
+              TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am')),
+              const SizedBox(height: 8),
+              TextField(controller: topicCtl, decoration: const InputDecoration(labelText: 'Nhan chu de (tuy chon)')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huy')),
+          FilledButton(onPressed: () {
+            if (wordCtl.text.trim().isNotEmpty && meaningCtl.text.trim().isNotEmpty) Navigator.pop(ctx, true);
+          }, child: const Text('Luu')),
+        ],
+      ),
+    );
+
+    if (saved != true) return;
+    try {
+      await _db.updateVocabularyWord(
+        wordId: word['id'] as int,
+        word: wordCtl.text.trim(),
+        meaning: meaningCtl.text.trim(),
+        pronunciation: pronCtl.text.trim(),
+        wordType: (word['word_type'] as String?)?.trim() ?? '',
+        topicTag: topicCtl.text.trim(),
+      );
+      _flippedWords.remove(word['id'] as int);
+      await _loadRecent();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
+    }
+  }
+
   void _toggleSelectionMode() {
     setState(() {
       _isSelectionMode = !_isSelectionMode;
@@ -542,7 +665,10 @@ class _RecentPageState extends State<RecentPage> {
           }
         });
       },
-      onLongPress: () => _deleteWord(wordId, wordText),
+      onLongPress: () {
+        if (_isSelectionMode) return;
+        _showWordOptions(word);
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
