@@ -150,6 +150,7 @@ async function ensureSchema() {
       await addColumnIfNotExists('vocabulary_words', 'mastery_level', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'lapse_count', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'word_type', "VARCHAR(255) DEFAULT ''");
+      await addColumnIfNotExists('vocabulary_words', 'topic_tag', "VARCHAR(100) DEFAULT ''");
       await dropColumnIfExists('vocabulary_words', 'example_sentence');
 
       // Migrate old is_mastered -> mastery_level
@@ -406,11 +407,12 @@ async function handleAction(action, data) {
         throw new Error('Tu nay da ton tai');
       }
       const wordType = (data.wordType || '').trim() || data.category || '';
+      const topicTag = String(data.topicTag || '').trim().slice(0, 100);
       const rows = await query(
-        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id`,
-        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType],
+        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag],
       );
       return asInt(rows[0].id);
     }
@@ -469,12 +471,13 @@ async function handleAction(action, data) {
           if (existing.has(lower) || seenInPayload.has(lower)) continue;
           seenInPayload.add(lower);
           const base = params.length;
-          params.push(word, it.pronunciation || '', it.meaning || '', it.fullDetails || '', (it.wordType || '').trim());
-          chunk.push(`($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`);
+          const topicTag = String(it.topicTag || '').trim().slice(0, 100);
+          params.push(word, it.pronunciation || '', it.meaning || '', it.fullDetails || '', (it.wordType || '').trim(), topicTag);
+          chunk.push(`($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`);
         }
         if (chunk.length === 0) continue;
         await query(
-          `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type)
+          `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag)
            VALUES ${chunk.join(', ')}`,
           params,
         );
@@ -497,7 +500,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.id = $1 AND vl.user_id = $2
@@ -511,7 +514,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -527,7 +530,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vw.created_at,
                 vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
@@ -590,17 +593,17 @@ async function handleAction(action, data) {
 
     case 'updateVocabularyWordDetails':
       await query(
-        `UPDATE vocabulary_words SET meaning = $1, pronunciation = $2, full_details = $3, word_type = $4
-         WHERE id = $5 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $6)`,
-        [(data.meaning || '').trim(), (data.pronunciation || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), data.wordId, data.userId],
+        `UPDATE vocabulary_words SET meaning = $1, pronunciation = $2, full_details = $3, word_type = $4, topic_tag = $5
+         WHERE id = $6 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $7)`,
+        [(data.meaning || '').trim(), (data.pronunciation || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), String(data.topicTag || '').trim().slice(0, 100), data.wordId, data.userId],
       );
       return null;
 
     case 'updateVocabularyWord':
       await query(
-        `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5
-         WHERE id = $6 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $7)`,
-        [(data.word || '').trim(), (data.pronunciation || '').trim(), (data.meaning || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), data.wordId, data.userId],
+        `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5, topic_tag = $6
+         WHERE id = $7 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $8)`,
+        [(data.word || '').trim(), (data.pronunciation || '').trim(), (data.meaning || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), String(data.topicTag || '').trim().slice(0, 100), data.wordId, data.userId],
       );
       return null;
 
@@ -622,7 +625,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.id = $1 AND vl.user_id = $2 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $3)
@@ -637,7 +640,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -653,7 +656,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -773,11 +776,11 @@ async function handleAction(action, data) {
     // ---- Search ----
     case 'searchWord': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vl.id AS list_id, vl.name AS list_name,
+        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag, vl.id AS list_id, vl.name AS list_name,
                 vl.category AS category
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND LOWER(vw.word) LIKE LOWER($2)
+         WHERE vl.user_id = $1 AND (LOWER(vw.word) LIKE LOWER($2) OR LOWER(vw.topic_tag) LIKE LOWER($2))
          ORDER BY vw.word ASC`,
         [data.userId, '%' + (data.query || '') + '%'],
       );
@@ -786,6 +789,8 @@ async function handleAction(action, data) {
         word: row.word || '',
         meaning: row.meaning || '',
         word_type: row.word_type || '',
+        topic_tag: row.topic_tag || '',
+    topic_tag: row.topic_tag || '',
         list_id: asInt(row.list_id),
         list_name: row.list_name || '',
         category: row.category || '',
