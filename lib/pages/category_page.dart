@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
+import '../widgets/topic_tag_badge.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
 
@@ -425,6 +426,7 @@ class _CategoryPageState extends State<CategoryPage> {
                         key: ValueKey('front-$wordId'),
                         wordText: wordText,
                         pronunciation: pronunciation,
+                        topicTag: (word['topic_tag'] as String?) ?? '',
                         catColor: catColor,
                         theme: theme,
                       ),
@@ -456,6 +458,7 @@ class _CategoryPageState extends State<CategoryPage> {
     required Key key,
     required String wordText,
     required String pronunciation,
+    required String topicTag,
     required Color catColor,
     required ThemeData theme,
   }) {
@@ -463,8 +466,18 @@ class _CategoryPageState extends State<CategoryPage> {
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(wordText, maxLines: 2, overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.3)),
+        Row(
+          children: [
+            Expanded(
+              child: Text(wordText, maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.3)),
+            ),
+            if (topicTag.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              TopicTagBadge(tag: topicTag),
+            ],
+          ],
+        ),
         if (pronunciation.isNotEmpty) ...[
           const SizedBox(height: 2),
           Text('/$pronunciation/', maxLines: 1, overflow: TextOverflow.ellipsis,

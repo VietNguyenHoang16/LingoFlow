@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/topic_tag_badge.dart';
 import 'practice_page.dart';
 
 class RecentPage extends StatefulWidget {
@@ -579,6 +580,7 @@ class _RecentPageState extends State<RecentPage> {
                     : _buildCardFront(
                         key: ValueKey('front-$wordId'),
                         wordText: wordText, wordType: wordType,
+                        topicTag: (word['topic_tag'] as String?) ?? '',
                         pronunciation: pronunciation,
                         createdAt: createdAt, theme: theme,
                       ),
@@ -610,6 +612,7 @@ class _RecentPageState extends State<RecentPage> {
     required Key key,
     required String wordText,
     required String wordType,
+    required String topicTag,
     required String pronunciation,
     required DateTime? createdAt,
     required ThemeData theme,
@@ -654,6 +657,10 @@ class _RecentPageState extends State<RecentPage> {
                     )),
                 ],
               ),
+            if (topicTag.isNotEmpty) ...[
+              const Spacer(),
+              TopicTagBadge(tag: topicTag),
+            ],
           ],
         ),
       ],

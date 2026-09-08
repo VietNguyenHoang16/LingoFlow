@@ -9,6 +9,7 @@ import '../widgets/mastery_utils.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/topic_tag_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
 import 'review_page.dart';
@@ -1837,6 +1838,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         word: word,
                         pronunciation: pronunciation,
                         wordType: wordType,
+                        topicTag: topicTag,
                         isMasteredOrHigh: isMasteredOrHigh,
                         isDifficult: isDifficult,
                         masteryLevel: masteryLevel,
@@ -1930,6 +1932,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String word,
     required String pronunciation,
     required String wordType,
+    required String topicTag,
     required bool isMasteredOrHigh,
     required bool isDifficult,
     required int masteryLevel,
@@ -1982,6 +1985,10 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   ),
                 ),
               ),
+            if (topicTag.isNotEmpty) ...[
+              TopicTagBadge(tag: topicTag),
+              const SizedBox(width: 6),
+            ],
             if (isMasteredOrHigh)
               Icon(Icons.star_rounded, color: colors.masteryMastered, size: 18),
             const SizedBox(width: 4),

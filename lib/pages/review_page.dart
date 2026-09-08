@@ -11,6 +11,7 @@ import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/topic_tag_badge.dart';
 import '../widgets/example_card.dart';
 
 class ReviewPage extends StatefulWidget {
@@ -559,6 +560,18 @@ class _ReviewPageState extends State<ReviewPage>
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        if ((currentWord['topic_tag'] ?? '').isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TopicTagBadge(
+                tag: currentWord['topic_tag'] as String,
+                onColoredSurface: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
         if (!compact) ...[
           const Icon(Icons.translate_rounded, color: Colors.white54, size: 28),
           const SizedBox(height: 10),
