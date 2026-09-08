@@ -1,5 +1,6 @@
 ﻿const { Pool } = require('pg');
 const crypto = require('crypto');
+// TOPIC_TAG_VER: 20260908_v3
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
