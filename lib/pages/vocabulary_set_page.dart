@@ -14,6 +14,7 @@ import 'practice_page.dart';
 import 'review_page.dart';
 import 'profile_page.dart';
 import '../services/word_details_parser.dart';
+import '../services/topic_tag_utils.dart';
 
 class VocabularyListPage extends StatefulWidget {
   final int listId;
@@ -88,6 +89,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String pronunciation,
     required String fullDetails,
     required String wordType,
+    required String topicTag,
     required bool isDifficult,
   }) async {
     final theme = Theme.of(context);
@@ -182,7 +184,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 _editWord(
                   wordId: wordId, word: word, meaning: meaning,
                   pronunciation: pronunciation, fullDetails: fullDetails,
-                  wordType: wordType,
+                  wordType: wordType, topicTag: topicTag,
                 );
               },
             ),
@@ -399,7 +401,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 maxLines: 10,
                 decoration: const InputDecoration(
                   hintText:
-                      'fair: (adj) cong bang; (n) hoi cho; (adv) kha\n...',
+                      'fair: (adj) cong bang; (n) hoi cho; (adv) kha\nuse up: dung het sach - gym',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -449,6 +451,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           }
           if (word.isEmpty) continue;
 
+          // Nhãn chủ đề ở cuối dòng sau dấu ` - ` cuối cùng.
+          final split = splitTopicTag(remainder);
+          remainder = split.meaning;
+          final topicTag = split.topicTag;
+
           String meaning = '';
           String fullDetails = '';
           String wordType = '';
@@ -477,6 +484,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             'meaning': meaning,
             'fullDetails': fullDetails,
             'wordType': wordType,
+            'topicTag': topicTag,
           });
         }
 
@@ -561,11 +569,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String pronunciation,
     required String fullDetails,
     required String wordType,
+    required String topicTag,
   }) async {
     final wordController = TextEditingController(text: word);
     final meaningController = TextEditingController(text: meaning);
     final pronunciationController = TextEditingController(text: pronunciation);
     final detailsController = TextEditingController(text: fullDetails);
+    final topicTagController = TextEditingController(text: topicTag);
     final selectedTypes = <String>{
       ...wordType
           .split(',')
@@ -668,6 +678,16 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                     }).toList(),
                   ),
                   const SizedBox(height: 14),
+                  const Text('Nhan chu de', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: topicTagController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'vd: gym (de trong neu khong co)',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   const Text('Chi tiet', style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   TextField(
@@ -712,6 +732,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         pronunciation: pronunciationController.text,
         fullDetails: detailsController.text,
         wordType: joinedTypes,
+        topicTag: topicTagController.text,
       );
       await _loadWords(persistProgress: true);
       if (wasFlipped && mounted) setState(() => _flippedWords.add(wordId));
@@ -1326,6 +1347,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         meaning: word['meaning'],
                         fullDetails: word['full_details'] ?? '',
                         wordType: word['word_type'] ?? '',
+                        topicTag: word['topic_tag'] ?? '',
                         isMastered: word['is_mastered'] ?? false,
                         isDifficult: word['is_difficult'] ?? false,
                         masteryLevel: word['mastery_level'] ?? 0,
@@ -1689,6 +1711,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String meaning,
     required String fullDetails,
     required String wordType,
+    required String topicTag,
     required bool isMastered,
     required bool isDifficult,
     required int masteryLevel,
@@ -1722,6 +1745,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 pronunciation: pronunciation,
                 fullDetails: fullDetails,
                 wordType: wordType,
+                topicTag: topicTag,
                 isDifficult: isDifficult,
               ),
       child: AnimatedContainer(
@@ -1795,6 +1819,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         meaning: meaning,
                         fullDetails: fullDetails,
                         wordType: wordType,
+                        topicTag: topicTag,
                         isDifficult: isDifficult,
                         masteryLevel: masteryLevel,
                         nextReviewDate: nextReviewDate,
@@ -2042,6 +2067,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String meaning,
     required String fullDetails,
     required String wordType,
+    required String topicTag,
     required bool isDifficult,
     required int masteryLevel,
     required DateTime? nextReviewDate,
@@ -2148,6 +2174,7 @@ Text(
                         pronunciation: pronunciation,
                         fullDetails: fullDetails,
                         wordType: wordType,
+                        topicTag: topicTag,
                       ),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

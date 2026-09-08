@@ -1,5 +1,6 @@
 import 'database_service.dart';
 import 'dictionary_service.dart';
+import 'topic_tag_utils.dart';
 import '../widgets/word_type_utils.dart';
 
 /// Một dòng sau khi parse từ text. Lưu cả dữ liệu thô và kết quả validate.
@@ -9,6 +10,7 @@ class ImportLine {
   final String word;
   final String posNumber;
   final String meaning;
+  final String topicTag; // nhãn chủ đề tách từ cuối nghĩa, '' nếu không có.
   String? wordType; // resolved key (noun/verb/...). null nếu POS không hợp lệ.
   String? error; // null = hợp lệ.
 
@@ -18,6 +20,7 @@ class ImportLine {
     required this.word,
     required this.posNumber,
     required this.meaning,
+    this.topicTag = '',
     this.wordType,
     this.error,
   });
@@ -105,6 +108,10 @@ class BulkWordImporter {
       word = match.word.trim();
       posStr = match.pos.trim();
       meaning = match.meaning.trim();
+      // Nhãn chủ đề nằm ở cuối nghĩa sau dấu ` - ` cuối cùng.
+      final split = splitTopicTag(meaning);
+      meaning = split.meaning;
+      final topicTag = split.topicTag;
       final wordType = parsePosNumber(posStr);
 
       if (word.isEmpty) {
@@ -114,6 +121,7 @@ class BulkWordImporter {
           word: word,
           posNumber: posStr,
           meaning: meaning,
+          topicTag: topicTag,
           wordType: wordType,
           error: 'Thiếu từ',
         ));
@@ -126,6 +134,7 @@ class BulkWordImporter {
           word: word,
           posNumber: posStr,
           meaning: meaning,
+          topicTag: topicTag,
           wordType: wordType,
           error: 'Thiếu nghĩa',
         ));
@@ -138,6 +147,7 @@ class BulkWordImporter {
           word: word,
           posNumber: posStr,
           meaning: meaning,
+          topicTag: topicTag,
           wordType: null,
           error: 'Số POS không hợp lệ (1-12)',
         ));
@@ -150,6 +160,7 @@ class BulkWordImporter {
         word: word,
         posNumber: posStr,
         meaning: meaning,
+        topicTag: topicTag,
         wordType: wordType,
       ));
     }
@@ -189,6 +200,7 @@ class BulkWordImporter {
           word: l.word,
           posNumber: l.posNumber,
           meaning: l.meaning,
+          topicTag: l.topicTag,
           wordType: l.wordType,
           error: 'Trùng từ',
         );
@@ -293,6 +305,7 @@ class BulkWordImporter {
               'pronunciation': pronunciations[l.word.toLowerCase()] ?? '',
               'meaning': l.meaning,
               'wordType': l.wordType,
+              'topicTag': l.topicTag,
             }).toList();
         try {
           inserted += await _db.bulkAddCategoryWords(userId, entry.key, payload);
@@ -307,6 +320,7 @@ class BulkWordImporter {
                 pronunciations[line.word.toLowerCase()] ?? '',
                 line.meaning,
                 wordType: line.wordType,
+                topicTag: line.topicTag,
               );
               inserted++;
             } catch (_) {}
