@@ -770,6 +770,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String word,
     required String meaning,
     required String fullDetails,
+    String pronunciation = '',
+    String wordType = '',
+    String topicTag = '',
   }) {
     final exampleController = TextEditingController();
     final theme = Theme.of(context);
@@ -844,7 +847,10 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         await _db.updateVocabularyWordDetails(
                           wordId: id,
                           meaning: meaning,
+                          pronunciation: pronunciation,
                           fullDetails: newFullDetails,
+                          wordType: wordType,
+                          topicTag: topicTag,
                         );
                         await _loadWords(persistProgress: true);
                         if (mounted) {
@@ -1958,6 +1964,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                             word: word,
                             meaning: meaning,
                             fullDetails: fullDetails,
+                            pronunciation: pronunciation,
+                            wordType: wordType,
+                            topicTag: topicTag,
                           ),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2310,6 +2319,9 @@ Text(
                         word: word,
                         meaning: meaning,
                         fullDetails: fullDetails,
+                        pronunciation: pronunciation,
+                        wordType: wordType,
+                        topicTag: topicTag,
                       ),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

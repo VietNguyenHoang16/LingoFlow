@@ -558,7 +558,7 @@ async function handleAction(action, data) {
 
     case 'getUntaggedWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.word_type IS NULL OR vw.word_type = '')

@@ -66,6 +66,7 @@ class WordTypeClassifier {
           pronunciation: w['pronunciation'] as String?,
           fullDetails: w['full_details'] as String?,
           wordType: joined,
+          topicTag: (w['topic_tag'] as String?) ?? '',
         );
         classified++;
         if (kDebugMode) {
