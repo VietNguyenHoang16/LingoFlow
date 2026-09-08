@@ -9,6 +9,7 @@ import '../widgets/mastery_utils.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/edit_word_sheet.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
@@ -586,177 +587,60 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String wordType,
     required String topicTag,
   }) async {
-    final wordController = TextEditingController(text: word);
-    final meaningController = TextEditingController(text: meaning);
-    final pronunciationController = TextEditingController(text: pronunciation);
-    final detailsController = TextEditingController(text: fullDetails);
-    final topicTagController = TextEditingController(text: topicTag);
-    final selectedTypes = <String>{
-      ...wordType
-          .split(',')
-          .map((t) => t.trim())
-          .where((t) => kWordTypeLabel.containsKey(t)),
-    };
-
-    final result = await showDialog<bool>(
+    final result = await showEditWordSheet(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Chinh sua tu'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Tu vung', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: wordController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Nhap tu',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('Nghia', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: meaningController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Nhap nghia',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('Phat am', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: pronunciationController,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Tuy chon',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('Loai tu', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: kWordTypeKeys.map((key) {
-                      final config = wordTypeConfig(key, dialogContext);
-                      final color = config['color'] as Color;
-                      final isSelected = selectedTypes.contains(key);
-                      return GestureDetector(
-                        onTap: () {
-                          setDialogState(() {
-                            if (isSelected) {
-                              selectedTypes.remove(key);
-                            } else {
-                              selectedTypes.add(key);
-                            }
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isSelected ? color.withAlpha(40) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected
-                                  ? color.withAlpha(180)
-                                  : color.withAlpha(60),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(config['icon'] as IconData, size: 12, color: color),
-                              const SizedBox(width: 4),
-                              Text(
-                                config['shortLabel'] as String,
-                                style: TextStyle(
-                                  fontFamily: 'Be Vietnam Pro',
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: color,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('Nhan chu de', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: topicTagController,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'vd: gym (de trong neu khong co)',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('Chi tiet', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: detailsController,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Tuy chon',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huy'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (wordController.text.trim().isEmpty) return;
-                Navigator.pop(dialogContext, true);
-              },
-              child: const Text('Luu'),
-            ),
-          ],
-        ),
-      ),
+      word: word,
+      meaning: meaning,
+      pronunciation: pronunciation,
+      fullDetails: fullDetails,
+      wordType: wordType,
+      topicTag: topicTag,
+      requireMeaning: false,
     );
 
-    if (result != true) return;
+    if (result == null || !mounted) return;
 
-    final joinedTypes = selectedTypes.toList().join(',');
+    Map<String, dynamic>? previous;
+    final idx = _words.indexWhere((w) => w['id'] == wordId);
+    if (idx != -1) {
+      previous = Map<String, dynamic>.from(_words[idx]);
+      // Optimistic update: vá tại chỗ, không giật trang.
+      setState(() {
+        _words[idx] = {
+          ..._words[idx],
+          'word': result.word,
+          'meaning': result.meaning,
+          'pronunciation': result.pronunciation,
+          'full_details': result.fullDetails,
+          'word_type': result.wordType,
+          'topic_tag': result.topicTag,
+        };
+      });
+    }
 
     try {
-      final wasFlipped = _flippedWords.contains(wordId);
       await _db.updateVocabularyWord(
         wordId: wordId,
-        word: wordController.text,
-        meaning: meaningController.text,
-        pronunciation: pronunciationController.text,
-        fullDetails: detailsController.text,
-        wordType: joinedTypes,
-        topicTag: topicTagController.text,
+        word: result.word,
+        meaning: result.meaning,
+        pronunciation: result.pronunciation,
+        fullDetails: result.fullDetails,
+        wordType: result.wordType,
+        topicTag: result.topicTag,
       );
       await _loadWords(persistProgress: true);
-      if (wasFlipped && mounted) setState(() => _flippedWords.add(wordId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Da cap nhat "${wordController.text.trim()}"')),
+          SnackBar(content: Text('Da cap nhat "${result.word}"')),
         );
       }
     } catch (e) {
+      if (previous != null && mounted) {
+        setState(() {
+          final i = _words.indexWhere((w) => w['id'] == wordId);
+          if (i != -1) _words[i] = previous!;
+        });
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Loi: $e')),

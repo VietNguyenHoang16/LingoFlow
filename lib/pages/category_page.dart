@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
+import '../widgets/edit_word_sheet.dart';
 import '../widgets/topic_tag_badge.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
@@ -113,52 +114,47 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   Future<void> _editWord(Map<String, dynamic> word) async {
-    final wordCtl = TextEditingController(text: word['word'] ?? '');
-    final meaningCtl = TextEditingController(text: word['meaning'] ?? '');
-    final pronCtl = TextEditingController(text: word['pronunciation'] ?? '');
-    final topicCtl = TextEditingController(text: word['topic_tag'] ?? '');
-
-    final saved = await showDialog<bool>(
+    final result = await showEditWordSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sua tu'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: wordCtl, autofocus: true, decoration: const InputDecoration(labelText: 'Tu')),
-              const SizedBox(height: 8),
-              TextField(controller: meaningCtl, decoration: const InputDecoration(labelText: 'Nghia')),
-              const SizedBox(height: 8),
-              TextField(controller: pronCtl, decoration: const InputDecoration(labelText: 'Phat am')),
-              const SizedBox(height: 8),
-              TextField(controller: topicCtl, decoration: const InputDecoration(labelText: 'Nhan chu de (tuy chon)')),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huy')),
-          FilledButton(onPressed: () {
-            if (wordCtl.text.trim().isNotEmpty && meaningCtl.text.trim().isNotEmpty) Navigator.pop(ctx, true);
-          }, child: const Text('Luu')),
-        ],
-      ),
+      word: (word['word'] ?? '').toString(),
+      meaning: (word['meaning'] ?? '').toString(),
+      pronunciation: (word['pronunciation'] ?? '').toString(),
+      fullDetails: (word['full_details'] ?? '').toString(),
+      wordType: (word['word_type'] ?? '').toString(),
+      topicTag: (word['topic_tag'] ?? '').toString(),
+      showWordType: false,
+      showDetails: false,
     );
+    if (result == null || !mounted) return;
 
-    if (saved != true) return;
+    final id = word['id'] as int;
+    final previous = Map<String, dynamic>.from(word);
+    // Optimistic update: vá tại chỗ, không giật trang.
+    setState(() {
+      word['word'] = result.word;
+      word['meaning'] = result.meaning;
+      word['pronunciation'] = result.pronunciation;
+      word['topic_tag'] = result.topicTag;
+    });
     try {
       await _db.updateVocabularyWord(
-        wordId: word['id'] as int,
-        word: wordCtl.text.trim(),
-        meaning: meaningCtl.text.trim(),
-        pronunciation: pronCtl.text.trim(),
-        wordType: (word['word_type'] as String?)?.trim() ?? widget.category,
-        topicTag: topicCtl.text.trim(),
+        wordId: id,
+        word: result.word,
+        meaning: result.meaning,
+        pronunciation: result.pronunciation,
+        wordType: (previous['word_type'] as String?)?.trim() ?? widget.category,
+        topicTag: result.topicTag,
       );
       await _loadWords();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
+      if (mounted) {
+        setState(() {
+          final i = _words.indexWhere((w) => w['id'] == id);
+          if (i != -1) _words[i] = previous;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
+      }
     }
   }
 
