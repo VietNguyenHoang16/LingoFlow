@@ -776,23 +776,29 @@ class _RecentPageState extends State<RecentPage> {
               const SizedBox(width: 8),
             ],
             if (createdAt != null)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.schedule_rounded, size: 14,
-                    color: theme.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                  Text(_formatRelative(createdAt),
-                    style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro', fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    )),
-                ],
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 14,
+                      color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(_formatRelative(createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro', fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        )),
+                    ),
+                  ],
+                ),
               ),
             if (topicTag.isNotEmpty) ...[
               const Spacer(),
-              TopicTagBadge(tag: topicTag),
+              Flexible(child: TopicTagBadge(tag: topicTag)),
             ],
           ],
         ),

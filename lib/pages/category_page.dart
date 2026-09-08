@@ -543,7 +543,7 @@ class _CategoryPageState extends State<CategoryPage> {
             ),
             if (topicTag.isNotEmpty) ...[
               const SizedBox(width: 6),
-              TopicTagBadge(tag: topicTag),
+              Flexible(child: TopicTagBadge(tag: topicTag)),
             ],
           ],
         ),

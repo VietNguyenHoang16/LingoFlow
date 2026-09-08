@@ -1973,7 +1973,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 ),
               ),
             if (topicTag.isNotEmpty) ...[
-              TopicTagBadge(tag: topicTag),
+              Flexible(child: TopicTagBadge(tag: topicTag)),
               const SizedBox(width: 6),
             ],
             if (isMasteredOrHigh)

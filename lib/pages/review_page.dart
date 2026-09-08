@@ -564,9 +564,11 @@ class _ReviewPageState extends State<ReviewPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TopicTagBadge(
-                tag: currentWord['topic_tag'] as String,
-                onColoredSurface: true,
+              Flexible(
+                child: TopicTagBadge(
+                  tag: currentWord['topic_tag'] as String,
+                  onColoredSurface: true,
+                ),
               ),
             ],
           ),

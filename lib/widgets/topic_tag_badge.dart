@@ -10,7 +10,7 @@ class TopicTagBadge extends StatelessWidget {
     super.key,
     required this.tag,
     this.onColoredSurface = false,
-    this.maxWidth = 120,
+    this.maxWidth = 100,
   });
 
   @override
