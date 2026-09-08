@@ -53,6 +53,20 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   final Set<int> _selectedWords = {};
   final Set<int> _flippedWords = {};
   String? _filterWordType;
+  String? _filterTopicTag;
+
+  /// Các nhãn chủ đề distinct (sắp xếp A-Z) kèm số từ.
+  List<({String tag, int count})> get _topicTagOptions {
+    final counts = <String, int>{};
+    for (final w in _words) {
+      final tag = (w['topic_tag'] ?? '').toString().trim();
+      if (tag.isEmpty) continue;
+      counts[tag] = (counts[tag] ?? 0) + 1;
+    }
+    final options = counts.entries.map((e) => (tag: e.key, count: e.value)).toList();
+    options.sort((a, b) => a.tag.compareTo(b.tag));
+    return options;
+  }
 
   // -------------------------------------------------------
   // Logic methods (unchanged)
@@ -869,10 +883,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) => Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Center(
                 child: Container(
                   width: 40, height: 4,
@@ -933,8 +948,76 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   setSheetState,
                 );
               }),
+              if (_topicTagOptions.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Divider(color: theme.colorScheme.outlineVariant),
+                const SizedBox(height: 12),
+                Text(
+                  'Loc theo nhan',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildTopicFilterChip(null, 'Tat ca', _words.length, setSheetState),
+                    ..._topicTagOptions.map((o) =>
+                        _buildTopicFilterChip(o.tag, o.tag, o.count, setSheetState)),
+                  ],
+                ),
+              ],
             ],
           ),
+        ),
+      ),
+    ),
+  );
+  }
+
+  Widget _buildTopicFilterChip(
+    String? tag,
+    String label,
+    int count,
+    StateSetter setSheetState,
+  ) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.tertiary;
+    final isSelected = _filterTopicTag == tag;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _filterTopicTag = tag);
+        setSheetState(() {});
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withAlpha(35) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? color.withAlpha(160) : color.withAlpha(60),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sell_outlined, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              '$label ($count)',
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? color : theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1069,6 +1152,10 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         return raw.split(',').map((s) => s.trim()).contains(_filterWordType);
       });
     }
+    if (_filterTopicTag != null) {
+      words = words.where((w) =>
+          (w['topic_tag'] ?? '').toString().trim() == _filterTopicTag);
+    }
     final list = words.toList();
     if (_filterLevel == -2) {
       return list.where((w) => SrsService.isLeech(w['lapse_count'] as int? ?? 0)).toList();
@@ -1076,6 +1163,9 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     if (_filterLevel == -1) return list;
     return list.where((w) => (w['mastery_level'] ?? 0) == _filterLevel).toList();
   }
+
+  bool get _hasActiveFilter =>
+      _filterLevel != -1 || _filterWordType != null || _filterTopicTag != null;
 
   // -------------------------------------------------------
   // Build
@@ -1280,19 +1370,20 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                       const SizedBox(width: 8),
                       // Filter
                       _buildChipButton(
-                        label: _filterWordType != null
-                            ? (kWordTypeLabel[_filterWordType] ?? _filterWordType!)
-                            : (_filterLevel == -2
-                                ? 'Kho nho'
-                                : (_filterLevel >= 0
-                                    ? SrsService.masteryName(_filterLevel)
-                                    : 'Loc')),
-                        icon: _filterLevel != -1 || _filterWordType != null
+                        label: _filterTopicTag ??
+                            (_filterWordType != null
+                                ? (kWordTypeLabel[_filterWordType] ?? _filterWordType!)
+                                : (_filterLevel == -2
+                                    ? 'Kho nho'
+                                    : (_filterLevel >= 0
+                                        ? SrsService.masteryName(_filterLevel)
+                                        : 'Loc'))),
+                        icon: _hasActiveFilter
                             ? Icons.filter_alt_rounded
                             : Icons.filter_list_rounded,
                         onTap: _showFilterSheet,
                         theme: theme,
-                        isActive: _filterLevel != -1 || _filterWordType != null,
+                        isActive: _hasActiveFilter,
                       ),
                       // Delete selected
                       if (_isSelectionMode && _selectedWords.isNotEmpty) ...[
@@ -1658,7 +1749,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   }
 
   Widget _buildEmptyWords(ThemeData theme) {
-    final hasActiveFilter = _filterLevel != -1 || _filterWordType != null;
+    final hasActiveFilter = _hasActiveFilter;
     final masteryLabel = _filterLevel == -2
         ? 'kho nho'
         : (_filterLevel >= 0
@@ -1667,9 +1758,12 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     final typeLabel = _filterWordType != null
         ? (kWordTypeLabel[_filterWordType] ?? _filterWordType!)
         : '';
+    final topicLabel =
+        _filterTopicTag != null ? 'nhan ${_filterTopicTag!}' : '';
     final subjectParts = <String>[
       if (masteryLabel.isNotEmpty) masteryLabel,
       if (typeLabel.isNotEmpty) typeLabel,
+      if (topicLabel.isNotEmpty) topicLabel,
     ];
     final subject = subjectParts.join(' + ');
     return Container(

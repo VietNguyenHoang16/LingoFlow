@@ -31,6 +31,7 @@ class _CategoryPageState extends State<CategoryPage> {
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _filterTopicTag;
   Timer? _searchDebounce;
 
   String get _categoryLabel => kWordTypeLabel[widget.category] ?? widget.category;
@@ -64,11 +65,28 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   List<Map<String, dynamic>> get _filteredWords {
-    if (_searchQuery.isEmpty) return _words;
-    return _words.where((w) =>
+    Iterable<Map<String, dynamic>> words = _words;
+    if (_filterTopicTag != null) {
+      words = words.where((w) =>
+          (w['topic_tag'] as String? ?? '').trim() == _filterTopicTag);
+    }
+    if (_searchQuery.isEmpty) return words.toList();
+    return words.where((w) =>
       (w['word'] as String? ?? '').toLowerCase().contains(_searchQuery) ||
-      (w['meaning'] as String? ?? '').toLowerCase().contains(_searchQuery)
+      (w['meaning'] as String? ?? '').toLowerCase().contains(_searchQuery) ||
+      (w['topic_tag'] as String? ?? '').toLowerCase().contains(_searchQuery)
     ).toList();
+  }
+
+  /// Các nhãn chủ đề distinct (sắp xếp A-Z).
+  List<String> get _topicTagOptions {
+    final tags = <String>{};
+    for (final w in _words) {
+      final tag = (w['topic_tag'] as String? ?? '').trim();
+      if (tag.isNotEmpty) tags.add(tag);
+    }
+    final options = tags.toList()..sort();
+    return options;
   }
 
   Future<void> _speak(String text) async {
@@ -314,6 +332,26 @@ class _CategoryPageState extends State<CategoryPage> {
             ),
           ),
 
+          if (_topicTagOptions.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              sliver: SliverToBoxAdapter(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildTopicFilterChip(null, 'Tat ca'),
+                      const SizedBox(width: 8),
+                      ..._topicTagOptions.map((t) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _buildTopicFilterChip(t, t),
+                          )),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           if (_isLoading)
             const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
           else if (filtered.isEmpty)
@@ -370,6 +408,41 @@ class _CategoryPageState extends State<CategoryPage> {
           const SizedBox(width: 4),
           Text(label, style: const TextStyle(fontFamily: 'Be Vietnam Pro', color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTopicFilterChip(String? tag, String label) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.tertiary;
+    final isSelected = _filterTopicTag == tag;
+    return GestureDetector(
+      onTap: () => setState(() => _filterTopicTag = tag),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withAlpha(35) : theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? color.withAlpha(160) : theme.colorScheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sell_outlined, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? color : theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
