@@ -153,16 +153,12 @@ class _ReviewPageState extends State<ReviewPage>
     }
 
     if (immediate) {
-      // Giu trong user-gesture (tap rating) de Safari cho bat keyboard.
       focusAndReveal();
     }
 
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      focusAndReveal();
-      // Fallback cho iPad Safari viewInsets den tre.
-      Future<void>.delayed(const Duration(milliseconds: 120), focusAndReveal);
-      Future<void>.delayed(const Duration(milliseconds: 350), focusAndReveal);
-    });
+    // Chi 1 fallback postFrame de sua focus-state. Retry delay khong bao gio
+    // goi duoc keyboard Safari (can gesture) nen bo, tranh nhieu.
+    SchedulerBinding.instance.addPostFrameCallback((_) => focusAndReveal());
   }
 
   void _scrollAnswerIntoView() {
@@ -236,6 +232,12 @@ class _ReviewPageState extends State<ReviewPage>
   Map<String, dynamic>? get _currentWordSafe => wordAt(_dueWords, _currentIndex);
 
   void _rateWord(int quality) {
+    // Safari chi bat keyboard cho focus DONG BO trong gesture: xin focus
+    // truoc moi tinh toan/setState. De cuoi handler + qua unfocus/refocus
+    // 2 node la mat keyboard (element focused nhung keyboard khong len).
+    if (_pageFocusNode.hasFocus) _pageFocusNode.unfocus();
+    if (!_isCompleted) _answerFocusNode.requestFocus();
+
     final word = _currentWordSafe;
     if (word == null) return;
 
@@ -283,7 +285,7 @@ class _ReviewPageState extends State<ReviewPage>
     });
 
     if (!_isCompleted) {
-      _requestInputFocus(immediate: true);
+      _requestInputFocus();
     }
   }
 
