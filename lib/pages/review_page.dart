@@ -330,7 +330,10 @@ class _ReviewPageState extends State<ReviewPage>
     if (wordStr.isEmpty) return;
     final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
     if (_hintLevel < maxHints) {
+      // Tap nut cuop focus lam Safari tat keyboard -> giu lai neu dang mo.
+      final hadFocus = _answerFocusNode.hasFocus;
       setState(() => _hintLevel++);
+      if (hadFocus) _answerFocusNode.requestFocus();
     }
   }
 
@@ -852,7 +855,11 @@ class _ReviewPageState extends State<ReviewPage>
                   ? IconButton(
                       icon: Icon(Icons.close_rounded,
                           color: theme.colorScheme.onSurfaceVariant, size: 18),
-                      onPressed: () => _answerController.clear(),
+                      onPressed: () {
+                        _answerController.clear();
+                        // Giu keyboard khi xoa chu.
+                        _answerFocusNode.requestFocus();
+                      },
                     )
                   : null,
             ),
