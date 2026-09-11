@@ -140,17 +140,22 @@ class _ReviewPageState extends State<ReviewPage>
   void _requestInputFocus({bool immediate = false}) {
     void focusAndReveal() {
       if (!mounted || _showAnswer || _isCompleted || _dueWords.isEmpty) return;
+      // Safari: page node giu focus se chan answer node, phai nha truoc.
+      if (_pageFocusNode.hasFocus) _pageFocusNode.unfocus();
       _answerFocusNode.requestFocus();
       _scrollAnswerIntoView();
     }
 
     if (immediate) {
+      // Giu trong user-gesture (tap rating) de Safari cho bat keyboard.
       focusAndReveal();
     }
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
       focusAndReveal();
+      // Fallback cho iPad Safari viewInsets den tre.
       Future<void>.delayed(const Duration(milliseconds: 120), focusAndReveal);
+      Future<void>.delayed(const Duration(milliseconds: 350), focusAndReveal);
     });
   }
 
@@ -507,7 +512,7 @@ class _ReviewPageState extends State<ReviewPage>
 
                       return Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(20),
+                        padding: EdgeInsets.all(keyboardOpen ? 14 : 20),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: showColors,
@@ -523,9 +528,12 @@ class _ReviewPageState extends State<ReviewPage>
                             ),
                           ],
                         ),
-                        child: !_showAnswer
-                            ? _buildQuestionCardContent(currentWord, theme, keyboardOpen)
-                            : _buildAnswerCardContent(currentWord, theme, keyboardOpen),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: !_showAnswer
+                              ? _buildQuestionCardContent(currentWord, theme, keyboardOpen)
+                              : _buildAnswerCardContent(currentWord, theme, keyboardOpen),
+                        ),
                       );
                     },
                   ),
@@ -558,6 +566,7 @@ class _ReviewPageState extends State<ReviewPage>
     bool compact,
   ) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if ((currentWord['topic_tag'] ?? '').isNotEmpty) ...[
@@ -608,7 +617,7 @@ class _ReviewPageState extends State<ReviewPage>
             height: 1.3,
           ),
         ),
-        if ((currentWord['example'] ?? '').isNotEmpty) ...[
+        if ((currentWord['example'] ?? '').isNotEmpty && !compact) ...[
           const SizedBox(height: 8),
           ExampleCard(
             example: currentWord['example'] as String,
@@ -628,6 +637,8 @@ class _ReviewPageState extends State<ReviewPage>
           child: Text(
             _getMaskedWord(currentWord['word'] ?? '', hintLevel: _hintLevel),
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: compact ? 15 : 18,
               letterSpacing: 2,
@@ -666,6 +677,7 @@ class _ReviewPageState extends State<ReviewPage>
     bool compact,
   ) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
@@ -783,6 +795,12 @@ class _ReviewPageState extends State<ReviewPage>
             focusNode: _answerFocusNode,
             textAlign: TextAlign.center,
             textInputAction: TextInputAction.done,
+            keyboardType: TextInputType.text,
+            autocorrect: false,
+            enableSuggestions: false,
+            textCapitalization: TextCapitalization.none,
+            // Safari iPad: keyboard che field neu khong co scrollPadding.
+            scrollPadding: const EdgeInsets.only(bottom: 220),
             style: TextStyle(
               fontSize: compact ? 16 : 18,
               fontWeight: FontWeight.bold,
