@@ -42,7 +42,12 @@ class _ReviewPageState extends State<ReviewPage>
   final FocusNode _answerFocusNode = FocusNode();
   final FocusNode _pageFocusNode = FocusNode();
   final GlobalKey _answerFieldKey = GlobalKey();
+  final GlobalKey _questionCardKey = GlobalKey();
+  final ScrollController _bodyScrollController = ScrollController();
   bool? _isAnswerCorrect;
+  // Safari iPad khong bao viewInsets.bottom (keyboard phu overlay) -> dung
+  // focus de biet keyboard dang mo, thay vi chi dua vao viewInsets.
+  bool _inputFocused = false;
 
   List<Map<String, dynamic>> _dueWords = [];
   bool _isLoading = true;
@@ -104,6 +109,7 @@ class _ReviewPageState extends State<ReviewPage>
     _answerController.dispose();
     _answerFocusNode.dispose();
     _pageFocusNode.dispose();
+    _bodyScrollController.dispose();
     _flipController.dispose();
     super.dispose();
   }
@@ -172,15 +178,35 @@ class _ReviewPageState extends State<ReviewPage>
     );
   }
 
+  void _scrollQuestionIntoView() {
+    final questionContext = _questionCardKey.currentContext;
+    if (questionContext == null) return;
+
+    // Dua the cau hoi len dau vung nhin thay duoc, ke ca khi Safari khong
+    // bao viewInsets (keyboard phu overlay phia duoi).
+    Scrollable.ensureVisible(
+      questionContext,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: 0.0,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+    );
+  }
+
   void _handleAnswerFocusChange() {
-    if (!_answerFocusNode.hasFocus) return;
+    final focused = _answerFocusNode.hasFocus;
+    if (_inputFocused != focused) {
+      setState(() => _inputFocused = focused);
+    }
+    if (!focused) return;
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_answerFocusNode.hasFocus) return;
+      _scrollQuestionIntoView();
       _scrollAnswerIntoView();
-      Future<void>.delayed(const Duration(milliseconds: 120), () {
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
         if (mounted && _answerFocusNode.hasFocus) {
-          _scrollAnswerIntoView();
+          _scrollQuestionIntoView();
         }
       });
     });
@@ -327,6 +353,8 @@ class _ReviewPageState extends State<ReviewPage>
     final colors = context.lingoColors;
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final keyboardOpen = keyboardInset > 0;
+    // Focus = keyboard dang mo (cho ca truong hop Safari khong bao inset).
+    final compactMode = keyboardOpen || _inputFocused;
 
     if (_isLoading) {
       return Scaffold(
@@ -473,8 +501,15 @@ class _ReviewPageState extends State<ReviewPage>
         body: SafeArea(
           top: false,
           bottom: true,
-          child: Column(
-            children: [
+          // Toan bo body cuon duoc: Safari iPad khong co layout khi keyboard
+          // mo (viewInsets = 0) nen Column + Expanded cung lam tu bi che.
+          child: SingleChildScrollView(
+            controller: _bodyScrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               // Progress bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
@@ -490,69 +525,67 @@ class _ReviewPageState extends State<ReviewPage>
               ),
               const SizedBox(height: 8),
 
-              // Mastery badge
-              if (!keyboardOpen)
+              // Mastery badge — an khi go phim de tiet kiem cho hien thi tu.
+              if (!compactMode)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: MasteryBadge(level: currentWord['mastery_level'] as int),
                 ),
 
-              // Main card â€” expands to fill remaining space
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: AnimatedBuilder(
-                    animation: _flipAnimation,
-                    builder: (context, child) {
-                      final showColors = _showAnswer
-                          ? (_isAnswerCorrect == true
-                              ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
-                              : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(160)])
-                          : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
+              // Main card — cao tu nhien, cuon cung ca trang.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AnimatedBuilder(
+                  animation: _flipAnimation,
+                  builder: (context, child) {
+                    final showColors = _showAnswer
+                        ? (_isAnswerCorrect == true
+                            ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
+                            : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(160)])
+                        : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
 
-                      return Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(keyboardOpen ? 14 : 20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: showColors,
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    return Container(
+                      key: _questionCardKey,
+                      width: double.infinity,
+                      padding: EdgeInsets.all(compactMode ? 14 : 20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: showColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: showColors[0].withAlpha(70),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: showColors[0].withAlpha(70),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: !_showAnswer
-                              ? _buildQuestionCardContent(currentWord, theme, keyboardOpen)
-                              : _buildAnswerCardContent(currentWord, theme, keyboardOpen),
-                        ),
-                      );
-                    },
-                  ),
+                        ],
+                      ),
+                      child: !_showAnswer
+                          ? _buildQuestionCardContent(currentWord, theme, compactMode)
+                          : _buildAnswerCardContent(currentWord, theme, compactMode),
+                    );
+                  },
                 ),
               ),
 
               // Bottom section: input + button OR rating buttons
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  12,
-                  20,
-                  keyboardOpen ? 8 : 20,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: !_showAnswer
-                    ? _buildInputSection(theme, keyboardOpen)
-                    : _buildRatingSection(theme, colors, keyboardOpen),
+                    ? _buildInputSection(theme, compactMode)
+                    : _buildRatingSection(theme, colors, compactMode),
               ),
-            ],
+
+              // Safari iPad bao viewInsets = 0 khi keyboard mo -> spacer nay
+              // tao cho de cuon the tu len tren keyboard. Khi he dieu hanh
+              // bao inset that thi Scaffold da tu co layout, khong can spacer.
+              if (keyboardInset <= 0 && _inputFocused)
+                const SizedBox(height: 420),
+              ],
+            ),
           ),
         ),
       ),
