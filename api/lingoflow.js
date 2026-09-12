@@ -60,6 +60,9 @@ function mapWordRow(row) {
     lapse_count: asInt(row.lapse_count),
     word_type: row.word_type || '',
     topic_tag: row.topic_tag || '',
+    example_sentence: row.example_sentence || '',
+    example_translation: row.example_translation || '',
+    example_target: row.example_target || '',
     created_at: normalizeDate(row.created_at),
     ...(row.list_name !== undefined ? { list_name: row.list_name || '' } : {}),
     ...(row.list_id !== undefined ? { list_id: asInt(row.list_id) } : {}),
@@ -152,7 +155,9 @@ async function ensureSchema() {
       await addColumnIfNotExists('vocabulary_words', 'lapse_count', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'word_type', "VARCHAR(255) DEFAULT ''");
       await addColumnIfNotExists('vocabulary_words', 'topic_tag', "VARCHAR(100) DEFAULT ''");
-      await dropColumnIfExists('vocabulary_words', 'example_sentence');
+      await addColumnIfNotExists('vocabulary_words', 'example_sentence', 'TEXT');
+      await addColumnIfNotExists('vocabulary_words', 'example_translation', 'TEXT');
+      await addColumnIfNotExists('vocabulary_words', 'example_target', 'VARCHAR(255)');
 
       // Migrate old is_mastered -> mastery_level
       await query(`

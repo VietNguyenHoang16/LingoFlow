@@ -2,6 +2,12 @@
   "buildCommand": "npm run build:web",
   "outputDirectory": "build/web",
   "installCommand": "npm install",
+  "rewrites": [
+    {
+      "source": "/example",
+      "destination": "/example_manager.html"
+    }
+  ],
   "functions": {
     "api/lingoflow.js": {
       "maxDuration": 20
