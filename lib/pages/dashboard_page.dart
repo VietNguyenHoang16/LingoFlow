@@ -6,6 +6,7 @@ import '../widgets/animated_pressable.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/bulk_import_dialog.dart';
+import '../widgets/edit_word_sheet.dart';
 import '../widgets/pwa_install_banner.dart';
 import '../widgets/review_banner_buttons.dart';
 import 'dart:async';
@@ -513,6 +514,98 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     }
   }
 
+  /// Chỉnh sửa từ trong kết quả tìm kiếm
+  Future<void> _editSearchResult(Map<String, dynamic> word) async {
+    final result = await showEditWordSheet(
+      context: context,
+      word: (word['word'] as String?)?.trim() ?? '',
+      meaning: (word['meaning'] as String?)?.trim() ?? '',
+      pronunciation: (word['pronunciation'] as String?)?.trim() ?? '',
+      fullDetails: (word['full_details'] as String?)?.trim() ?? '',
+      wordType: (word['word_type'] as String?)?.trim() ?? '',
+      topicTag: (word['topic_tag'] as String?)?.trim() ?? '',
+    );
+    if (result == null || !mounted) return;
+
+    try {
+      await _db.updateVocabularyWord(
+        wordId: word['id'] as int,
+        word: result.word,
+        meaning: result.meaning,
+        pronunciation: result.pronunciation,
+        fullDetails: result.fullDetails,
+        wordType: result.wordType,
+        topicTag: result.topicTag,
+      );
+
+      // Cập nhật danh sách hiển thị ngay
+      final index = _searchResults.indexWhere((w) => w['id'] == word['id']);
+      if (index != -1) {
+        setState(() {
+          _searchResults[index] = {...word,
+            'word': result.word,
+            'meaning': result.meaning,
+            'pronunciation': result.pronunciation,
+            'full_details': result.fullDetails,
+            'word_type': result.wordType,
+            'topic_tag': result.topicTag,
+          };
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã chỉnh sửa từ')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
+  }
+
+  /// Xóa từ khỏi kết quả tìm kiếm
+  Future<void> _deleteSearchResult(Map<String, dynamic> word) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa từ?'),
+        content: Text('Bạn có chắc chắn muốn xóa "${word['word']}" không?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    try {
+      await _db.deleteVocabularyWord(word['id'] as int);
+
+      // Xóa khỏi danh sách hiển thị
+      setState(() {
+        _searchResults.removeWhere((w) => w['id'] == word['id']);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xóa từ')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -586,7 +679,21 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(word['word'] as String, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface)),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(word['word'] as String, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface)),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_rounded, size: 20, color: Colors.blue),
+                                          onPressed: () => _editSearchResult(word),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_rounded, size: 20, color: Colors.red),
+                                          onPressed: () => _deleteSearchResult(word),
+                                        ),
+                                      ],
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(word['meaning'] as String, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, color: theme.colorScheme.onSurfaceVariant)),
                                     if ((word['word_type'] as String? ?? '').trim().isNotEmpty) ...[
