@@ -45,6 +45,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
   final List<List<Color>> cardPalettes;
   final List<Color> reviewBannerDue;
   final List<Color> reviewBannerDone;
+  final List<Color> reviewBannerGrammar;
   final Color navActiveBg;
   final Color navActiveContent;
   final Color navInactiveContent;
@@ -60,6 +61,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
     required this.cardPalettes,
     required this.reviewBannerDue,
     required this.reviewBannerDone,
+    required this.reviewBannerGrammar,
     required this.navActiveBg,
     required this.navActiveContent,
     required this.navInactiveContent,
@@ -82,6 +84,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
     ],
     reviewBannerDue: [Color(0xFF6366F1), Color(0xFF818CF8)],
     reviewBannerDone: [Color(0xFF10B981), Color(0xFF34D399)],
+    reviewBannerGrammar: [Color(0xFF8B5CF6), Color(0xFFA78BFA)],  // Violet
     navActiveBg: Color(0xFF6366F1),
     navActiveContent: Colors.white,
     navInactiveContent: Color(0xFF94A3B8),
@@ -104,6 +107,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
     ],
     reviewBannerDue: [Color(0xFF818CF8), Color(0xFFA5B4FC)],
     reviewBannerDone: [Color(0xFF34D399), Color(0xFF6EE7B7)],
+    reviewBannerGrammar: [Color(0xFFA78BFA), Color(0xFFC4B5FD)],  // Violet
     navActiveBg: Color(0xFF818CF8),
     navActiveContent: Color(0xFF1E1B4B),
     navInactiveContent: Color(0xFF64748B),
@@ -121,6 +125,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
     List<List<Color>>? cardPalettes,
     List<Color>? reviewBannerDue,
     List<Color>? reviewBannerDone,
+    List<Color>? reviewBannerGrammar,
     Color? navActiveBg,
     Color? navActiveContent,
     Color? navInactiveContent,
@@ -136,6 +141,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
       cardPalettes: cardPalettes ?? this.cardPalettes,
       reviewBannerDue: reviewBannerDue ?? this.reviewBannerDue,
       reviewBannerDone: reviewBannerDone ?? this.reviewBannerDone,
+      reviewBannerGrammar: reviewBannerGrammar ?? this.reviewBannerGrammar,
       navActiveBg: navActiveBg ?? this.navActiveBg,
       navActiveContent: navActiveContent ?? this.navActiveContent,
       navInactiveContent: navInactiveContent ?? this.navInactiveContent,
@@ -165,6 +171,7 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
       cardPalettes: t < 0.5 ? cardPalettes : other.cardPalettes,
       reviewBannerDue: t < 0.5 ? reviewBannerDue : other.reviewBannerDue,
       reviewBannerDone: t < 0.5 ? reviewBannerDone : other.reviewBannerDone,
+      reviewBannerGrammar: t < 0.5 ? reviewBannerGrammar : other.reviewBannerGrammar,
       navActiveBg: Color.lerp(navActiveBg, other.navActiveBg, t)!,
       navActiveContent:
           Color.lerp(navActiveContent, other.navActiveContent, t)!,

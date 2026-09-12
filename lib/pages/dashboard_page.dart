@@ -7,6 +7,7 @@ import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/pwa_install_banner.dart';
+import '../widgets/review_banner_buttons.dart';
 import 'dart:async';
 
 import 'review_page.dart';
@@ -88,6 +89,16 @@ class _DashboardPageState extends State<DashboardPage> {
       context,
       MaterialPageRoute(
         builder: (context) => ReviewPage(userId: widget.userId),
+      ),
+    );
+    if (result == true) await _loadData();
+  }
+
+  Future<void> _navigateToGrammarReview() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReviewPage(userId: widget.userId, grammarReview: true),
       ),
     );
     if (result == true) await _loadData();
@@ -327,47 +338,14 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildDailyReviewBanner() {
-    final colors = context.lingoColors;
-    final dueToday = _reviewStats['dueToday'] ?? 0;
-    final hasWordsDue = dueToday > 0;
-    final bannerColors = hasWordsDue ? colors.reviewBannerDue : colors.reviewBannerDone;
+    final dueToday = (_reviewStats['dueToday'] as int?) ?? 0;
+    final grammarDue = (_reviewStats['grammarDue'] as int?) ?? 0; // Fallback 0 khi API chua co truong nay
 
-    return GestureDetector(
-      onTap: _navigateToReview,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: bannerColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: bannerColors[0].withAlpha(70), blurRadius: 20, offset: const Offset(0, 8))],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52, height: 52,
-              decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(16)),
-              child: Center(child: Text(hasWordsDue ? '\u{1F4DA}' : '\u{2705}', style: const TextStyle(fontSize: 26))),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(hasWordsDue ? 'Time to review!' : 'All done!', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.2)),
-                  const SizedBox(height: 3),
-                  Text(hasWordsDue ? '$dueToday words waiting for you' : 'Keep your streak going!', style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withAlpha(30), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
-            ),
-          ],
-        ),
-      ),
+    return ReviewBannerButtons(
+      dueWords: dueToday,
+      dueGrammar: grammarDue,
+      onWordsReview: _navigateToReview,
+      onGrammarReview: _navigateToGrammarReview,
     );
   }
 

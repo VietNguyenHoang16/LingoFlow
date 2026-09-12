@@ -10,7 +10,17 @@
       "Bash(vercel deploy *)",
       "Read(//c/Users/ASUS/Desktop/Ung dung/agent-skills-main/**)",
       "Read(//c/Users/ASUS/Desktop/Ung dung/taste-skill-main/**)",
-      "Bash(flutter analyze *)"
+      "Bash(flutter analyze *)",
+      "Bash(cd *)",
+      "Bash(node -c api/lingoflow.js)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(flutter --version)",
+      "Bash(/c/src/flutter/bin/flutter analyze *)",
+      "Bash(node -c scripts/*.js)",
+      "Bash(curl -s -X POST -H 'Content-Type: application/json' -d '{\"action\":\"getRecentWords\",\"data\":{\"userId\":1,\"limit\":20}}' https://vocab-virid.vercel.app/api/lingoflow)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat\\(recent\\): add Recent tab with 20 newest words + long-press delete *)",
+      "Bash(git push *)"
     ]
   }
 }

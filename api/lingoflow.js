@@ -242,13 +242,16 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vl.id, vl.name, vl.word_count, vl.progress, vl.last_practiced,
                 (SELECT COUNT(*) FROM vocabulary_words vw2
-                 WHERE vw2.list_id = vl.id AND vw2.word_type = $3
+                 WHERE vw2.list_id = vl.id
+                 AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw2.word_type, ''), ' ', ''), ','))
                  AND (vw2.next_review_date IS NULL OR vw2.next_review_date <= $2)) AS due_count,
                 (SELECT COUNT(*) FROM vocabulary_words vw2
-                 WHERE vw2.list_id = vl.id AND vw2.word_type = $3) AS cat_word_count
+                 WHERE vw2.list_id = vl.id
+                 AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw2.word_type, ''), ' ', ''), ','))) AS cat_word_count
          FROM vocabulary_lists vl
          WHERE vl.user_id = $1
-           AND EXISTS (SELECT 1 FROM vocabulary_words vw WHERE vw.list_id = vl.id AND vw.word_type = $3)
+           AND EXISTS (SELECT 1 FROM vocabulary_words vw WHERE vw.list_id = vl.id
+                       AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ',')))
          ORDER BY vl.created_at DESC`,
         [data.userId, new Date(), data.category],
       );
@@ -268,7 +271,7 @@ async function handleAction(action, data) {
                  (SELECT COUNT(*) FROM vocabulary_words vw
                   WHERE vw.list_id = vl.id
                   AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-                  AND vw.word_type != 'grammar') AS due_count
+                  AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS due_count
          FROM vocabulary_lists vl
          WHERE vl.user_id = $1
          ORDER BY vl.category, vl.created_at DESC`,
@@ -307,7 +310,8 @@ async function handleAction(action, data) {
                   ROUND(CASE WHEN COUNT(vw.id) = 0 THEN 0 ELSE SUM(CASE WHEN COALESCE(vw.mastery_level, 0) >= 3 THEN 1 ELSE 0 END) * 100.0 / COUNT(vw.id) END) AS progress
            FROM vocabulary_words vw
            JOIN vocabulary_lists vl ON vw.list_id = vl.id
-           WHERE vl.user_id = $1 AND vw.word_type = $3`,
+           WHERE vl.user_id = $1
+                 AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ','))`,
           [data.userId, now, cat],
         );
         return { category: cat, row: rows[0] };
@@ -328,16 +332,20 @@ async function handleAction(action, data) {
     case 'getDashboardStats': {
       const now = new Date();
       const catRows = await query(
-        `SELECT vw.word_type AS cat,
+        // Tach word_type dang ghep ('noun,adjective') thanh tung category rieng
+        // de tu da loai duoc dem dung cho moi the loai thay vi bi bo qua.
+        `SELECT t.cat,
                 COUNT(DISTINCT vl.id) AS list_count,
                 COUNT(DISTINCT vw.id) AS word_count,
-                SUM(CASE WHEN vw.next_review_date IS NULL OR vw.next_review_date <= $2 THEN 1 ELSE 0 END) AS due_count,
-                ROUND(CASE WHEN COUNT(vw.id) = 0 THEN 0 ELSE SUM(CASE WHEN COALESCE(vw.mastery_level, 0) >= 3 THEN 1 ELSE 0 END) * 100.0 / COUNT(vw.id) END) AS progress
+                COUNT(DISTINCT vw.id) FILTER (WHERE vw.next_review_date IS NULL OR vw.next_review_date <= $2) AS due_count,
+                ROUND(CASE WHEN COUNT(DISTINCT vw.id) = 0 THEN 0
+                           ELSE COUNT(DISTINCT vw.id) FILTER (WHERE COALESCE(vw.mastery_level, 0) >= 3) * 100.0 / COUNT(DISTINCT vw.id) END) AS progress
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1
-         GROUP BY vw.word_type`,
-        [data.userId, now],
+         CROSS JOIN LATERAL unnest(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ',')) AS t(cat)
+         WHERE vl.user_id = $1 AND t.cat = ANY($3::text[])
+         GROUP BY t.cat`,
+        [data.userId, now, CATEGORIES],
       );
       const categoryStats = {};
       for (const cat of CATEGORIES) {
@@ -355,20 +363,28 @@ async function handleAction(action, data) {
       }
 
       const reviewRows = await query(
-        `SELECT COUNT(*) FILTER (WHERE vw.next_review_date IS NULL OR vw.next_review_date <= $2) AS due_today,
-                COUNT(*) FILTER (WHERE vw.mastery_level = 3) AS total_mastered,
-                COUNT(*) AS total_words,
-                COUNT(*) FILTER (WHERE vw.last_reviewed_at IS NOT NULL AND vw.last_reviewed_at >= CURRENT_DATE) AS reviewed_today
+        // Luu y: khong duoc de NOT LIKE '%grammar%' o WHERE vi se loai bo cac dong
+        // grammar truoc khi FILTER (LIKE '%grammar%') chay -> grammar_due luon = 0.
+        // Dieu kien NOT LIKE phai nam trong tung FILTER de dem tu vung, rieng grammar_due dem rieng.
+        `SELECT COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS due_today,
+                COUNT(*) FILTER (WHERE vw.mastery_level = 3
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS total_mastered,
+                COUNT(*) FILTER (WHERE COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS total_words,
+                COUNT(*) FILTER (WHERE vw.last_reviewed_at IS NOT NULL AND vw.last_reviewed_at >= CURRENT_DATE
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS reviewed_today,
+                COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+                                      AND COALESCE(vw.word_type, '') LIKE '%grammar%') AS grammar_due
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND vw.word_type != 'grammar'`,
+         WHERE vl.user_id = $1`,
         [data.userId, now],
       );
       const breakdownRows = await query(
         `SELECT vw.mastery_level, COUNT(*) AS count
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND vw.word_type != 'grammar'
+         WHERE vl.user_id = $1         AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
          GROUP BY vw.mastery_level ORDER BY vw.mastery_level`,
         [data.userId],
       );
@@ -381,6 +397,7 @@ async function handleAction(action, data) {
           totalMastered: asInt(reviewRows[0].total_mastered),
           totalWords: asInt(reviewRows[0].total_words),
           reviewedToday: asInt(reviewRows[0].reviewed_today),
+          grammarDue: asInt(reviewRows[0].grammar_due),
           breakdown,
         },
       };
@@ -519,7 +536,8 @@ async function handleAction(action, data) {
                 vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND vw.word_type = $2
+         WHERE vl.user_id = $1
+               AND $2 = ANY(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ','))
          ORDER BY vw.created_at DESC`,
         [data.userId, data.category],
       );
@@ -630,7 +648,7 @@ async function handleAction(action, data) {
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.id = $1 AND vl.user_id = $2 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $3)
-               AND vw.word_type != 'grammar'
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.listId, data.userId, new Date()],
       );
@@ -646,7 +664,7 @@ async function handleAction(action, data) {
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-               AND vw.word_type != 'grammar'
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.userId, new Date()],
       );
@@ -661,9 +679,29 @@ async function handleAction(action, data) {
                 vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND vw.word_type = $2 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $3)
+         WHERE vl.user_id = $1
+               AND $2 = ANY(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ','))
+               AND (vw.next_review_date IS NULL OR vw.next_review_date <= $3)
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.userId, data.category, new Date()],
+      );
+      return rows.map(mapWordRow);
+    }
+
+    case 'getWordsDueForReviewGrammar': {
+      // ON tap cau truc: lay cac tu co 'grammar' trong word_type (bao gom tu lai loai
+      // nhu 'noun,grammar' - nhung tu nay da bi loai khoi on tap tu vung).
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+                vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vl.name AS list_name, vl.id AS list_id
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+               AND COALESCE(vw.word_type, '') LIKE '%grammar%'
+         ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
+        [data.userId, new Date()],
       );
       return rows.map(mapWordRow);
     }
@@ -673,28 +711,28 @@ async function handleAction(action, data) {
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-               AND vw.word_type != 'grammar'`,
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
         [data.userId, new Date()],
       );
       const mastered = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.mastery_level = 3
-               AND vw.word_type != 'grammar'`,
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
         [data.userId],
       );
       const total = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
-               AND vw.word_type != 'grammar'`,
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
         [data.userId],
       );
       const reviewedToday = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.last_reviewed_at IS NOT NULL AND vw.last_reviewed_at >= CURRENT_DATE
-               AND vw.word_type != 'grammar'`,
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
         [data.userId],
       );
       const breakdownRows = await query(
@@ -702,17 +740,25 @@ async function handleAction(action, data) {
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
-               AND vw.word_type != 'grammar'
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
          GROUP BY vw.mastery_level ORDER BY vw.mastery_level`,
         [data.userId],
       );
       const breakdown = {};
       for (const row of breakdownRows) breakdown[asInt(row.mastery_level)] = asInt(row.count);
+      const grammarDue = await query(
+        `SELECT COUNT(*) AS count FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+               AND COALESCE(vw.word_type, '') LIKE '%grammar%'`,
+        [data.userId, new Date()],
+      );
       return {
         dueToday: asInt(due[0].count),
         totalMastered: asInt(mastered[0].count),
         totalWords: asInt(total[0].count),
         reviewedToday: asInt(reviewedToday[0].count),
+        grammarDue: asInt(grammarDue[0].count),
         breakdown,
       };
     }

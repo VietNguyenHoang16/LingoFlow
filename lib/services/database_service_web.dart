@@ -351,6 +351,11 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getWordsDueForReviewGrammar(int userId) async {
+    final rows = await _request<List<dynamic>>('getWordsDueForReviewGrammar', data: {'userId': userId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
   Future<List<Map<String, dynamic>>> getWordsDueForReviewByCategory(int userId, String category) async {
     final rows = await _request<List<dynamic>>('getWordsDueForReviewByCategory', data: {'userId': userId, 'category': category});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();

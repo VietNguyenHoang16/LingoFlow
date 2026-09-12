@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/edit_word_sheet.dart';
+import '../widgets/quick_meaning_edit.dart';
 import '../widgets/topic_tag_badge.dart';
 import 'practice_page.dart';
 
@@ -251,6 +252,47 @@ class _RecentPageState extends State<RecentPage> {
           if (i != -1) _words[i] = previous;
         });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
+      }
+    }
+  }
+
+  Future<void> _quickEditMeaning(int id) async {
+    final idx = _words.indexWhere((w) => w['id'] == id);
+    if (idx == -1 || !mounted) return;
+    final word = _words[idx];
+    final previous = Map<String, dynamic>.from(word);
+    final next = await showQuickMeaningEdit(
+      context: context,
+      word: (word['word'] ?? '').toString(),
+      meaning: (word['meaning'] ?? '').toString(),
+    );
+    if (next == null || !mounted) return;
+    setState(() {
+      word['meaning'] = next;
+    });
+    try {
+      await _db.updateVocabularyWordDetails(
+        wordId: id,
+        meaning: next,
+        pronunciation: (previous['pronunciation'] ?? '').toString(),
+        fullDetails: (previous['full_details'] ?? '').toString(),
+        wordType: (previous['word_type'] ?? '').toString(),
+        topicTag: (previous['topic_tag'] ?? '').toString(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã sửa nghĩa!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          final i = _words.indexWhere((w) => w['id'] == id);
+          if (i != -1) _words[i] = previous;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
       }
     }
   }
@@ -708,6 +750,7 @@ class _RecentPageState extends State<RecentPage> {
                 child: isFlipped
                     ? _buildCardBack(
                         key: ValueKey('back-$wordId'),
+                        wordId: wordId,
                         meaning: meaning, pronunciation: pronunciation, theme: theme,
                       )
                     : _buildCardFront(
@@ -808,6 +851,7 @@ class _RecentPageState extends State<RecentPage> {
 
   Widget _buildCardBack({
     required Key key,
+    required int wordId,
     required String meaning,
     required String pronunciation,
     required ThemeData theme,
@@ -822,11 +866,30 @@ class _RecentPageState extends State<RecentPage> {
             color: theme.colorScheme.primary,
           )),
         const SizedBox(height: 4),
-        Text(meaning,
-          style: TextStyle(
-            fontFamily: 'Be Vietnam Pro', fontSize: 18, fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-          )),
+        GestureDetector(
+          onTap: _isSelectionMode ? null : () => _quickEditMeaning(wordId),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(meaning,
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro', fontSize: 18, fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  )),
+              ),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: theme.colorScheme.primary.withAlpha(140),
+                ),
+              ),
+            ],
+          ),
+        ),
         if (pronunciation.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(pronunciation,

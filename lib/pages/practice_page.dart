@@ -7,6 +7,7 @@ import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
+import '../widgets/quick_meaning_edit.dart';
 
 class PracticePage extends StatefulWidget {
   final int listId;
@@ -381,6 +382,49 @@ class _PracticePageState extends State<PracticePage> {
     }
   }
 
+  Future<void> _quickEditMeaning() async {
+    if (_words.isEmpty || _currentIndex >= _words.length || !mounted) return;
+    final w = _words[_currentIndex];
+    final next = await showQuickMeaningEdit(
+      context: context,
+      word: (w['word'] ?? '').toString(),
+      meaning: (w['meaning'] ?? '').toString(),
+    );
+    if (next == null || !mounted) return;
+    // Bounds co the doi trong luc dialog mo (retry shuffle/_restart).
+    if (_currentIndex >= _words.length) return;
+    final previous = Map<String, dynamic>.from(_words[_currentIndex]);
+    // Optimistic patch tai cho: giu nguyen _showResult/_selectedAnswer/score,
+    // khong regen _currentOptions (options la tieng Anh, khong phu thuoc meaning).
+    setState(() {
+      _words[_currentIndex] = {..._words[_currentIndex], 'meaning': next};
+    });
+    try {
+      await _db.updateVocabularyWordDetails(
+        wordId: previous['id'] as int,
+        meaning: next,
+        pronunciation: (previous['pronunciation'] ?? '').toString(),
+        fullDetails: (previous['full_details'] ?? '').toString(),
+        wordType: (previous['word_type'] ?? '').toString(),
+        topicTag: (previous['topic_tag'] ?? '').toString(),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if (_currentIndex < _words.length) {
+            _words[_currentIndex] = previous;
+          }
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      }
+    } finally {
+      // Spell mode: tra focus de go tiep; MC mode thi no-op.
+      if (mounted) _focusSpellInputIfNeeded();
+    }
+  }
+
   String _getMaskedWord(String word, {int hintLevel = 0}) {
     if (word.length <= 2) return word;
     final buffer = StringBuffer();
@@ -742,15 +786,32 @@ class _PracticePageState extends State<PracticePage> {
                                 style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                               ),
                               SizedBox(height: compact ? 8 : 12),
-                              Text(
-                                meaning,
-                                textAlign: TextAlign.center,
-                                maxLines: _showResult ? 2 : 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: titleFont,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
+                              GestureDetector(
+                                onTap: _quickEditMeaning,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        meaning,
+                                        textAlign: TextAlign.center,
+                                        maxLines: _showResult ? 2 : 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: titleFont,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.edit_rounded,
+                                      size: 14,
+                                      color: theme.colorScheme.primary.withAlpha(170),
+                                    ),
+                                  ],
                                 ),
                               ),
                               if (_showResult) ...[

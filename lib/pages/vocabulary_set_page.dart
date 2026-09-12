@@ -10,6 +10,7 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/edit_word_sheet.dart';
+import '../widgets/quick_meaning_edit.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
@@ -644,6 +645,47 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Loi: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _quickEditMeaning(int id) async {
+    final idx = _words.indexWhere((w) => w['id'] == id);
+    if (idx == -1 || !mounted) return;
+    final current = Map<String, dynamic>.from(_words[idx]);
+    final next = await showQuickMeaningEdit(
+      context: context,
+      word: (current['word'] ?? '').toString(),
+      meaning: (current['meaning'] ?? '').toString(),
+    );
+    if (next == null || !mounted) return;
+    final previous = Map<String, dynamic>.from(_words[idx]);
+    setState(() {
+      _words[idx] = {..._words[idx], 'meaning': next};
+    });
+    try {
+      await _db.updateVocabularyWordDetails(
+        wordId: id,
+        meaning: next,
+        pronunciation: (previous['pronunciation'] ?? '').toString(),
+        fullDetails: (previous['full_details'] ?? '').toString(),
+        wordType: (previous['word_type'] ?? '').toString(),
+        topicTag: (previous['topic_tag'] ?? '').toString(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã sửa nghĩa!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          final i = _words.indexWhere((w) => w['id'] == id);
+          if (i != -1) _words[i] = previous;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
         );
       }
     }
@@ -2128,15 +2170,34 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           ),
         ],
         const SizedBox(height: 8),
-Text(
-        meaning,
-        style: TextStyle(
-          fontFamily: 'Be Vietnam Pro',
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: theme.colorScheme.primary,
+        GestureDetector(
+          onTap: _isSelectionMode ? null : () => _quickEditMeaning(id),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  meaning,
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: theme.colorScheme.primary.withAlpha(140),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       if (example.isNotEmpty) ...[
         const SizedBox(height: 6),
         ExampleCard(example: example),

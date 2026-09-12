@@ -8,6 +8,7 @@ import '../services/review_word_utils.dart';
 import '../services/word_details_parser.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
+import '../widgets/quick_meaning_edit.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
@@ -20,12 +21,17 @@ class ReviewPage extends StatefulWidget {
   final String? listName;
   final String? category;
 
+  /// ON tap cau truc (grammar): nap cac tu co 'grammar' trong word_type
+  /// (bao gom tu lai loai 'noun,grammar') thay vi danh sach SRS thong thuong.
+  final bool grammarReview;
+
   const ReviewPage({
     super.key,
     required this.userId,
     this.listId,
     this.listName,
     this.category,
+    this.grammarReview = false,
   });
 
   @override
@@ -117,7 +123,9 @@ class _ReviewPageState extends State<ReviewPage>
   Future<void> _loadDueWords() async {
     try {
       List<Map<String, dynamic>> words;
-      if (widget.category != null) {
+      if (widget.grammarReview) {
+        words = await _db.getWordsDueForReviewGrammar(widget.userId);
+      } else if (widget.category != null) {
         words = await _db.getWordsDueForReviewByCategory(widget.userId, widget.category!);
       } else if (widget.listId != null) {
         words = await _db.getWordsDueForReview(widget.listId!);
@@ -144,6 +152,14 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   void _requestInputFocus({bool immediate = false}) {
+    // Che do grammar khong co o nhap: khong focus keyboard, chi cuon the cau hoi
+    // len dau vung nhin thay duoc.
+    if (widget.grammarReview) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_showAnswer && !_isCompleted) _scrollQuestionIntoView();
+      });
+      return;
+    }
     void focusAndReveal() {
       if (!mounted || _showAnswer || _isCompleted || _dueWords.isEmpty) return;
       // Safari: page node giu focus se chan answer node, phai nha truoc.
@@ -315,8 +331,11 @@ class _ReviewPageState extends State<ReviewPage>
 
     setState(() {
       _showAnswer = true;
-      _isAnswerCorrect = _answerController.text.trim().toLowerCase() ==
-          (word['word'] ?? '').toString().toLowerCase();
+      // Grammar tu cham: khong so sanh chuoi go -> giu _isAnswerCorrect = null.
+      if (!widget.grammarReview) {
+        _isAnswerCorrect = _answerController.text.trim().toLowerCase() ==
+            (word['word'] ?? '').toString().toLowerCase();
+      }
       _calculatedIntervals = intervals;
     });
 
@@ -334,6 +353,48 @@ class _ReviewPageState extends State<ReviewPage>
       final hadFocus = _answerFocusNode.hasFocus;
       setState(() => _hintLevel++);
       if (hadFocus) _answerFocusNode.requestFocus();
+    }
+  }
+
+  Future<void> _quickEditMeaning() async {
+    final w = _currentWordSafe;
+    if (w == null || !mounted) return;
+    final next = await showQuickMeaningEdit(
+      context: context,
+      word: (w['word'] ?? '').toString(),
+      meaning: (w['meaning'] ?? '').toString(),
+    );
+    if (next == null || !mounted) return;
+    final previous = Map<String, dynamic>.from(w);
+    setState(() {
+      _dueWords[_currentIndex] = {...w, 'meaning': next};
+    });
+    try {
+      await _db.updateVocabularyWordDetails(
+        wordId: w['id'] as int,
+        meaning: next,
+        pronunciation: (w['pronunciation'] ?? '').toString(),
+        fullDetails: (w['full_details'] ?? '').toString(),
+        wordType: (w['word_type'] ?? '').toString(),
+        topicTag: (w['topic_tag'] ?? '').toString(),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _dueWords[_currentIndex] = previous);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      }
+    } finally {
+      // Đang hiện đáp án: giữ focus page để phím tắt 1-4 chấm SRS tiếp.
+      // Chưa hiện đáp án: trả focus ô nhập như cũ.
+      if (mounted) {
+        if (_showAnswer) {
+          _pageFocusNode.requestFocus();
+        } else {
+          _requestInputFocus();
+        }
+      }
     }
   }
 
@@ -474,7 +535,9 @@ class _ReviewPageState extends State<ReviewPage>
             onPressed: () => _popWithFlush(true),
           ),
           title: Text(
-            widget.listName ?? 'Daily Review',
+            widget.grammarReview
+                ? 'Grammar Review'
+                : (widget.listName ?? 'Daily Review'),
             style: TextStyle(
               color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.bold,
@@ -543,8 +606,9 @@ class _ReviewPageState extends State<ReviewPage>
                 child: AnimatedBuilder(
                   animation: _flipAnimation,
                   builder: (context, child) {
+                    // null (grammar tu cham) giu mau trung tinh nhu khi tra loi dung.
                     final showColors = _showAnswer
-                        ? (_isAnswerCorrect == true
+                        ? (_isAnswerCorrect != false
                             ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
                             : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(160)])
                         : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
@@ -577,10 +641,13 @@ class _ReviewPageState extends State<ReviewPage>
               ),
 
               // Bottom section: input + button OR rating buttons
+              // Grammar: thay o go bang nut "Show answer" (tu cham).
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: !_showAnswer
-                    ? _buildInputSection(theme, compactMode)
+                    ? (widget.grammarReview
+                        ? _buildGrammarShowAnswerButton(theme, compactMode)
+                        : _buildInputSection(theme, compactMode))
                     : _buildRatingSection(theme, colors, compactMode),
               ),
 
@@ -634,7 +701,7 @@ class _ReviewPageState extends State<ReviewPage>
           const SizedBox(height: 10),
         ],
         Text(
-          'What is the English word?',
+          widget.grammarReview ? 'Think of the English structure' : 'What is the English word?',
           style: TextStyle(
             color: theme.colorScheme.onPrimary.withAlpha(170),
             fontSize: compact ? 12 : 13,
@@ -662,29 +729,32 @@ class _ReviewPageState extends State<ReviewPage>
             pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
           ),
         ],
-        SizedBox(height: compact ? 10 : 16),
-        Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 12 : 16,
-            vertical: compact ? 6 : 10,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.black.withAlpha(30),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            _getMaskedWord(currentWord['word'] ?? '', hintLevel: _hintLevel),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: compact ? 15 : 18,
-              letterSpacing: 2,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onPrimary,
+        // O chu duoc che (hint): chi co y nghia khi nguoi dung phai go tu.
+        if (!widget.grammarReview) ...[
+          SizedBox(height: compact ? 10 : 16),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 12 : 16,
+              vertical: compact ? 6 : 10,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(30),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              _getMaskedWord(currentWord['word'] ?? '', hintLevel: _hintLevel),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: compact ? 15 : 18,
+                letterSpacing: 2,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onPrimary,
+              ),
             ),
           ),
-        ),
+        ],
         if (currentWord['set_name'] != null && !compact) ...[
           const SizedBox(height: 10),
           Container(
@@ -718,12 +788,15 @@ class _ReviewPageState extends State<ReviewPage>
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          _isAnswerCorrect == true ? Icons.check_circle_rounded : Icons.cancel_rounded,
-          color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent,
-          size: compact ? 32 : 44,
-        ),
-        SizedBox(height: compact ? 6 : 10),
+        // Grammar tu cham: khong co dung/sai tu may, an icon check/cancel.
+        if (!widget.grammarReview) ...[
+          Icon(
+            _isAnswerCorrect == true ? Icons.check_circle_rounded : Icons.cancel_rounded,
+            color: _isAnswerCorrect == true ? Colors.greenAccent : Colors.redAccent,
+            size: compact ? 32 : 44,
+          ),
+          SizedBox(height: compact ? 6 : 10),
+        ],
         Text(
           currentWord['word'] ?? '',
           textAlign: TextAlign.center,
@@ -760,16 +833,33 @@ class _ReviewPageState extends State<ReviewPage>
         SizedBox(height: compact ? 8 : 12),
         Container(width: 48, height: 2, color: theme.colorScheme.onPrimary.withAlpha(60)),
         SizedBox(height: compact ? 8 : 12),
-        Text(
-          currentWord['meaning'] ?? '',
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: 'Be Vietnam Pro',
-            fontSize: compact ? 16 : 18,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onPrimary,
+        GestureDetector(
+          onTap: _quickEditMeaning,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  currentWord['meaning'] ?? '',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro',
+                    fontSize: compact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.edit_rounded,
+                size: 14,
+                color: theme.colorScheme.onPrimary.withAlpha(170),
+              ),
+            ],
           ),
         ),
         if ((currentWord['example'] ?? '').isNotEmpty) ...[
@@ -779,7 +869,7 @@ class _ReviewPageState extends State<ReviewPage>
             pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
           ),
         ],
-        if (_answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
+        if (!widget.grammarReview && _answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
           SizedBox(height: compact ? 6 : 10),
           Text(
             'You typed: ${_answerController.text}',
@@ -814,6 +904,34 @@ class _ReviewPageState extends State<ReviewPage>
           ),
         ],
       ],
+    );
+  }
+
+  /// Che do grammar: khong go — chi lat the roi tu cham bang 4 nut SRS.
+  Widget _buildGrammarShowAnswerButton(ThemeData theme, bool compact) {
+    return SizedBox(
+      width: double.infinity,
+      height: compact ? 48 : 54,
+      child: ElevatedButton.icon(
+        onPressed: _showAnswerCard,
+        icon: Icon(Icons.visibility_rounded,
+            color: theme.colorScheme.onPrimary, size: 20),
+        label: Text(
+          'Show answer',
+          style: TextStyle(
+            color: theme.colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: compact ? 14 : 16,
+            fontFamily: 'Plus Jakarta Sans',
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+        ),
+      ),
     );
   }
 
