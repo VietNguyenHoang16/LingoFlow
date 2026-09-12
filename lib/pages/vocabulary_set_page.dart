@@ -10,6 +10,7 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/edit_word_sheet.dart';
+import '../widgets/example_manager_sheet.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -99,6 +100,29 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     });
   }
 
+  void _manageExamples({
+    required int wordId,
+    required String word,
+    required String fullDetails,
+    required String meaning,
+    required String pronunciation,
+    required String wordType,
+    required String topicTag,
+  }) async {
+    await ExampleManagerSheet.show(
+      context: context,
+      wordId: wordId,
+      word: word,
+      fullDetails: fullDetails,
+      meaning: meaning,
+      pronunciation: pronunciation,
+      wordType: wordType,
+      topicTag: topicTag,
+    );
+    // Tải lại từ để cập nhật giao diện sau khi sửa ví dụ
+    await _loadWords();
+  }
+
   void _showWordOptions({
     required int wordId,
     required String word,
@@ -175,7 +199,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 ),
               ),
               title: Text(
-                isDifficult ? 'Bo danh dau kho' : 'Danh dau kho',
+                isDifficult ? 'Bỏ đánh dấu khó' : 'Đánh dấu khó',
                 style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
               ),
               onTap: () {
@@ -193,7 +217,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 child: Icon(Icons.edit_rounded, color: theme.colorScheme.primary, size: 18),
               ),
               title: const Text(
-                'Chinh sua',
+                'Chỉnh sửa',
                 style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
               ),
               onTap: () {
@@ -209,13 +233,35 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               leading: Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
+                  color: Colors.blue.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.menu_book_rounded, color: Colors.blue, size: 18),
+              ),
+              title: const Text(
+                'Quản lý ví dụ',
+                style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _manageExamples(
+                  wordId: wordId, word: word, fullDetails: fullDetails,
+                  meaning: meaning, pronunciation: pronunciation,
+                  wordType: wordType, topicTag: topicTag,
+                );
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
                   color: Colors.red.withAlpha(20),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.delete_rounded, color: Colors.red, size: 18),
               ),
               title: const Text(
-                'Xoa tu',
+                'Xóa từ',
                 style: TextStyle(
                   color: Colors.red,
                   fontFamily: 'Be Vietnam Pro',
