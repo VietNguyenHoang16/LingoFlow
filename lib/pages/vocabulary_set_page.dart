@@ -1935,6 +1935,50 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   ),
                 ),
               ),
+              // Icon chỉnh sửa nhanh (không ảnh hưởng flip)
+              if (!_isSelectionMode) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _editWord(
+                    wordId: id,
+                    word: word,
+                    meaning: meaning,
+                    pronunciation: pronunciation,
+                    fullDetails: fullDetails,
+                    wordType: wordType,
+                    topicTag: topicTag,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withAlpha(15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.edit_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // Icon xóa nhanh
+                GestureDetector(
+                  onTap: () => _deleteWord(id),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withAlpha(15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.delete_rounded,
+                      color: Colors.red,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.all(12),

@@ -493,77 +493,111 @@ class _CategoryPageState extends State<CategoryPage> {
     final isFlipped = _flippedWords.contains(wordId);
 
     return GestureDetector(
-      onTap: () {
-        if (isFlipped) {
-          _flippedWords.remove(wordId);
-        } else {
-          _flippedWords.add(wordId);
-        }
-        setState(() {});
-      },
-      onLongPress: () => _editWord(word),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 36,
-              child: Text('${index + 1}', textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800, color: catColor.withAlpha(150))),
-            ),
-            Container(width: 1, height: 48, color: theme.colorScheme.outlineVariant.withAlpha(80)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) =>
-                    FadeTransition(opacity: animation, child: child),
-                child: isFlipped
-                    ? _buildWordCardBack(
-                        key: ValueKey('back-$wordId'),
-                        wordId: wordId,
-                        meaning: meaning,
-                        pronunciation: pronunciation,
-                        catColor: catColor,
-                        theme: theme,
-                      )
-                    : _buildWordCardFront(
-                        key: ValueKey('front-$wordId'),
-                        wordText: wordText,
-                        pronunciation: pronunciation,
-                        topicTag: (word['topic_tag'] as String?) ?? '',
-                        catColor: catColor,
-                        theme: theme,
-                      ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => _speak(wordText),
-              child: Container(
-                padding: const EdgeInsets.all(10),
+          onTap: () {
+            if (isFlipped) {
+              _flippedWords.remove(wordId);
+            } else {
+              _flippedWords.add(wordId);
+            }
+            setState(() {});
+          },
+          onLongPress: () => _editWord(word),
+          child: Stack(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
-                  color: catColor.withAlpha(15),
-                  borderRadius: BorderRadius.circular(10),
+                  color: theme.colorScheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
                 ),
-                child: Icon(
-                  Icons.volume_up_rounded,
-                  color: catColor,
-                  size: 24,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 36,
+                      child: Text('${index + 1}', textAlign: TextAlign.center,
+                        style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800, color: catColor.withAlpha(150))),
+                    ),
+                    Container(width: 1, height: 48, color: theme.colorScheme.outlineVariant.withAlpha(80)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        child: isFlipped
+                            ? _buildWordCardBack(
+                                key: ValueKey('back-$wordId'),
+                                wordId: wordId,
+                                meaning: meaning,
+                                pronunciation: pronunciation,
+                                catColor: catColor,
+                                theme: theme,
+                              )
+                            : _buildWordCardFront(
+                                key: ValueKey('front-$wordId'),
+                                wordText: wordText,
+                                pronunciation: pronunciation,
+                                topicTag: (word['topic_tag'] as String?) ?? '',
+                                catColor: catColor,
+                                theme: theme,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => _speak(wordText),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: catColor.withAlpha(15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.volume_up_rounded,
+                          color: catColor,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
+              // Icon chỉnh sửa và xóa ở góc trên phải
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface.withAlpha(180),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.edit_rounded, size: 18, color: catColor),
+                        onPressed: () => _editWord(word),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface.withAlpha(180),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.delete_rounded, size: 18, color: Colors.red),
+                        onPressed: () => _deleteWord(wordId),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
   }
 
   Widget _buildWordCardFront({
