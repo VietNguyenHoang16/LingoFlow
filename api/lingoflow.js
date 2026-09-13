@@ -1,5 +1,10 @@
 ﻿const { Pool } = require('pg');
 const crypto = require('crypto');
+const { enrichWordExample, templateExample } = require('./_lib/xai');
+
+// Tong ngan sach sinh vi du AI cho 1 request bulk (tuan tu). Het budget ->
+// cac tu con lai dung mau tinh ngay de khong vuot maxDuration cua Vercel.
+const BULK_AI_BUDGET_MS = 12000;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -437,7 +442,15 @@ async function handleAction(action, data) {
          RETURNING id`,
         [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag],
       );
-      return asInt(rows[0].id);
+      const wordId = asInt(rows[0].id);
+      // Tu nay ve sau: tu dong sinh cau vi du de hieu bang AI. Loi -> mau tinh.
+      await enrichWordExample(
+        query,
+        wordId,
+        { word: data.word, meaning: data.meaning || '', wordType },
+        { timeoutMs: 10000 },
+      );
+      return wordId;
     }
 
     case 'filterExistingWords': {
@@ -482,11 +495,13 @@ async function handleAction(action, data) {
       const existing = new Set(existingRows.map((row) => row.w));
 
       let insertedCount = 0;
+      const pendingExamples = [];
       const CHUNK = 100;
       for (let i = 0; i < items.length; i += CHUNK) {
         const chunk = [];
         const params = [listId];
         const seenInPayload = new Set();
+        const entries = [];
         for (const it of items.slice(i, i + CHUNK)) {
           const word = String(it.word || '').trim();
           if (!word) continue;
@@ -495,16 +510,32 @@ async function handleAction(action, data) {
           seenInPayload.add(lower);
           const base = params.length;
           const topicTag = String(it.topicTag || '').trim().slice(0, 100);
-          params.push(word, it.pronunciation || '', it.meaning || '', it.fullDetails || '', (it.wordType || '').trim(), topicTag);
+          const wordType = (it.wordType || '').trim();
+          const meaning = it.meaning || '';
+          params.push(word, it.pronunciation || '', meaning, it.fullDetails || '', wordType, topicTag);
           chunk.push(`($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`);
+          entries.push({ word, meaning, wordType });
         }
         if (chunk.length === 0) continue;
-        await query(
+        const inserted = await query(
           `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag)
-           VALUES ${chunk.join(', ')}`,
+           VALUES ${chunk.join(', ')}
+           RETURNING id, word`,
           params,
         );
-        insertedCount += chunk.length;
+        insertedCount += inserted.length;
+        const byWord = new Map(entries.map((e) => [e.word.toLowerCase(), e]));
+        for (const row of inserted) {
+          const info = byWord.get(String(row.word || '').toLowerCase());
+          if (info) pendingExamples.push({ id: asInt(row.id), ...info });
+        }
+      }
+      // Tu nay ve sau: tu dong sinh cau vi du tuan tu tung tu.
+      // Het budget AI -> cac tu con lai dung mau tinh ngay.
+      const deadline = Date.now() + BULK_AI_BUDGET_MS;
+      for (const p of pendingExamples) {
+        const skipAi = Date.now() > deadline;
+        await enrichWordExample(query, p.id, p, { timeoutMs: 8000, skipAi });
       }
       return { insertedCount };
     }
