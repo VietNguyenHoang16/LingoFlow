@@ -94,6 +94,24 @@ List<Map<String, dynamic>> parseFullDetails(String raw) {
   return results;
 }
 
+/// Resolve display example for a word map.
+/// Prefers the dedicated `example_sentence` / `example_translation` columns
+/// (managed via Example Manager), falls back to legacy `full_details`.
+/// Returns {'sentence': ..., 'translation': ...} with empty strings when none.
+Map<String, String> resolveExample(Map<String, dynamic> word) {
+  final sentence = (word['example_sentence'] ?? '').toString().trim();
+  if (sentence.isNotEmpty) {
+    return {
+      'sentence': sentence,
+      'translation': (word['example_translation'] ?? '').toString().trim(),
+    };
+  }
+  final fallback = extractFirstExample(
+    parseFullDetails((word['full_details'] ?? '').toString()),
+  );
+  return {'sentence': fallback, 'translation': ''};
+}
+
 /// Extract the first non-empty example from parsed details.
 String extractFirstExample(List<Map<String, dynamic>> details) {
   for (final posEntry in details) {

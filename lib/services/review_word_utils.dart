@@ -58,12 +58,16 @@ Map<String, dynamic> normalizeWord(Map<String, dynamic> raw) {
   word['pronunciation'] = _safeString(word['pronunciation']);
   word['meaning'] = _safeString(word['meaning']);
   word['full_details'] = _safeString(word['full_details']);
+  word['example_sentence'] = _safeString(word['example_sentence']);
+  word['example_translation'] = _safeString(word['example_translation']);
   word['word_type'] = _safeString(word['word_type']);
   word['next_review_date'] = _safeDate(word['next_review_date']);
   word['last_reviewed_at'] = _safeDate(word['last_reviewed_at']);
   // Parse full_details for structured data and extract first example.
   final parsed = parseFullDetails(word['full_details'] ?? '');
   word['details_parsed'] = parsed;
-  word['example'] = extractFirstExample(parsed);
+  final resolved = resolveExample(word);
+  word['example'] = resolved['sentence'] ?? '';
+  word['example_translation'] = resolved['translation'] ?? '';
   return word;
 }

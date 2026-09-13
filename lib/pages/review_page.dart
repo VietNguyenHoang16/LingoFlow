@@ -722,13 +722,7 @@ class _ReviewPageState extends State<ReviewPage>
             height: 1.3,
           ),
         ),
-        if ((currentWord['example'] ?? '').isNotEmpty && !compact) ...[
-          const SizedBox(height: 8),
-          ExampleCard(
-            example: currentWord['example'] as String,
-            pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
-          ),
-        ],
+        // Vi du chi hien o mat dap an (sau khi tra loi), khong hien o mat hoi de tranh lo hint.
         // O chu duoc che (hint): chi co y nghia khi nguoi dung phai go tu.
         if (!widget.grammarReview) ...[
           SizedBox(height: compact ? 10 : 16),
@@ -867,6 +861,9 @@ class _ReviewPageState extends State<ReviewPage>
           ExampleCard(
             example: currentWord['example'] as String,
             pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
+            translation: ((currentWord['example_translation'] ?? '') as String).isEmpty
+                ? null
+                : currentWord['example_translation'] as String,
           ),
         ],
         if (!widget.grammarReview && _answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[

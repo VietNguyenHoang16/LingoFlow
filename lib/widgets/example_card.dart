@@ -4,11 +4,13 @@ import '../theme/app_theme.dart';
 class ExampleCard extends StatelessWidget {
   final String example;
   final String? pos;
+  final String? translation;
 
   const ExampleCard({
     super.key,
     required this.example,
     this.pos,
+    this.translation,
   });
 
   @override
@@ -77,6 +79,20 @@ class ExampleCard extends StatelessWidget {
                       height: 1.4,
                     ),
                   ),
+                  if (translation != null && translation!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      translation!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 12,
+                        color: accentColor.withAlpha(150),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

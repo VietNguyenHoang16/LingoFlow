@@ -8,6 +8,8 @@ import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/topic_tag_badge.dart';
+import '../widgets/example_card.dart';
+import '../services/word_details_parser.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
 
@@ -533,6 +535,10 @@ class _CategoryPageState extends State<CategoryPage> {
                                 wordId: wordId,
                                 meaning: meaning,
                                 pronunciation: pronunciation,
+                                fullDetails: (word['full_details'] ?? '').toString(),
+                                exampleSentence: (word['example_sentence'] ?? '').toString(),
+                                exampleTranslation: (word['example_translation'] ?? '').toString(),
+                                wordType: (word['word_type'] ?? '').toString(),
                                 catColor: catColor,
                                 theme: theme,
                               )
@@ -640,7 +646,20 @@ class _CategoryPageState extends State<CategoryPage> {
     required String pronunciation,
     required Color catColor,
     required ThemeData theme,
+    String fullDetails = '',
+    String wordType = '',
+    String exampleSentence = '',
+    String exampleTranslation = '',
   }) {
+    final details = parseFullDetails(fullDetails);
+    final resolved = resolveExample({
+      'example_sentence': exampleSentence,
+      'example_translation': exampleTranslation,
+      'full_details': fullDetails,
+    });
+    final example = resolved['sentence'] ?? '';
+    final translation = resolved['translation'] ?? '';
+    final pos = getPrimaryPos(details) ?? (wordType.isNotEmpty ? wordType.split(',').first.trim() : null);
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,6 +689,10 @@ class _CategoryPageState extends State<CategoryPage> {
         if (pronunciation.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant.withAlpha(160))),
+        ],
+        if (example.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          ExampleCard(example: example, pos: pos, translation: translation.isEmpty ? null : translation),
         ],
       ],
     );

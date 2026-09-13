@@ -8,6 +8,8 @@ import '../services/tts_settings_service.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
 import '../widgets/quick_meaning_edit.dart';
+import '../widgets/example_card.dart';
+import '../services/word_details_parser.dart';
 
 class PracticePage extends StatefulWidget {
   final int listId;
@@ -632,6 +634,11 @@ class _PracticePageState extends State<PracticePage> {
     final meaning = currentWord['meaning'];
     final options = _currentOptions;
     final masteryLevel = currentWord['mastery_level'] as int? ?? 0;
+    final practiceDetails = parseFullDetails((currentWord['full_details'] ?? '').toString());
+    final practiceResolved = resolveExample(currentWord);
+    final practiceExample = practiceResolved['sentence'] ?? '';
+    final practiceTranslation = practiceResolved['translation'] ?? '';
+    final practicePos = getPrimaryPos(practiceDetails);
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -842,6 +849,14 @@ class _PracticePageState extends State<PracticePage> {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                                         ),
+                                      if (practiceExample.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        ExampleCard(
+                                          example: practiceExample,
+                                          pos: practicePos,
+                                          translation: practiceTranslation.isEmpty ? null : practiceTranslation,
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -1044,6 +1059,14 @@ class _PracticePageState extends State<PracticePage> {
                                               color: theme.colorScheme.onSurfaceVariant,
                                             ),
                                           ),
+                                        if (practiceExample.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          ExampleCard(
+                                            example: practiceExample,
+                                            pos: practicePos,
+                                            translation: practiceTranslation.isEmpty ? null : practiceTranslation,
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),

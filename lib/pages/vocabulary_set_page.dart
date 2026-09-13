@@ -1416,6 +1416,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         pronunciation: word['pronunciation'] ?? '',
                         meaning: word['meaning'],
                         fullDetails: word['full_details'] ?? '',
+                        exampleSentence: (word['example_sentence'] ?? '').toString(),
+                        exampleTranslation: (word['example_translation'] ?? '').toString(),
                         wordType: word['word_type'] ?? '',
                         topicTag: word['topic_tag'] ?? '',
                         isMastered: word['is_mastered'] ?? false,
@@ -1793,6 +1795,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required int correctStreak,
     required int lapseCount,
     required bool isDark,
+    String exampleSentence = '',
+    String exampleTranslation = '',
   }) {
     final theme = Theme.of(context);
     final colors = context.lingoColors;
@@ -1891,6 +1895,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         pronunciation: pronunciation,
                         meaning: meaning,
                         fullDetails: fullDetails,
+                        exampleSentence: exampleSentence,
+                        exampleTranslation: exampleTranslation,
                         wordType: wordType,
                         topicTag: topicTag,
                         isDifficult: isDifficult,
@@ -2204,13 +2210,21 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required bool isDue,
     required ThemeData theme,
     required LingoFlowColors colors,
+    String exampleSentence = '',
+    String exampleTranslation = '',
   }) {
     final typeTokens = wordType
         .split(',')
         .map((t) => t.trim())
         .where((t) => t.isNotEmpty)
         .toList();
-    final example = extractFirstExample(parseFullDetails(fullDetails));
+    final resolved = resolveExample({
+      'example_sentence': exampleSentence,
+      'example_translation': exampleTranslation,
+      'full_details': fullDetails,
+    });
+    final example = resolved['sentence'] ?? '';
+    final translation = resolved['translation'] ?? '';
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2290,7 +2304,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         ),
       if (example.isNotEmpty) ...[
         const SizedBox(height: 6),
-        ExampleCard(example: example),
+        ExampleCard(example: example, translation: translation.isEmpty ? null : translation),
       ],
       if (fullDetails.isNotEmpty) ...[
           const SizedBox(height: 6),

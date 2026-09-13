@@ -552,7 +552,7 @@ async function handleAction(action, data) {
 
     case 'getVocabularyWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
          FROM vocabulary_words vw
@@ -566,7 +566,7 @@ async function handleAction(action, data) {
 
     case 'getWordsByCategory': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
@@ -583,7 +583,7 @@ async function handleAction(action, data) {
     case 'getRecentWords': {
       const limit = Math.min(Math.max(asInt(data.limit) || 20, 1), 100);
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vw.created_at,
@@ -612,7 +612,7 @@ async function handleAction(action, data) {
 
     case 'getUntaggedWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.topic_tag
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.word_type IS NULL OR vw.word_type = '')
@@ -678,7 +678,7 @@ async function handleAction(action, data) {
     // ---- Review ----
     case 'getWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
          FROM vocabulary_words vw
@@ -693,7 +693,7 @@ async function handleAction(action, data) {
 
     case 'getAllWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
@@ -709,7 +709,7 @@ async function handleAction(action, data) {
 
     case 'getWordsDueForReviewByCategory': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
@@ -728,7 +728,7 @@ async function handleAction(action, data) {
       // ON tap cau truc: lay cac tu co 'grammar' trong word_type (bao gom tu lai loai
       // nhu 'noun,grammar' - nhung tu nay da bi loai khoi on tap tu vung).
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vl.name AS list_name, vl.id AS list_id
