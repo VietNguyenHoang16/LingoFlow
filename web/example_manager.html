@@ -4,13 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quản lý ví dụ · LingoFlow</title>
+  <meta name="description" content="Quản lý câu ví dụ tiếng Anh và bản dịch tiếng Việt.">
   <style>
     :root { color-scheme: light; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body { margin: 0; background: #f5f7fb; color: #182033; }
     button, input, select, textarea { font: inherit; }
     button { cursor: pointer; }
-    .page { max-width: 1180px; margin: 0 auto; padding: 28px 20px 44px; }
+    .page { max-width: 860px; margin: 0 auto; padding: 28px 20px 64px; }
     [hidden] { display: none !important; }
     .auth-gate { max-width: 440px; margin: 12vh auto 0; padding: 28px; }
     .auth-gate h1 { font-size: 28px; }
@@ -19,58 +21,61 @@
     .auth-error { min-height: 20px; color: #b42318; font-size: 13px; }
     .login-button { border: 0; border-radius: 10px; padding: 11px 15px; background: #5151c9; color: #fff; font-weight: 700; }
     .login-button:disabled { cursor: wait; opacity: .55; }
-    .topbar { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .topbar { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
     .topbar-actions { display: flex; align-items: center; gap: 12px; }
-    h1, h2, p { margin: 0; }
-    h1 { font-size: clamp(24px, 4vw, 34px); letter-spacing: -.03em; }
+    h1, p { margin: 0; }
+    h1 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.03em; }
     .subtitle { margin-top: 6px; color: #667085; font-size: 14px; }
-    .status { color: #667085; font-size: 13px; text-align: right; }
+    .status { color: #667085; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
     .status.error { color: #b42318; }
-    .layout { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(360px, 1.1fr); gap: 18px; align-items: start; }
     .panel { background: #fff; border: 1px solid #e5e9f2; border-radius: 16px; box-shadow: 0 8px 24px rgba(20, 35, 70, .05); }
-    .list-panel { overflow: hidden; }
-    .toolbar { padding: 14px; border-bottom: 1px solid #edf0f5; display: grid; gap: 10px; }
+    .toolbar { position: sticky; top: 0; z-index: 10; background: rgba(245,247,251,.92); backdrop-filter: blur(8px); padding: 12px 0; display: grid; gap: 10px; }
     .toolbar-row { display: flex; gap: 8px; }
+    .toolbar-row select { flex: 1; }
     input, select, textarea { width: 100%; border: 1px solid #d8deea; border-radius: 10px; background: #fff; color: #182033; outline: 0; }
     input, select { height: 40px; padding: 0 12px; }
-    textarea { min-height: 108px; padding: 12px; resize: vertical; line-height: 1.5; }
+    textarea { min-height: 96px; padding: 12px; resize: vertical; line-height: 1.5; }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid #5b5bd6; outline-offset: 1px; }
     input:focus, select:focus, textarea:focus { border-color: #5b5bd6; box-shadow: 0 0 0 3px rgba(91, 91, 214, .12); }
-    .word-list { min-height: 380px; max-height: 600px; overflow: auto; }
-    .word-row { width: 100%; display: block; border: 0; border-bottom: 1px solid #f0f2f6; background: transparent; padding: 13px 15px; text-align: left; }
-    .word-row:hover, .word-row.selected { background: #f2f3ff; }
+    .ghost { border: 1px solid #d8deea; border-radius: 9px; padding: 7px 12px; background: #fff; color: #344054; white-space: nowrap; }
+    #cards { display: grid; gap: 12px; margin-top: 6px; }
+    .card { background: #fff; border: 1px solid #e5e9f2; border-radius: 14px; overflow: hidden; content-visibility: auto; contain-intrinsic-size: auto 92px; }
+    .card-head { width: 100%; display: block; border: 0; background: transparent; padding: 14px 15px; text-align: left; }
+    .card-head:hover { background: #f2f3ff; }
+    .card.open .card-head { background: #f2f3ff; }
     .word-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .word { font-weight: 700; color: #252b55; overflow-wrap: anywhere; }
+    .chev { color: #98a2b3; transition: transform .2s; }
+    .card.open .chev { transform: rotate(180deg); }
     .meaning { margin-top: 5px; color: #667085; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .badge { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; background: #f2f4f7; color: #667085; font-size: 11px; }
     .badge.done { background: #e8f7ee; color: #16794a; }
-    .empty, .loading { padding: 36px 18px; color: #98a2b3; text-align: center; font-size: 14px; }
-    .pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-top: 1px solid #edf0f5; color: #667085; font-size: 13px; }
-    .pagination button, .ghost { border: 1px solid #d8deea; border-radius: 9px; padding: 7px 10px; background: #fff; color: #344054; }
-    .pagination button:disabled { cursor: not-allowed; opacity: .45; }
-    .editor { padding: 22px; }
-    .editor.empty-editor { min-height: 520px; display: grid; place-items: center; color: #98a2b3; text-align: center; }
-    .editor-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-    .editor h2 { font-size: 23px; overflow-wrap: anywhere; }
-    .meta { margin-top: 5px; color: #667085; font-size: 13px; line-height: 1.5; }
-    .field { display: grid; gap: 7px; margin-top: 15px; }
+    .card-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease, opacity .2s; opacity: 0; }
+    .card.open .card-body { grid-template-rows: 1fr; opacity: 1; }
+    .card-body-inner { overflow: hidden; }
+    .card-form { padding: 4px 15px 16px; display: grid; gap: 10px; }
+    .meta { color: #667085; font-size: 13px; }
+    .field { display: grid; gap: 6px; }
     label { color: #344054; font-size: 13px; font-weight: 700; }
-    .actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; }
+    .actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
     .primary, .danger { border: 0; border-radius: 10px; padding: 10px 15px; color: #fff; font-weight: 700; }
     .primary { background: #5151c9; }
     .primary:hover { background: #4141ae; }
     .danger { background: #d92d20; }
     .danger:disabled, .primary:disabled { cursor: wait; opacity: .55; }
-    .preview { margin-top: 20px; padding: 15px; border-radius: 12px; background: #f7f8fc; border: 1px solid #edf0f5; }
+    .preview { padding: 12px; border-radius: 12px; background: #f7f8fc; border: 1px solid #edf0f5; }
     .preview-title { color: #667085; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
-    .preview-sentence { margin-top: 8px; line-height: 1.55; }
+    .preview-sentence { margin-top: 6px; line-height: 1.55; }
     .preview-translation { margin-top: 4px; color: #667085; line-height: 1.55; }
+    .card-error { min-height: 18px; color: #b42318; font-size: 13px; }
+    .state-box { padding: 36px 18px; color: #98a2b3; text-align: center; font-size: 14px; display: grid; gap: 12px; justify-items: center; }
+    .skeleton { height: 92px; border-radius: 14px; background: linear-gradient(90deg, #eef1f6 25%, #f7f9fc 50%, #eef1f6 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border: 1px solid #e5e9f2; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .end-label { text-align: center; color: #98a2b3; font-size: 13px; padding: 18px 0 0; }
     @media (max-width: 780px) {
-      .page { padding: 20px 12px 32px; }
+      .page { padding: 20px 12px 48px; }
       .topbar { display: block; }
       .status { margin-top: 10px; text-align: left; }
-      .layout { grid-template-columns: 1fr; }
-      .word-list { max-height: 360px; min-height: 160px; }
-      .editor.empty-editor { min-height: 220px; }
     }
   </style>
 </head>
@@ -92,7 +97,7 @@
       <header class="topbar">
         <div>
           <h1>Quản lý ví dụ</h1>
-          <p class="subtitle">Mỗi từ có một câu ví dụ tiếng Anh và bản dịch tiếng Việt.</p>
+          <p class="subtitle">Cuộn một trang duy nhất, bấm vào từng từ để sửa ví dụ.</p>
         </div>
         <div class="topbar-actions">
           <div id="status" class="status" role="status"></div>
@@ -100,36 +105,27 @@
         </div>
       </header>
 
-      <section class="layout">
-      <div class="panel list-panel">
-        <div class="toolbar">
-          <input id="search" type="search" placeholder="Tìm từ, nghĩa hoặc chủ đề..." autocomplete="off">
-          <div class="toolbar-row">
-            <select id="example-filter" aria-label="Lọc trạng thái ví dụ">
-              <option value="all">Tất cả từ</option>
-              <option value="true">Đã có ví dụ</option>
-              <option value="false">Chưa có ví dụ</option>
-            </select>
-            <button id="refresh" class="ghost" type="button">Tải lại</button>
-          </div>
-        </div>
-        <div id="word-list" class="word-list"></div>
-        <div class="pagination">
-          <button id="previous" type="button">← Trước</button>
-          <span id="page-label">Trang 1</span>
-          <button id="next" type="button">Sau →</button>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Tìm từ, nghĩa hoặc chủ đề..." autocomplete="off" aria-label="Tìm từ">
+        <div class="toolbar-row">
+          <select id="example-filter" aria-label="Lọc trạng thái ví dụ">
+            <option value="all">Tất cả từ</option>
+            <option value="true">Đã có ví dụ</option>
+            <option value="false">Chưa có ví dụ</option>
+          </select>
+          <button id="refresh" class="ghost" type="button">Tải lại</button>
         </div>
       </div>
 
-      <div id="editor" class="panel editor empty-editor">
-        <div>Chọn một từ bên trái để thêm hoặc chỉnh sửa ví dụ.</div>
-      </div>
-      </section>
+      <div id="cards"></div>
+      <div id="sentinel" aria-hidden="true"></div>
+      <div id="end-label" class="end-label" hidden></div>
     </div>
   </main>
 
   <script>
-    const state = { page: 1, pageSize: 50, query: '', hasExample: 'all', rows: [], selected: null, totalPages: 0 };
+    const state = { page: 1, pageSize: 100, query: '', hasExample: 'all', totalItems: 0, loading: false, hasMore: true, openId: null, reqId: 0 };
+    const rowsById = new Map();
     const $ = (id) => document.getElementById(id);
 
     function getToken() {
@@ -138,33 +134,28 @@
         || localStorage.getItem('lingoflow.auth_token')
         || '';
     }
-
     function clearToken() {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('flutter.auth_token');
       localStorage.removeItem('lingoflow.auth_token');
     }
-
     function formatPhone(value) {
       let digits = String(value || '').replace(/\D/g, '');
       if (digits.length === 10 && digits.startsWith('0')) digits = digits.slice(1);
       if (digits.length !== 9) throw new Error('Vui lòng nhập đủ 9 số điện thoại.');
       return `+84${digits}`;
     }
-
     function showAuth(message = '') {
       $('auth-gate').hidden = false;
       $('manager-shell').hidden = true;
       $('auth-error').textContent = message;
       $('phone').focus();
     }
-
     function showManager() {
       $('auth-gate').hidden = true;
       $('manager-shell').hidden = false;
-      loadWords();
+      resetAndLoad();
     }
-
     async function login(phoneInput) {
       const response = await fetch('/api/lingoflow', {
         method: 'POST',
@@ -172,21 +163,17 @@
         body: JSON.stringify({ action: 'loginUser', data: { phoneNumber: formatPhone(phoneInput) } }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.data) {
-        throw new Error(payload.error || 'Số điện thoại chưa đăng ký hoặc đăng nhập thất bại.');
-      }
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Số điện thoại chưa đăng ký hoặc đăng nhập thất bại.');
       const token = payload.data.token;
       if (!token) throw new Error('Server không trả về phiên đăng nhập hợp lệ.');
       localStorage.setItem('auth_token', token);
       localStorage.setItem('flutter.auth_token', token);
     }
-
     function setStatus(message, isError = false) {
       const el = $('status');
       el.textContent = message;
       el.className = isError ? 'status error' : 'status';
     }
-
     async function api(path, options = {}) {
       const token = getToken();
       if (!token) throw new Error('Hãy đăng nhập LingoFlow trước khi quản lý ví dụ.');
@@ -200,222 +187,247 @@
       if (!response.ok) throw new Error(payload.error?.message || `Request thất bại (HTTP ${response.status}).`);
       return payload.data;
     }
-
-    function createText(text, className) {
-      const node = document.createElement('div');
-      node.textContent = text || '';
-      if (className) node.className = className;
-      return node;
+    function el(tag, text, className) {
+      const n = document.createElement(tag);
+      if (text != null) n.textContent = text;
+      if (className) n.className = className;
+      return n;
     }
-
-    function renderWords() {
-      const list = $('word-list');
-      list.replaceChildren();
-      if (state.rows.length === 0) {
-        list.append(createText('Không tìm thấy từ phù hợp.', 'empty'));
-        return;
-      }
-      for (const row of state.rows) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `word-row${state.selected?.id === row.id ? ' selected' : ''}`;
-        const main = document.createElement('div');
-        main.className = 'word-main';
-        main.append(createText(row.word, 'word'));
-        const badge = createText(row.exampleSentence ? 'Đã có ví dụ' : 'Chưa có ví dụ', `badge${row.exampleSentence ? ' done' : ''}`);
-        main.append(badge);
-        button.append(main, createText(row.meaning, 'meaning'));
-        button.addEventListener('click', () => selectWord(row));
-        list.append(button);
-      }
-    }
-
-    function renderHighlight(element, sentence, target) {
-      element.replaceChildren();
+    function renderHighlight(node, sentence, target) {
+      node.replaceChildren();
       if (!sentence) return;
-      const start = target ? sentence.toLocaleLowerCase().indexOf(target.toLocaleLowerCase()) : -1;
-      if (start < 0) {
-        element.append(document.createTextNode(sentence));
-        return;
-      }
-      element.append(document.createTextNode(sentence.slice(0, start)));
-      const strong = document.createElement('strong');
-      strong.textContent = sentence.slice(start, start + target.length);
-      element.append(strong, document.createTextNode(sentence.slice(start + target.length)));
+      const i = target ? sentence.toLocaleLowerCase().indexOf(target.toLocaleLowerCase()) : -1;
+      if (i < 0) { node.append(document.createTextNode(sentence)); return; }
+      node.append(document.createTextNode(sentence.slice(0, i)));
+      const s = document.createElement('strong');
+      s.textContent = sentence.slice(i, i + target.length);
+      node.append(s, document.createTextNode(sentence.slice(i + target.length)));
     }
 
-    function renderEditor() {
-      if (!state.selected) {
-        $('editor').className = 'panel editor empty-editor';
-        $('editor').textContent = 'Chọn một từ bên trái để thêm hoặc chỉnh sửa ví dụ.';
-        return;
-      }
-      $('editor').className = 'panel editor';
-      $('editor').replaceChildren();
-      const head = document.createElement('div');
-      head.className = 'editor-head';
-      const title = document.createElement('div');
-      title.append(createText(state.selected.word, 'word'), createText(`${state.selected.pronunciation || 'Chưa có phát âm'} · ${state.selected.meaning}`, 'meta'));
-      const close = document.createElement('button');
-      close.className = 'ghost';
-      close.type = 'button';
-      close.textContent = 'Bỏ chọn';
-      close.addEventListener('click', () => { state.selected = null; renderWords(); renderEditor(); });
-      head.append(title, close);
-      $('editor').append(head);
+    function createCard(row) {
+      const card = el('article', null, 'card');
+      card.dataset.id = row.id;
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'card-head';
+      head.setAttribute('aria-expanded', 'false');
+      const main = el('div', null, 'word-main');
+      const left = el('div', null, 'word');
+      left.textContent = row.word;
+      const right = el('div', null, 'word-main');
+      const badge = el('span', row.exampleSentence ? 'Đã có ví dụ' : 'Chưa có ví dụ', `badge${row.exampleSentence ? ' done' : ''}`);
+      const chev = el('span', '▾', 'chev');
+      chev.setAttribute('aria-hidden', 'true');
+      right.append(badge, chev);
+      main.append(left, right);
+      head.append(main, el('div', row.meaning, 'meaning'));
+      head.addEventListener('click', () => toggleCard(row.id, card, head));
+      card.append(head);
+
+      const body = el('div', null, 'card-body');
+      const inner = el('div', null, 'card-body-inner');
+      const form = el('div', null, 'card-form');
+      form.append(el('div', `${row.pronunciation || 'Chưa có phát âm'} · ${row.meaning}`, 'meta'));
 
       const sentence = document.createElement('textarea');
-      sentence.id = 'sentence';
-      sentence.maxLength = 1000;
-      sentence.placeholder = "I'm tired. I'm gonna lie down for a while.";
-      sentence.value = state.selected.exampleSentence || '';
+      sentence.maxLength = 1000; sentence.placeholder = "I'm tired. I'm gonna lie down for a while.";
+      sentence.value = row.exampleSentence || ''; sentence.setAttribute('aria-label', `Câu ví dụ của ${row.word}`);
       const translation = document.createElement('textarea');
-      translation.id = 'translation';
-      translation.maxLength = 1000;
-      translation.placeholder = 'Tôi mệt. Tôi nằm nghỉ một lúc.';
-      translation.value = state.selected.exampleTranslation || '';
+      translation.maxLength = 1000; translation.placeholder = 'Tôi mệt. Tôi nằm nghỉ một lúc.';
+      translation.value = row.exampleTranslation || ''; translation.setAttribute('aria-label', `Bản dịch của ${row.word}`);
       const target = document.createElement('input');
-      target.id = 'target';
-      target.maxLength = 255;
-      target.placeholder = state.selected.word;
-      target.value = state.selected.exampleTarget || state.selected.word || '';
-
+      target.maxLength = 255; target.placeholder = row.word; target.value = row.exampleTarget || row.word || '';
+      target.setAttribute('aria-label', 'Cụm cần in đậm');
       for (const [label, field] of [['Câu ví dụ tiếng Anh', sentence], ['Bản dịch tiếng Việt', translation], ['Cụm cần in đậm (tùy chọn)', target]]) {
-        const group = document.createElement('div');
-        group.className = 'field';
-        const labelNode = document.createElement('label');
-        labelNode.textContent = label;
-        labelNode.htmlFor = field.id;
-        group.append(labelNode, field);
-        $('editor').append(group);
+        const g = el('div', null, 'field');
+        const lb = document.createElement('label');
+        lb.textContent = label;
+        g.append(lb, field);
+        lb.addEventListener('click', () => field.focus());
+        form.append(g);
       }
-
-      const preview = document.createElement('div');
-      preview.className = 'preview';
-      const previewTitle = createText('Xem trước', 'preview-title');
-      const previewSentence = document.createElement('div');
-      previewSentence.className = 'preview-sentence';
-      const previewTranslation = createText('', 'preview-translation');
-      preview.append(previewTitle, previewSentence, previewTranslation);
-      $('editor').append(preview);
-
-      const updatePreview = () => {
-        renderHighlight(previewSentence, sentence.value.trim(), target.value.trim());
-        previewTranslation.textContent = translation.value.trim();
-      };
-      sentence.addEventListener('input', updatePreview);
-      translation.addEventListener('input', updatePreview);
-      target.addEventListener('input', updatePreview);
-      updatePreview();
-
-      const actions = document.createElement('div');
-      actions.className = 'actions';
-      const remove = document.createElement('button');
-      remove.className = 'danger';
-      remove.type = 'button';
-      remove.textContent = 'Xóa ví dụ';
-      remove.disabled = !state.selected.exampleSentence;
-      remove.addEventListener('click', deleteExample);
-      const save = document.createElement('button');
-      save.className = 'primary';
+      const preview = el('div', null, 'preview');
+      const ps = el('div', null, 'preview-sentence');
+      const pt = el('div', null, 'preview-translation');
+      preview.append(el('div', 'Xem trước', 'preview-title'), ps, pt);
+      const upd = () => { renderHighlight(ps, sentence.value.trim(), target.value.trim()); pt.textContent = translation.value.trim(); };
+      sentence.addEventListener('input', upd); translation.addEventListener('input', upd); target.addEventListener('input', upd);
+      upd();
+      form.append(preview);
+      const err = el('div', '', 'card-error');
+      err.setAttribute('role', 'alert');
+      const actions = el('div', null, 'actions');
+      const del = el('button', 'Xóa ví dụ', 'danger');
+      del.type = 'button'; del.disabled = !row.exampleSentence;
+      const save = el('button', 'Lưu ví dụ', 'primary');
       save.type = 'button';
-      save.textContent = 'Lưu ví dụ';
-      save.addEventListener('click', () => saveExample(sentence, translation, target, save, remove));
-      actions.append(remove, save);
-      $('editor').append(actions);
+      del.addEventListener('click', () => deleteExample(row.id, card, badge, del, save, err, sentence));
+      save.addEventListener('click', () => saveExample(row.id, { sentence: sentence.value, translation: translation.value, target: target.value }, card, badge, del, save, err));
+      actions.append(del, save);
+      form.append(err, actions);
+      inner.append(form);
+      body.append(inner);
+      card.append(body);
+      card._refs = { badge, sentence, translation, target, ps, pt, err, del, save };
+      return card;
     }
 
-    async function loadWords() {
-      $('word-list').replaceChildren(createText('Đang tải...', 'loading'));
+    function toggleCard(id, card, head) {
+      const willOpen = state.openId !== id;
+      document.querySelectorAll('.card.open').forEach((c) => {
+        c.classList.remove('open');
+        c.querySelector('.card-head')?.setAttribute('aria-expanded', 'false');
+      });
+      state.openId = willOpen ? id : null;
+      if (willOpen) {
+        card.classList.add('open');
+        head.setAttribute('aria-expanded', 'true');
+        card._refs.sentence.focus({ preventScroll: true });
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function updateStatus() {
+      const loaded = rowsById.size;
+      setStatus(state.totalItems ? `Đã tải ${loaded} / ${state.totalItems} từ` : `${loaded} từ`);
+      $('end-label').hidden = state.hasMore;
+      if (!state.hasMore && loaded > 0) $('end-label').textContent = `Đã tải hết ${loaded} từ.`;
+    }
+
+    function showState(kind, message) {
+      const box = el('div', null, 'state-box');
+      box.append(el('div', message));
+      if (kind === 'error') {
+        const b = el('button', 'Thử lại', 'ghost');
+        b.type = 'button';
+        b.addEventListener('click', () => resetAndLoad());
+        box.append(b);
+      }
+      $('cards').replaceChildren(box);
+    }
+    function showSkeletons(n = 5) {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < n; i++) frag.append(el('div', null, 'skeleton'));
+      $('cards').replaceChildren(frag);
+    }
+
+    function resetAndLoad() {
+      state.page = 1; state.hasMore = true; state.totalItems = 0; state.openId = null;
+      state.reqId += 1;
+      rowsById.clear();
+      $('end-label').hidden = true;
+      showSkeletons();
+      loadMore();
+    }
+
+    async function loadMore() {
+      if (state.loading || !state.hasMore || $('manager-shell').hidden) return;
+      state.loading = true;
+      const myReq = state.reqId;
       const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize });
       if (state.query) params.set('q', state.query);
       if (state.hasExample !== 'all') params.set('hasExample', state.hasExample);
       try {
         const result = await api(`/api/examples?${params}`);
-        state.rows = result.data || [];
-        state.totalPages = result.pagination?.totalPages || 0;
-        const selected = state.selected && state.rows.find((row) => row.id === state.selected.id);
-        state.selected = selected || null;
-        $('page-label').textContent = `Trang ${state.page}${state.totalPages ? ` / ${state.totalPages}` : ''}`;
-        $('previous').disabled = state.page <= 1;
-        $('next').disabled = !state.totalPages || state.page >= state.totalPages;
-        setStatus(`${result.pagination?.totalItems || 0} từ`);
-        renderWords();
-        renderEditor();
-      } catch (error) {
-        state.rows = [];
-        renderWords();
-        setStatus(error.message, true);
-      }
-    }
-
-    function selectWord(row) {
-      state.selected = row;
-      renderWords();
-      renderEditor();
-    }
-
-    async function saveExample(sentence, translation, target, button, remove) {
-      const body = { sentence: sentence.value, translation: translation.value, target: target.value };
-      button.disabled = true;
-      remove.disabled = true;
-      try {
-        state.selected = await api(`/api/words/${state.selected.id}/example`, { method: 'PUT', body: JSON.stringify(body) });
-        setStatus('Đã lưu ví dụ.');
-        await loadWords();
-      } catch (error) {
-        setStatus(error.message, true);
-      } finally {
-        button.disabled = false;
-        remove.disabled = !state.selected?.exampleSentence;
-      }
-    }
-
-    async function deleteExample() {
-      if (!state.selected?.exampleSentence || !confirm(`Xóa ví dụ của “${state.selected.word}”?`)) return;
-      try {
-        const wordId = state.selected.id;
-        await api(`/api/words/${wordId}/example`, { method: 'DELETE' });
-        const row = state.rows.find((item) => item.id === wordId);
-        if (row) {
-          row.exampleSentence = '';
-          row.exampleTranslation = '';
-          row.exampleTarget = '';
-          state.selected = row;
+        if (myReq !== state.reqId) return;
+        const data = result.data || [];
+        state.totalItems = result.pagination?.totalItems || 0;
+        if (state.page === 1) $('cards').replaceChildren();
+        if (data.length === 0 && state.page === 1) {
+          showState('empty', 'Không tìm thấy từ phù hợp.');
+          state.hasMore = false;
+        } else {
+          const frag = document.createDocumentFragment();
+          for (const row of data) {
+            if (rowsById.has(row.id)) continue;
+            rowsById.set(row.id, row);
+            frag.append(createCard(row));
+          }
+          $('cards').append(frag);
+          state.page += 1;
+          state.hasMore = rowsById.size < state.totalItems && data.length > 0;
         }
-        setStatus('Đã xóa ví dụ.');
-        await loadWords();
+        updateStatus();
       } catch (error) {
+        if (myReq !== state.reqId) return;
+        if (state.page === 1) showState('error', error.message);
         setStatus(error.message, true);
+        state.hasMore = false;
+      } finally {
+        if (myReq === state.reqId) state.loading = false;
       }
     }
+
+    async function saveExample(id, body, card, badge, del, save, errBox) {
+      errBox.textContent = '';
+      save.disabled = true; del.disabled = true;
+      try {
+        const updated = await api(`/api/words/${id}/example`, { method: 'PUT', body: JSON.stringify(body) });
+        rowsById.set(id, updated);
+        const r = card._refs;
+        r.sentence.value = updated.exampleSentence || '';
+        r.translation.value = updated.exampleTranslation || '';
+        r.target.value = updated.exampleTarget || '';
+        renderHighlight(r.ps, r.sentence.value.trim(), r.target.value.trim());
+        r.pt.textContent = r.translation.value.trim();
+        badge.textContent = updated.exampleSentence ? 'Đã có ví dụ' : 'Chưa có ví dụ';
+        badge.className = `badge${updated.exampleSentence ? ' done' : ''}`;
+        r.del.disabled = !updated.exampleSentence;
+        setStatus('Đã lưu ví dụ.');
+      } catch (error) {
+        errBox.textContent = error.message;
+      } finally {
+        save.disabled = false;
+        del.disabled = !card._refs.sentence.value.trim();
+      }
+    }
+
+    async function deleteExample(id, card, badge, del, save, errBox, sentenceEl) {
+      const row = rowsById.get(id);
+      if (!row?.exampleSentence || !confirm(`Xóa ví dụ của “${row.word}”?`)) return;
+      errBox.textContent = '';
+      del.disabled = true; save.disabled = true;
+      try {
+        await api(`/api/words/${id}/example`, { method: 'DELETE' });
+        row.exampleSentence = ''; row.exampleTranslation = ''; row.exampleTarget = '';
+        const r = card._refs;
+        r.sentence.value = ''; r.translation.value = ''; r.target.value = row.word || '';
+        r.ps.replaceChildren(); r.pt.textContent = '';
+        badge.textContent = 'Chưa có ví dụ';
+        badge.className = 'badge';
+        setStatus('Đã xóa ví dụ.');
+      } catch (error) {
+        errBox.textContent = error.message;
+      } finally {
+        del.disabled = true; save.disabled = false;
+      }
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadMore();
+    }, { rootMargin: '800px' });
+    observer.observe($('sentinel'));
 
     let searchTimer;
     $('search').addEventListener('input', (event) => {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => { state.query = event.target.value.trim(); state.page = 1; loadWords(); }, 250);
+      searchTimer = setTimeout(() => { state.query = event.target.value.trim(); state.reqId += 1; resetAndLoad(); }, 300);
     });
-    $('example-filter').addEventListener('change', (event) => { state.hasExample = event.target.value; state.page = 1; loadWords(); });
-    $('refresh').addEventListener('click', loadWords);
-    $('previous').addEventListener('click', () => { if (state.page > 1) { state.page -= 1; loadWords(); } });
-    $('next').addEventListener('click', () => { if (state.page < state.totalPages) { state.page += 1; loadWords(); } });
+    $('example-filter').addEventListener('change', (event) => { state.hasExample = event.target.value; resetAndLoad(); });
+    $('refresh').addEventListener('click', resetAndLoad);
     $('login-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const button = $('login-button');
       button.disabled = true;
       $('auth-error').textContent = '';
-      try {
-        await login($('phone').value);
-        showManager();
-      } catch (error) {
-        $('auth-error').textContent = error.message;
-      } finally {
-        button.disabled = false;
-      }
+      try { await login($('phone').value); showManager(); }
+      catch (error) { $('auth-error').textContent = error.message; }
+      finally { button.disabled = false; }
     });
     $('logout').addEventListener('click', () => {
       clearToken();
-      state.selected = null;
+      state.openId = null;
+      rowsById.clear();
       showAuth();
     });
     if (getToken()) showManager();
