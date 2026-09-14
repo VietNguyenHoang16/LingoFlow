@@ -5,7 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/review_word_utils.dart';
-import '../services/word_details_parser.dart';
+import '../widgets/review_example_panel.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/quick_meaning_edit.dart';
@@ -13,7 +13,6 @@ import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/topic_tag_badge.dart';
-import '../widgets/example_card.dart';
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -640,6 +639,36 @@ class _ReviewPageState extends State<ReviewPage>
                 ),
               ),
 
+              // Panel vi du kieu flashcard: chi hien sau khi nhap tu / Show answer.
+              // Thieu vi du -> hien hint thay vi an im lang (de biet can bo sung).
+              if (_showAnswer && ((currentWord['example'] ?? '') as String).isNotEmpty)
+                ReviewExamplePanel(
+                  word: (currentWord['word'] ?? '').toString(),
+                  example: (currentWord['example'] ?? '').toString(),
+                  translation: ((currentWord['example_translation'] ?? '') as String).isEmpty
+                      ? null
+                      : (currentWord['example_translation'] ?? '').toString(),
+                  target: (currentWord['example_target'] ?? '').toString().isEmpty
+                      ? null
+                      : (currentWord['example_target'] ?? '').toString(),
+                  accent: theme.colorScheme.primary,
+                  compact: compactMode,
+                  onSpeak: () => _speak((currentWord['example'] ?? '').toString()),
+                ),
+              if (_showAnswer && ((currentWord['example'] ?? '') as String).isEmpty)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(20, compactMode ? 8 : 12, 20, 0),
+                  child: Text(
+                    'Chưa có ví dụ cho từ này — bổ sung tại trang /example.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+
               // Bottom section: input + button OR rating buttons
               // Grammar: thay o go bang nut "Show answer" (tu cham).
               Padding(
@@ -856,16 +885,6 @@ class _ReviewPageState extends State<ReviewPage>
             ],
           ),
         ),
-        if ((currentWord['example'] ?? '').isNotEmpty) ...[
-          const SizedBox(height: 8),
-          ExampleCard(
-            example: currentWord['example'] as String,
-            pos: getPrimaryPos(currentWord['details_parsed'] as List<Map<String, dynamic>>),
-            translation: ((currentWord['example_translation'] ?? '') as String).isEmpty
-                ? null
-                : currentWord['example_translation'] as String,
-          ),
-        ],
         if (!widget.grammarReview && _answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
           SizedBox(height: compact ? 6 : 10),
           Text(
