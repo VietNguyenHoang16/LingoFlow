@@ -6,9 +6,7 @@ import '../services/tts_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
-import '../widgets/quick_meaning_edit.dart';
-import '../widgets/topic_tag_badge.dart';
-import '../widgets/example_card.dart';
+import '../widgets/flip_word_card.dart';
 import '../services/word_details_parser.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
@@ -157,47 +155,6 @@ class _CategoryPageState extends State<CategoryPage> {
           if (i != -1) _words[i] = previous;
         });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
-      }
-    }
-  }
-
-  Future<void> _quickEditMeaning(int id) async {
-    final idx = _words.indexWhere((w) => w['id'] == id);
-    if (idx == -1 || !mounted) return;
-    final word = _words[idx];
-    final previous = Map<String, dynamic>.from(word);
-    final next = await showQuickMeaningEdit(
-      context: context,
-      word: (word['word'] ?? '').toString(),
-      meaning: (word['meaning'] ?? '').toString(),
-    );
-    if (next == null || !mounted) return;
-    setState(() {
-      word['meaning'] = next;
-    });
-    try {
-      await _db.updateVocabularyWordDetails(
-        wordId: id,
-        meaning: next,
-        pronunciation: (previous['pronunciation'] ?? '').toString(),
-        fullDetails: (previous['full_details'] ?? '').toString(),
-        wordType: (previous['word_type'] ?? widget.category).toString(),
-        topicTag: (previous['topic_tag'] ?? '').toString(),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã sửa nghĩa!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          final i = _words.indexWhere((w) => w['id'] == id);
-          if (i != -1) _words[i] = previous;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
-        );
       }
     }
   }
@@ -487,214 +444,117 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  void _showWordOptions(Map<String, dynamic> word) {
+    final theme = Theme.of(context);
+    final wordText = (word['word'] ?? '').toString();
+    final meaning = (word['meaning'] ?? '').toString();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              wordText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            if (meaning.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                meaning,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
+              title: const Text('Chinh sua',
+                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _editWord(word);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: Colors.red),
+              title: const Text('Xoa tu',
+                  style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteWord(word['id'] as int);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildWordCard({required Map<String, dynamic> word, required int index, required ThemeData theme, required Color catColor}) {
     final wordText = word['word'] as String? ?? '';
     final meaning = word['meaning'] as String? ?? '';
     final pronunciation = word['pronunciation'] as String? ?? '';
+    final wordType = (word['word_type'] as String? ?? '').trim();
     final wordId = word['id'] as int;
     final isFlipped = _flippedWords.contains(wordId);
 
-    return GestureDetector(
-          onTap: () {
-            if (isFlipped) {
-              _flippedWords.remove(wordId);
-            } else {
-              _flippedWords.add(wordId);
-            }
-            setState(() {});
-          },
-          onLongPress: () => _editWord(word),
-          child: Stack(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 36,
-                      child: Text('${index + 1}', textAlign: TextAlign.center,
-                        style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800, color: catColor.withAlpha(150))),
-                    ),
-                    Container(width: 1, height: 48, color: theme.colorScheme.outlineVariant.withAlpha(80)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
-                        child: isFlipped
-                            ? _buildWordCardBack(
-                                key: ValueKey('back-$wordId'),
-                                wordId: wordId,
-                                meaning: meaning,
-                                pronunciation: pronunciation,
-                                fullDetails: (word['full_details'] ?? '').toString(),
-                                exampleSentence: (word['example_sentence'] ?? '').toString(),
-                                exampleTranslation: (word['example_translation'] ?? '').toString(),
-                                wordType: (word['word_type'] ?? '').toString(),
-                                catColor: catColor,
-                                theme: theme,
-                              )
-                            : _buildWordCardFront(
-                                key: ValueKey('front-$wordId'),
-                                wordText: wordText,
-                                pronunciation: pronunciation,
-                                topicTag: (word['topic_tag'] as String?) ?? '',
-                                catColor: catColor,
-                                theme: theme,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: () => _speak(wordText),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: catColor.withAlpha(15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.volume_up_rounded,
-                          color: catColor,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Icon chỉnh sửa và xóa ở góc trên phải
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface.withAlpha(180),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: Icon(Icons.edit_rounded, size: 18, color: catColor),
-                        onPressed: () => _editWord(word),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface.withAlpha(180),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: Icon(Icons.delete_rounded, size: 18, color: Colors.red),
-                        onPressed: () => _deleteWord(wordId),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-  }
-
-  Widget _buildWordCardFront({
-    required Key key,
-    required String wordText,
-    required String pronunciation,
-    required String topicTag,
-    required Color catColor,
-    required ThemeData theme,
-  }) {
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(wordText, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 22, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, letterSpacing: -0.3)),
-            ),
-            if (topicTag.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              Flexible(child: TopicTagBadge(tag: topicTag)),
-            ],
-          ],
-        ),
-        if (pronunciation.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text('/$pronunciation/', maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 13, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant)),
-        ],
-      ],
+    final resolved = resolveExample(word);
+    final exampleTarget = (word['example_target'] ?? '').toString();
+    return FlipWordCard(
+      key: ValueKey('flip-$wordId'),
+      isFlipped: isFlipped,
+      word: wordText,
+      pronunciation: pronunciation,
+      meaning: meaning,
+      wordType: wordType,
+      topicTag: (word['topic_tag'] as String?) ?? '',
+      metaLabel: (word['list_name'] as String?)?.isNotEmpty == true
+          ? word['list_name'] as String
+          : null,
+      example: resolved['sentence'] ?? '',
+      exampleTranslation: (resolved['translation'] ?? '').isEmpty
+          ? null
+          : resolved['translation'],
+      exampleTarget: exampleTarget.isEmpty ? null : exampleTarget,
+      accent: catColor,
+      isDifficult: word['is_difficult'] == true,
+      onTap: () {
+        if (isFlipped) {
+          _flippedWords.remove(wordId);
+        } else {
+          _flippedWords.add(wordId);
+        }
+        setState(() {});
+      },
+      onLongPress: () => _showWordOptions(word),
+      onSpeak: () => _speak(wordText),
     );
   }
 
-  Widget _buildWordCardBack({
-    required Key key,
-    required int wordId,
-    required String meaning,
-    required String pronunciation,
-    required Color catColor,
-    required ThemeData theme,
-    String fullDetails = '',
-    String wordType = '',
-    String exampleSentence = '',
-    String exampleTranslation = '',
-  }) {
-    final details = parseFullDetails(fullDetails);
-    final resolved = resolveExample({
-      'example_sentence': exampleSentence,
-      'example_translation': exampleTranslation,
-      'full_details': fullDetails,
-    });
-    final example = resolved['sentence'] ?? '';
-    final translation = resolved['translation'] ?? '';
-    final pos = getPrimaryPos(details) ?? (wordType.isNotEmpty ? wordType.split(',').first.trim() : null);
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Nghia:', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontWeight: FontWeight.w700, color: catColor)),
-        const SizedBox(height: 4),
-        GestureDetector(
-          onTap: () => _quickEditMeaning(wordId),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(meaning, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 18, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface)),
-              ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(
-                  Icons.edit_outlined,
-                  size: 14,
-                  color: catColor.withAlpha(140),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (pronunciation.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(pronunciation, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant.withAlpha(160))),
-        ],
-        if (example.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          ExampleCard(example: example, pos: pos, translation: translation.isEmpty ? null : translation),
-        ],
-      ],
-    );
-  }
 }
