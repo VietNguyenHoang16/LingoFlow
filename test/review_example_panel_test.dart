@@ -51,4 +51,28 @@ void main() {
     expect(find.byType(ReviewExamplePanel), findsOneWidget);
     expect(find.textContaining('Fame'), findsNothing);
   });
+
+  testWidgets('cau EN du lon + dam de doc o light', (tester) async {
+    await tester.pumpWidget(_panel());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final rich = tester.widget<RichText>(find.byWidgetPredicate(
+      (w) => w is RichText && w.text.toPlainText().contains('Fame in the digital age'),
+    ));
+    final root = rich.text as TextSpan;
+    // Text.rich boc them 1 TextSpan ngoai (style mac dinh) -> style that
+    // cua cau nam o span con dau tien.
+    final inner = root.children!.firstWhere(
+      (s) => s.toPlainText().contains('Fame'),
+      orElse: () => root,
+    ) as TextSpan;
+    final base = inner.style!;
+    expect(base.fontSize, 15);
+    expect(base.fontWeight, FontWeight.w500);
+    final keyword = inner.children!
+        .whereType<TextSpan>()
+        .firstWhere((s) => (s.text ?? '').toLowerCase().contains('ephemeral'));
+    expect(keyword.style!.color, const Color(0xFF3730A3));
+    expect(keyword.style!.fontWeight, FontWeight.w700);
+  });
 }

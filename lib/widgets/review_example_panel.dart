@@ -27,10 +27,15 @@ class ReviewExamplePanel extends StatelessWidget {
   Widget _buildSentence(ThemeData theme) {
     final baseStyle = TextStyle(
       fontFamily: 'Be Vietnam Pro',
-      fontSize: compact ? 13 : 14,
+      fontSize: compact ? 14 : 15,
+      fontWeight: FontWeight.w500,
       color: theme.colorScheme.onSurface,
       height: 1.5,
     );
+    // Light mode: accent tren nen nhat tuong phan thap -> dung cham dam.
+    final highlight = theme.brightness == Brightness.dark
+        ? accent
+        : const Color(0xFF3730A3);
     final t = (target ?? '').trim();
     if (t.isEmpty || !example.toLowerCase().contains(t.toLowerCase())) {
       return Text(example, maxLines: 3, overflow: TextOverflow.ellipsis, style: baseStyle);
@@ -43,7 +48,7 @@ class ReviewExamplePanel extends StatelessWidget {
           TextSpan(text: example.substring(0, idx)),
           TextSpan(
             text: example.substring(idx, idx + t.length),
-            style: TextStyle(fontWeight: FontWeight.w700, color: accent),
+            style: TextStyle(fontWeight: FontWeight.w700, color: highlight),
           ),
           TextSpan(text: example.substring(idx + t.length)),
         ],
