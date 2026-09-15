@@ -971,8 +971,10 @@ class _ReviewPageState extends State<ReviewPage>
             autocorrect: false,
             enableSuggestions: false,
             textCapitalization: TextCapitalization.none,
+            autofocus: true,
             // Safari iPad: keyboard che field neu khong co scrollPadding.
             scrollPadding: const EdgeInsets.only(bottom: 220),
+            onTap: () => _scrollAnswerIntoView(),
             style: TextStyle(
               fontSize: compact ? 16 : 18,
               fontWeight: FontWeight.bold,
@@ -1000,6 +1002,26 @@ class _ReviewPageState extends State<ReviewPage>
             onSubmitted: (_) => _showAnswerCard(),
           ),
         ),
+        // Safari iPad: khong tu mo keyboard neu focus ngoai gesture.
+        // Nhan vao dong nay (trong gesture) thi keyboard len chac chan.
+        if (!_showAnswer && !_inputFocused)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: GestureDetector(
+              onTap: () {
+                if (_pageFocusNode.hasFocus) _pageFocusNode.unfocus();
+                _answerFocusNode.requestFocus();
+              },
+              child: Text(
+                'Chạm vào đây để hiện bàn phím',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
         const SizedBox(height: 8),
         // Hint + Check buttons row
         Row(

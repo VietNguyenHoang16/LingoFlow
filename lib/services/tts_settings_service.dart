@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,7 +29,10 @@ class TtsSettingsService {
   static const String _voiceNameKey = 'tts_voice_real_name';
   static const String _voiceLocaleKey = 'tts_voice_real_locale';
   static const String _speechRateKey = 'tts_speech_rate';
-  static const String _defaultVoiceId = 'google-translate';
+  // Web (Safari iPad): giong he thong (speechSynthesis) doc ngay, khong phu
+  // thuoc mang/proxy. Mobile giu Google Translate nhu cu.
+  static String get _defaultVoiceId =>
+      kIsWeb ? 'en-US-female' : 'google-translate';
   static const double _defaultSpeechRate = 0.85;
 
   static const TtsVoiceOption googleVoice = TtsVoiceOption(
@@ -140,15 +144,89 @@ class TtsSettingsService {
   }
 
   Future<bool> speakWith(String text) async {
+    final clean = sanitizeForSpeech(text);
+    if (clean.isEmpty) return false;
+    // Chuyen doc thanh hang doi: tap don chi doc cau moi nhat, tranh
+    // chong lenh / cat tieng khi bam lien tiep tren Safari iPad.
+    _speakSeq++;
+    final token = _speakSeq;
+    final queued = _speakQueue.then((_) async {
+      if (token != _speakSeq) return false;
+      return _speakNow(clean, token);
+    });
+    _speakQueue = queued.then((_) {});
+    return queued;
+  }
+
+  int _speakSeq = 0;
+  Future<void> _speakQueue = Future.value();
+
+  Future<bool> _speakNow(String clean, int token) async {
     if (await isGoogleVoiceSelected()) {
-      return _googleVoiceService.speak(text);
+      if (await _googleVoiceService.speak(clean)) return true;
+      // Google fail (mat mang/proxy chan) -> fallback giong he thong
+      // thay vi im lang.
     }
     final tts = await TtsEngine().sharedTts;
     try {
       await tts.stop();
     } catch (_) {}
-    await tts.speak(text);
-    return true;
+    var spoke = false;
+    for (final chunk in chunkForSpeech(clean)) {
+      if (token != _speakSeq) return spoke;
+      try {
+        await tts.speak(chunk);
+        spoke = true;
+      } catch (_) {
+        return spoke;
+      }
+    }
+    return spoke;
+  }
+
+  /// Chuan hoa text truoc khi doc: trim, gop whitespace. Tra '' neu rong.
+  @visibleForTesting
+  static String sanitizeForSpeech(String text) {
+    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// Cat cau dai thanh chunk <= [maxLen] theo bien cau de Safari iPad
+  /// (speechSynthesis hay cut cau > ~15s) doc du, khong bo sot.
+  @visibleForTesting
+  static List<String> chunkForSpeech(String text, [int maxLen = 180]) {
+    final clean = sanitizeForSpeech(text);
+    if (clean.isEmpty) return const [];
+    if (clean.length <= maxLen) return [clean];
+    final parts = clean.split(RegExp(r'(?<=[.!?;:])\s+'));
+    final chunks = <String>[];
+    final buf = StringBuffer();
+    void flush() {
+      final s = buf.toString().trim();
+      if (s.isNotEmpty) chunks.add(s);
+      buf.clear();
+    }
+
+    for (final p in parts) {
+      if (p.length > maxLen) {
+        flush();
+        var rest = p;
+        while (rest.length > maxLen) {
+          var cut = rest.lastIndexOf(' ', maxLen);
+          if (cut <= 0) cut = maxLen;
+          chunks.add(rest.substring(0, cut).trim());
+          rest = rest.substring(cut).trim();
+        }
+        if (rest.isNotEmpty) chunks.add(rest);
+      } else if (buf.length + p.length + 1 > maxLen) {
+        flush();
+        buf.write(p);
+      } else {
+        if (buf.isNotEmpty) buf.write(' ');
+        buf.write(p);
+      }
+    }
+    flush();
+    return chunks;
   }
 
   Future<double> getSpeechRate() async {
@@ -180,6 +258,9 @@ class TtsSettingsService {
   Future<void> applyTo(FlutterTts flutterTts) async {
     final voice = await getSelectedVoice();
     final speechRate = await getSpeechRate();
+    try {
+      await flutterTts.awaitSpeakCompletion(true);
+    } catch (_) {}
     await flutterTts.setLanguage(voice.code);
     await flutterTts.setPitch(voice.pitch);
     await flutterTts.setVolume(1.0);

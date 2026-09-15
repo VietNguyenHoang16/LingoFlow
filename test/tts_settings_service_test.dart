@@ -40,6 +40,9 @@ class _FakeTts extends FlutterTts {
   Future<dynamic> setSpeechRate(double rate) async => 1;
 
   @override
+  Future<dynamic> awaitSpeakCompletion(bool awaitCompletion) async => 1;
+
+  @override
   Future<dynamic> setVoice(Map<String, String> voice) async => 1;
 
   @override
@@ -81,18 +84,67 @@ void main() {
     expect(fallback.spoken, isEmpty);
   });
 
-  test('does not fall back to system voice when google voice fails', () async {
+  test('falls back to system voice when google voice fails', () async {
     SharedPreferences.setMockInitialValues({
       'tts_voice_id': 'google-translate',
     });
+    TtsEngine.testReset();
+    addTearDown(TtsEngine.testReset);
     final google = _FakeGoogleVoice(succeeds: false);
     final fallback = _FakeTts();
+    TtsEngine.ttsFactory = () => fallback;
+    addTearDown(() => TtsEngine.ttsFactory = null);
     final settings = TtsSettingsService(googleVoiceService: google);
 
-    await settings.speakWith('hello');
+    final ok = await settings.speakWith('hello');
 
     expect(google.calls, 1);
+    expect(fallback.spoken, ['hello']);
+    expect(ok, isTrue);
+  });
+
+  test('ignores blank text without calling any engine', () async {
+    SharedPreferences.setMockInitialValues({
+      'tts_voice_id': 'google-translate',
+    });
+    TtsEngine.testReset();
+    addTearDown(TtsEngine.testReset);
+    final google = _FakeGoogleVoice();
+    final fallback = _FakeTts();
+    TtsEngine.ttsFactory = () => fallback;
+    addTearDown(() => TtsEngine.ttsFactory = null);
+    final settings = TtsSettingsService(googleVoiceService: google);
+
+    final ok = await settings.speakWith('   ');
+
+    expect(ok, isFalse);
+    expect(google.calls, 0);
     expect(fallback.spoken, isEmpty);
+  });
+
+  test('chunks long sentences so web TTS reads them fully', () {
+    final long = List.filled(5, 'This is a fairly long example sentence.').join(' ');
+    final chunks = TtsSettingsService.chunkForSpeech(long);
+
+    expect(chunks.length, greaterThan(1));
+    expect(chunks.every((c) => c.length <= 180), isTrue);
+    expect(chunks.join(' '), long.split(RegExp(r'\s+')).join(' '));
+  });
+
+  test('speaks long text chunk by chunk on system voice', () async {
+    SharedPreferences.setMockInitialValues({'tts_voice_id': 'en-US-female'});
+    TtsEngine.testReset();
+    addTearDown(TtsEngine.testReset);
+    final fallback = _FakeTts();
+    TtsEngine.ttsFactory = () => fallback;
+    addTearDown(() => TtsEngine.ttsFactory = null);
+    final settings = TtsSettingsService(googleVoiceService: _FakeGoogleVoice());
+    final long = List.filled(5, 'This is a fairly long example sentence.').join(' ');
+
+    await settings.speakWith(long);
+
+    expect(fallback.spoken.length, greaterThan(1));
+    expect(fallback.spoken.join(' '), long.split(RegExp(r'\s+')).join(' '));
   });
 
   test('uses system voice when a system voice is selected', () async {
