@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/dictionary_service.dart';
 import '../services/srs_service.dart';
@@ -131,6 +131,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String fullDetails,
     required String wordType,
     required String topicTag,
+    String commonSynonyms = '',
     required bool isDifficult,
   }) async {
     final theme = Theme.of(context);
@@ -226,6 +227,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   wordId: wordId, word: word, meaning: meaning,
                   pronunciation: pronunciation, fullDetails: fullDetails,
                   wordType: wordType, topicTag: topicTag,
+                  commonSynonyms: commonSynonyms,
                 );
               },
             ),
@@ -633,7 +635,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String fullDetails,
     required String wordType,
     required String topicTag,
+    String commonSynonyms = '',
   }) async {
+    String initCommon = commonSynonyms;
+    final idxLookup = _words.indexWhere((w) => w['id'] == wordId);
+    if (idxLookup != -1) {
+      initCommon = initCommon.isNotEmpty ? initCommon : (_words[idxLookup]['common_synonyms'] ?? '').toString();
+    }
     final result = await showEditWordSheet(
       context: context,
       word: word,
@@ -642,6 +650,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       fullDetails: fullDetails,
       wordType: wordType,
       topicTag: topicTag,
+      commonSynonyms: initCommon,
       requireMeaning: false,
     );
 
@@ -661,6 +670,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           'full_details': result.fullDetails,
           'word_type': result.wordType,
           'topic_tag': result.topicTag,
+          'common_synonyms': result.commonSynonyms,
         };
       });
     }
@@ -674,6 +684,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         fullDetails: result.fullDetails,
         wordType: result.wordType,
         topicTag: result.topicTag,
+        commonSynonyms: result.commonSynonyms,
       );
       await _loadWords(persistProgress: true);
       if (mounted) {
@@ -718,6 +729,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         fullDetails: (previous['full_details'] ?? '').toString(),
         wordType: (previous['word_type'] ?? '').toString(),
         topicTag: (previous['topic_tag'] ?? '').toString(),
+        commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -815,6 +827,12 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                       if (example.isEmpty) return;
                       Navigator.pop(context);
                       final newFullDetails = addExampleToFullDetails(fullDetails, example);
+                      Map<String, dynamic>? cur;
+                      try {
+                        cur = _words.firstWhere((w) => w['id'] == id);
+                      } catch (_) {
+                        cur = null;
+                      }
                       try {
                         await _db.updateVocabularyWordDetails(
                           wordId: id,
@@ -823,6 +841,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           fullDetails: newFullDetails,
                           wordType: wordType,
                           topicTag: topicTag,
+                          commonSynonyms: (cur?['common_synonyms'] ?? '').toString(),
                         );
                         await _loadWords(persistProgress: true);
                         if (mounted) {
@@ -1428,6 +1447,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         correctStreak: word['correct_streak'] ?? 0,
                         lapseCount: word['lapse_count'] ?? 0,
                         isDark: isDark,
+                        commonSynonyms: (word['common_synonyms'] ?? '').toString(),
                       ),
                     );
                   },
@@ -1797,6 +1817,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required bool isDark,
     String exampleSentence = '',
     String exampleTranslation = '',
+    String commonSynonyms = '',
   }) {
     final theme = Theme.of(context);
     final colors = context.lingoColors;
@@ -1823,6 +1844,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 fullDetails: fullDetails,
                 wordType: wordType,
                 topicTag: topicTag,
+                commonSynonyms: commonSynonyms,
                 isDifficult: isDifficult,
               ),
       child: AnimatedContainer(

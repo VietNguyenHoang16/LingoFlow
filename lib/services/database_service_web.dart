@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -163,6 +163,7 @@ class DatabaseService {
     String? fullDetails,
     String? wordType,
     String? topicTag,
+    String? commonSynonyms,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
       'listId': listId,
@@ -172,6 +173,7 @@ class DatabaseService {
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
+      'commonSynonyms': commonSynonyms ?? '',
     });
     return _asInt(id);
   }
@@ -185,6 +187,7 @@ class DatabaseService {
     String? fullDetails,
     String? wordType,
     String? topicTag,
+    String? commonSynonyms,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
       'userId': userId,
@@ -195,6 +198,7 @@ class DatabaseService {
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
+      'commonSynonyms': commonSynonyms ?? '',
     });
     return _asInt(id);
   }
@@ -287,6 +291,7 @@ class DatabaseService {
     String? fullDetails,
     String? wordType,
     String? topicTag,
+    String? commonSynonyms,
   }) async {
     await _request<void>('updateVocabularyWordDetails', data: {
       'wordId': wordId,
@@ -295,6 +300,7 @@ class DatabaseService {
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
+      'commonSynonyms': commonSynonyms ?? '',
     });
   }
 
@@ -306,6 +312,7 @@ class DatabaseService {
     String? fullDetails,
     String? wordType,
     String? topicTag,
+    String? commonSynonyms,
   }) async {
     await _request<void>('updateVocabularyWord', data: {
       'wordId': wordId,
@@ -315,6 +322,7 @@ class DatabaseService {
       'fullDetails': fullDetails ?? '',
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
+      'commonSynonyms': commonSynonyms ?? '',
     });
   }
 

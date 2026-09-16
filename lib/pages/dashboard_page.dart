@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -524,6 +524,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       fullDetails: (word['full_details'] as String?)?.trim() ?? '',
       wordType: (word['word_type'] as String?)?.trim() ?? '',
       topicTag: (word['topic_tag'] as String?)?.trim() ?? '',
+      commonSynonyms: (word['common_synonyms'] as String?)?.trim() ?? '',
     );
     if (result == null || !mounted) return;
 
@@ -536,6 +537,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
         fullDetails: result.fullDetails,
         wordType: result.wordType,
         topicTag: result.topicTag,
+        commonSynonyms: result.commonSynonyms,
       );
 
       // Cập nhật danh sách hiển thị ngay
@@ -549,6 +551,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
             'full_details': result.fullDetails,
             'word_type': result.wordType,
             'topic_tag': result.topicTag,
+            'common_synonyms': result.commonSynonyms,
           };
         });
       }

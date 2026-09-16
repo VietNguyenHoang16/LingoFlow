@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -52,6 +52,7 @@ class _PracticePageState extends State<PracticePage> {
   final List<Map<String, dynamic>> _sessionResults = [];
   final List<Future<void>> _pendingReviewUpdates = [];
   final List<Map<String, dynamic>> _retryWords = [];
+  bool _isPopping = false;
 
   final TextEditingController _spellController = TextEditingController();
   final FocusNode _spellFocusNode = FocusNode();
@@ -200,11 +201,17 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh.
+  /// Guard _isPopping: chan double-pop khi Navigator dang locked.
   Future<void> _popWithFlush([bool result = false]) async {
+    if (_isPopping) return;
+    _isPopping = true;
     try {
       await _flushPendingUpdates();
     } catch (_) {}
-    if (mounted) Navigator.pop(context, result);
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (!navigator.canPop()) return;
+    navigator.pop(result);
   }
 
   Future<void> _checkAnswer(String answer) async {
@@ -409,6 +416,7 @@ class _PracticePageState extends State<PracticePage> {
         fullDetails: (previous['full_details'] ?? '').toString(),
         wordType: (previous['word_type'] ?? '').toString(),
         topicTag: (previous['topic_tag'] ?? '').toString(),
+        commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
       );
     } catch (e) {
       if (mounted) {

@@ -58,6 +58,7 @@ Map<String, dynamic> normalizeWord(Map<String, dynamic> raw) {
   word['pronunciation'] = _safeString(word['pronunciation']);
   word['meaning'] = _safeString(word['meaning']);
   word['full_details'] = _safeString(word['full_details']);
+  word['common_synonyms'] = _safeString(word['common_synonyms']);
   word['example_sentence'] = _safeString(word['example_sentence']);
   word['example_translation'] = _safeString(word['example_translation']);
   word['word_type'] = _safeString(word['word_type']);

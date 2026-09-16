@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'synonym_block.dart';
 import 'topic_tag_badge.dart';
 import 'word_type_badge.dart';
 
@@ -21,6 +22,7 @@ class FlipWordCard extends StatefulWidget {
   final String example;
   final String? exampleTranslation;
   final String? exampleTarget;
+  final String commonSynonyms;
   final Color accent;
   final bool isDifficult;
   final VoidCallback onTap;
@@ -40,6 +42,7 @@ class FlipWordCard extends StatefulWidget {
     required this.example,
     this.exampleTranslation,
     this.exampleTarget,
+    this.commonSynonyms = '',
     required this.accent,
     this.isDifficult = false,
     required this.onTap,
@@ -111,6 +114,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                       example: widget.example,
                       exampleTranslation: widget.exampleTranslation,
                       exampleTarget: widget.exampleTarget,
+                      commonSynonyms: widget.commonSynonyms,
                       accent: widget.accent,
                       theme: theme,
                       onSpeak: widget.onSpeak,
@@ -330,6 +334,7 @@ class _CardBack extends StatelessWidget {
   final String example;
   final String? exampleTranslation;
   final String? exampleTarget;
+  final String commonSynonyms;
   final Color accent;
   final ThemeData theme;
   final VoidCallback onSpeak;
@@ -341,6 +346,7 @@ class _CardBack extends StatelessWidget {
     required this.example,
     this.exampleTranslation,
     this.exampleTarget,
+    this.commonSynonyms = '',
     required this.accent,
     required this.theme,
     required this.onSpeak,
@@ -505,6 +511,10 @@ class _CardBack extends StatelessWidget {
               ),
             ),
           ],
+          SynonymBlock(
+            common: commonSynonyms,
+            accent: accent,
+          ),
           const SizedBox(height: 12),
           Row(
             children: [

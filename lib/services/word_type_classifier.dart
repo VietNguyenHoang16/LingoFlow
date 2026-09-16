@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'database_service_web.dart';
 import 'dictionary_service.dart';
 
@@ -67,6 +67,7 @@ class WordTypeClassifier {
           fullDetails: w['full_details'] as String?,
           wordType: joined,
           topicTag: (w['topic_tag'] as String?) ?? '',
+          commonSynonyms: (w['common_synonyms'] as String?) ?? '',
         );
         classified++;
         if (kDebugMode) {

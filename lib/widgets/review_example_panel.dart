@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'synonym_block.dart';
+
 /// Panel ví dụ kiểu mặt sau flashcard cho màn Review.
 /// Nền sáng, chữ tối — đặt dưới thẻ đáp án gradient sau khi người dùng
 /// nhập từ (hoặc bấm Show answer ở chế độ grammar).
@@ -9,6 +11,7 @@ class ReviewExamplePanel extends StatelessWidget {
   final String example;
   final String? translation;
   final String? target;
+  final String commonSynonyms;
   final Color accent;
   final bool compact;
   final VoidCallback onSpeak;
@@ -19,6 +22,7 @@ class ReviewExamplePanel extends StatelessWidget {
     required this.example,
     this.translation,
     this.target,
+    this.commonSynonyms = '',
     required this.accent,
     this.compact = false,
     required this.onSpeak,
@@ -60,7 +64,9 @@ class ReviewExamplePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (example.isEmpty) return const SizedBox.shrink();
+    if (example.isEmpty && commonSynonyms.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
@@ -116,35 +122,41 @@ class ReviewExamplePanel extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: compact ? 8 : 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSentence(theme),
-                if (translation != null && translation!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '→ ${translation!}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro',
-                      fontSize: compact ? 12 : 13,
-                      fontStyle: FontStyle.italic,
-                      color: theme.colorScheme.onSurfaceVariant,
+          if (example.isNotEmpty) ...[
+            SizedBox(height: compact ? 8 : 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSentence(theme),
+                  if (translation != null && translation!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '→ ${translation!}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: compact ? 12 : 13,
+                        fontStyle: FontStyle.italic,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
+          ],
+          SynonymBlock(
+            common: commonSynonyms,
+            accent: accent,
           ),
           SizedBox(height: compact ? 8 : 12),
           Row(

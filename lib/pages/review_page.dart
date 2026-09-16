@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -65,6 +65,7 @@ class _ReviewPageState extends State<ReviewPage>
   int _masteryUps = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
   final List<Future<void>> _pendingUpdates = [];
+  bool _isPopping = false;
 
   Map<int, String> _calculatedIntervals = {};
 
@@ -100,11 +101,18 @@ class _ReviewPageState extends State<ReviewPage>
 
   /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh,
   /// tranh mat du lieu tien do neu app bi tat.
+  /// Guard _isPopping: chan double-tap Done / Done + back cung luc gay
+  /// double Navigator.pop trong luc Navigator dang locked (!vidu _debugLocked).
   Future<void> _popWithFlush([bool result = false]) async {
+    if (_isPopping) return;
+    _isPopping = true;
     try {
       await _flushUpdates();
     } catch (_) {}
-    if (mounted) Navigator.pop(context, result);
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (!navigator.canPop()) return;
+    navigator.pop(result);
   }
 
   @override
@@ -376,6 +384,7 @@ class _ReviewPageState extends State<ReviewPage>
         fullDetails: (w['full_details'] ?? '').toString(),
         wordType: (w['word_type'] ?? '').toString(),
         topicTag: (w['topic_tag'] ?? '').toString(),
+        commonSynonyms: (w['common_synonyms'] ?? '').toString(),
       );
     } catch (e) {
       if (mounted) {
@@ -641,7 +650,7 @@ class _ReviewPageState extends State<ReviewPage>
 
               // Panel vi du kieu flashcard: chi hien sau khi nhap tu / Show answer.
               // Thieu vi du -> hien hint thay vi an im lang (de biet can bo sung).
-              if (_showAnswer && ((currentWord['example'] ?? '') as String).isNotEmpty)
+              if (_showAnswer && (((currentWord['example'] ?? '') as String).isNotEmpty || ((currentWord['common_synonyms'] ?? '') as String).isNotEmpty))
                 ReviewExamplePanel(
                   word: (currentWord['word'] ?? '').toString(),
                   example: (currentWord['example'] ?? '').toString(),
@@ -651,6 +660,7 @@ class _ReviewPageState extends State<ReviewPage>
                   target: (currentWord['example_target'] ?? '').toString().isEmpty
                       ? null
                       : (currentWord['example_target'] ?? '').toString(),
+                  commonSynonyms: (currentWord['common_synonyms'] ?? '').toString(),
                   accent: theme.colorScheme.primary,
                   compact: compactMode,
                   onSpeak: () => _speak((currentWord['example'] ?? '').toString()),

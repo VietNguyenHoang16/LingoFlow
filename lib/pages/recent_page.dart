@@ -214,6 +214,7 @@ class _RecentPageState extends State<RecentPage> {
       fullDetails: (word['full_details'] ?? '').toString(),
       wordType: (word['word_type'] ?? '').toString(),
       topicTag: (word['topic_tag'] ?? '').toString(),
+      commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       showWordType: false,
       showDetails: false,
     );
@@ -227,6 +228,7 @@ class _RecentPageState extends State<RecentPage> {
       word['meaning'] = result.meaning;
       word['pronunciation'] = result.pronunciation;
       word['topic_tag'] = result.topicTag;
+      word['common_synonyms'] = result.commonSynonyms;
     });
     _flippedWords.remove(id);
     // TEMP-DEBUG topic_tag
@@ -239,6 +241,7 @@ class _RecentPageState extends State<RecentPage> {
         pronunciation: result.pronunciation,
         wordType: (previous['word_type'] as String?)?.trim() ?? '',
         topicTag: result.topicTag,
+        commonSynonyms: result.commonSynonyms,
       );
       // Đồng bộ nền để khớp server, giữ nguyên vị trí cuộn.
       await _loadRecent(background: true);
@@ -681,6 +684,7 @@ class _RecentPageState extends State<RecentPage> {
           ? null
           : resolved['translation'],
       exampleTarget: exampleTarget.isEmpty ? null : exampleTarget,
+      commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       accent: theme.colorScheme.primary,
       isDifficult: word['is_difficult'] == true,
       onTap: () {

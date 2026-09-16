@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
@@ -123,6 +123,7 @@ class _CategoryPageState extends State<CategoryPage> {
       fullDetails: (word['full_details'] ?? '').toString(),
       wordType: (word['word_type'] ?? '').toString(),
       topicTag: (word['topic_tag'] ?? '').toString(),
+      commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       showWordType: false,
       showDetails: false,
     );
@@ -145,6 +146,7 @@ class _CategoryPageState extends State<CategoryPage> {
         pronunciation: result.pronunciation,
         wordType: (previous['word_type'] as String?)?.trim() ?? widget.category,
         topicTag: result.topicTag,
+        commonSynonyms: result.commonSynonyms,
       );
       await _loadWords();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
@@ -542,6 +544,7 @@ class _CategoryPageState extends State<CategoryPage> {
           ? null
           : resolved['translation'],
       exampleTarget: exampleTarget.isEmpty ? null : exampleTarget,
+      commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       accent: catColor,
       isDifficult: word['is_difficult'] == true,
       onTap: () {

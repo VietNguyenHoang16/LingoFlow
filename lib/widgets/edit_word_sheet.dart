@@ -10,6 +10,7 @@ class EditWordResult {
   final String fullDetails;
   final String wordType;
   final String topicTag;
+  final String commonSynonyms;
 
   const EditWordResult({
     required this.word,
@@ -18,6 +19,7 @@ class EditWordResult {
     required this.fullDetails,
     required this.wordType,
     required this.topicTag,
+    this.commonSynonyms = '',
   });
 }
 
@@ -36,6 +38,7 @@ Future<EditWordResult?> showEditWordSheet({
   required String fullDetails,
   required String wordType,
   required String topicTag,
+  String commonSynonyms = '',
   bool showWordType = true,
   bool showDetails = true,
   bool requireMeaning = true,
@@ -59,6 +62,7 @@ Future<EditWordResult?> showEditWordSheet({
         initialFullDetails: fullDetails,
         initialTopicTag: topicTag,
         initialWordType: wordType,
+        initialCommon: commonSynonyms,
         showWordType: showWordType,
         showDetails: showDetails,
         requireMeaning: requireMeaning,
@@ -74,6 +78,7 @@ class _EditWordSheetBody extends StatefulWidget {
   final String initialFullDetails;
   final String initialTopicTag;
   final String initialWordType;
+  final String initialCommon;
   final bool showWordType;
   final bool showDetails;
   final bool requireMeaning;
@@ -85,6 +90,7 @@ class _EditWordSheetBody extends StatefulWidget {
     required this.initialFullDetails,
     required this.initialTopicTag,
     required this.initialWordType,
+    this.initialCommon = '',
     required this.showWordType,
     required this.showDetails,
     required this.requireMeaning,
@@ -101,6 +107,7 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
   late final TextEditingController detailsCtl =
       TextEditingController(text: widget.initialFullDetails);
   late final TextEditingController topicCtl = TextEditingController(text: widget.initialTopicTag);
+  late final TextEditingController commonCtl = TextEditingController(text: widget.initialCommon);
   late final Set<String> selectedTypes = {
     ...widget.initialWordType.split(',').map((t) => t.trim()).where(kWordTypeLabel.containsKey),
   };
@@ -113,6 +120,7 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
     pronCtl.dispose();
     detailsCtl.dispose();
     topicCtl.dispose();
+    commonCtl.dispose();
     super.dispose();
   }
 
@@ -124,12 +132,21 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
         border: const OutlineInputBorder(),
       );
 
+  int _countCommon(String raw) => raw
+      .split(RegExp(r'[·,;|/\n]+'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .length;
+
   void _save() {
     final w = wordCtl.text.trim();
     final m = meaningCtl.text.trim();
+    final commonCount = _countCommon(commonCtl.text);
     final err = w.isEmpty
         ? 'Vui lòng nhập từ'
-        : (widget.requireMeaning && m.isEmpty ? 'Vui lòng nhập nghĩa' : null);
+        : (widget.requireMeaning && m.isEmpty
+            ? 'Vui lòng nhập nghĩa'
+            : (commonCount > 3 ? 'Common tối đa 3 từ (hiện $commonCount)' : null));
     if (err != null) {
       setState(() => error = err);
       return;
@@ -146,6 +163,7 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
         fullDetails: detailsCtl.text.trim(),
         wordType: selectedTypes.toList().join(','),
         topicTag: topicCtl.text.trim(),
+        commonSynonyms: commonCtl.text.trim(),
       ),
     );
   }
@@ -257,6 +275,13 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
                 ),
               ),
             ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: commonCtl,
+              textInputAction: TextInputAction.next,
+              decoration: _dense('Common synonyms (tối đa 3)', 'good · reliable · decent'),
+              onSubmitted: (_) => _save(),
+            ),
             if (widget.showDetails)
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
