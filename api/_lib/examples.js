@@ -108,6 +108,9 @@ async function ensureExampleSchema() {
       await query('ALTER TABLE vocabulary_words ADD COLUMN IF NOT EXISTS example_sentence TEXT');
       await query('ALTER TABLE vocabulary_words ADD COLUMN IF NOT EXISTS example_translation TEXT');
       await query('ALTER TABLE vocabulary_words ADD COLUMN IF NOT EXISTS example_target VARCHAR(255)');
+      await query('ALTER TABLE vocabulary_words ADD COLUMN IF NOT EXISTS common_synonyms TEXT');
+      await query('ALTER TABLE vocabulary_words ADD COLUMN IF NOT EXISTS related_phrases TEXT');
+      await query('ALTER TABLE vocabulary_words ADD COLUMN IF NOT EXISTS nuance TEXT');
     })().catch((error) => {
       schemaReady = undefined;
       throw error;
@@ -149,7 +152,8 @@ async function requireUserId(req) {
 async function findOwnedWord(wordId, userId) {
   const rows = await query(
     `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.topic_tag,
-            vw.example_sentence, vw.example_translation, vw.example_target
+            vw.example_sentence, vw.example_translation, vw.example_target,
+            vw.common_synonyms, vw.related_phrases, vw.nuance
      FROM vocabulary_words vw
      JOIN vocabulary_lists vl ON vw.list_id = vl.id
      WHERE vw.id = $1 AND vl.user_id = $2
@@ -169,6 +173,9 @@ function mapWord(row) {
     exampleSentence: row.example_sentence || '',
     exampleTranslation: row.example_translation || '',
     exampleTarget: row.example_target || '',
+    commonSynonyms: row.common_synonyms || '',
+    relatedPhrases: row.related_phrases || '',
+    nuance: row.nuance || '',
   };
 }
 
