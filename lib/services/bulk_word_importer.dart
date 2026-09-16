@@ -11,6 +11,7 @@ class ImportLine {
   final String posNumber;
   final String meaning;
   final String topicTag; // nhãn chủ đề tách từ cuối nghĩa, '' nếu không có.
+  final String commonSynonyms; // tối đa 3 từ phổ biến nhất, phân tách · , ; |
   String? wordType; // resolved key (noun/verb/...). null nếu POS không hợp lệ.
   String? error; // null = hợp lệ.
 
@@ -21,12 +22,20 @@ class ImportLine {
     required this.posNumber,
     required this.meaning,
     this.topicTag = '',
+    this.commonSynonyms = '',
     this.wordType,
     this.error,
   });
 
   bool get isValid => error == null;
 }
+
+/// Đếm số synonyms trong chuỗi (dùng chung luật với SynonymBlock).
+int countSynonyms(String raw) => raw
+    .split(RegExp(r'[·,;|/\n]+'))
+    .map((e) => e.trim())
+    .where((e) => e.isNotEmpty)
+    .length;
 
 /// Kết quả import.
 class ImportResult {
@@ -58,22 +67,40 @@ class BulkWordImporter {
   static final RegExp _fmtPipe = RegExp(r'^(\d{1,2})\s*\|\|\s*(.*?)\s*\|\|\s*(.*)$');
   static final RegExp _fmtOld = RegExp(r'^(.*)\/(\d{1,2})\/(.*)$');
 
-  /// Thử lần lượt các format, trả về (word, pos, meaning) nếu match, null nếu không.
-  static ({String word, String pos, String meaning})? _parseFormat(String line) {
-    // Format 1: POS :: word :: meaning
+  /// Thử lần lượt các format. Format mới (`::` / `||`) cho thêm 1 segment
+  /// optional: `POS :: word :: meaning [:: common]`. Segment thừa -> lỗi.
+  /// Format cũ (`/`) giữ nguyên 3 phần, không synonyms.
+  static ({String word, String pos, String meaning, String common})? _parseFormat(
+    String line,
+  ) {
+    // Format 1: POS :: word :: meaning [:: common]
     var m = _fmtNew.firstMatch(line);
     if (m != null) {
-      return (word: m.group(2)!, pos: m.group(1)!, meaning: m.group(3)!);
+      final tail = m.group(3)!.split('::').map((e) => e.trim()).toList();
+      if (tail.length > 2) return null; // thừa segment
+      return (
+        word: m.group(2)!,
+        pos: m.group(1)!,
+        meaning: tail.isEmpty ? '' : tail.first,
+        common: tail.length > 1 ? tail[1] : '',
+      );
     }
-    // Format 2: POS || word || meaning
+    // Format 2: POS || word || meaning [|| common]
     m = _fmtPipe.firstMatch(line);
     if (m != null) {
-      return (word: m.group(2)!, pos: m.group(1)!, meaning: m.group(3)!);
+      final tail = m.group(3)!.split('||').map((e) => e.trim()).toList();
+      if (tail.length > 2) return null; // thừa segment
+      return (
+        word: m.group(2)!,
+        pos: m.group(1)!,
+        meaning: tail.isEmpty ? '' : tail.first,
+        common: tail.length > 1 ? tail[1] : '',
+      );
     }
-    // Format cũ: word / POS / meaning
+    // Format cũ: word / POS / meaning (không synonyms)
     m = _fmtOld.firstMatch(line);
     if (m != null) {
-      return (word: m.group(1)!, pos: m.group(2)!, meaning: m.group(3)!);
+      return (word: m.group(1)!, pos: m.group(2)!, meaning: m.group(3)!, common: '');
     }
     return null;
   }
@@ -108,6 +135,7 @@ class BulkWordImporter {
       word = match.word.trim();
       posStr = match.pos.trim();
       meaning = match.meaning.trim();
+      final common = match.common.trim();
       // Nhãn chủ đề nằm ở cuối nghĩa sau dấu ` - ` cuối cùng.
       final split = splitTopicTag(meaning);
       meaning = split.meaning;
@@ -153,6 +181,20 @@ class BulkWordImporter {
         ));
         continue;
       }
+      if (countSynonyms(common) > 3) {
+        lines.add(ImportLine(
+          lineNumber: lineNumber,
+          rawLine: trimmed,
+          word: word,
+          posNumber: posStr,
+          meaning: meaning,
+          topicTag: topicTag,
+          commonSynonyms: common,
+          wordType: wordType,
+          error: 'Common tối đa 3 từ',
+        ));
+        continue;
+      }
 
       lines.add(ImportLine(
         lineNumber: lineNumber,
@@ -161,6 +203,7 @@ class BulkWordImporter {
         posNumber: posStr,
         meaning: meaning,
         topicTag: topicTag,
+        commonSynonyms: common,
         wordType: wordType,
       ));
     }
@@ -201,6 +244,7 @@ class BulkWordImporter {
           posNumber: l.posNumber,
           meaning: l.meaning,
           topicTag: l.topicTag,
+          commonSynonyms: l.commonSynonyms,
           wordType: l.wordType,
           error: 'Trùng từ',
         );
@@ -306,6 +350,7 @@ class BulkWordImporter {
               'meaning': l.meaning,
               'wordType': l.wordType,
               'topicTag': l.topicTag,
+              'commonSynonyms': l.commonSynonyms,
             }).toList();
         try {
           inserted += await _db.bulkAddCategoryWords(userId, entry.key, payload);
@@ -321,6 +366,7 @@ class BulkWordImporter {
                 line.meaning,
                 wordType: line.wordType,
                 topicTag: line.topicTag,
+                commonSynonyms: line.commonSynonyms,
               );
               inserted++;
             } catch (_) {}

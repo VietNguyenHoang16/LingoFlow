@@ -89,6 +89,34 @@ test('mapWord exposes the example fields in the web API shape', () => {
       exampleSentence: "I'm tired.",
       exampleTranslation: 'Tôi mệt.',
       exampleTarget: 'lie down',
+      commonSynonyms: '',
+    },
+  );
+});
+
+test('mapWord passes through commonSynonyms when present', () => {
+  assert.deepEqual(
+    mapWord({
+      id: '8',
+      word: 'solid',
+      pronunciation: 'solid',
+      meaning: 'vung chac',
+      topic_tag: '',
+      example_sentence: "That's a solid choice.",
+      example_translation: 'Do la lua chon vung chac.',
+      example_target: 'solid',
+      common_synonyms: 'good · reliable · decent',
+    }),
+    {
+      id: 8,
+      word: 'solid',
+      pronunciation: 'solid',
+      meaning: 'vung chac',
+      topicTag: '',
+      exampleSentence: "That's a solid choice.",
+      exampleTranslation: 'Do la lua chon vung chac.',
+      exampleTarget: 'solid',
+      commonSynonyms: 'good · reliable · decent',
     },
   );
 });

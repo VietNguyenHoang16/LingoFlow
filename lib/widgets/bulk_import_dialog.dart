@@ -36,10 +36,10 @@ class BulkImportDialog extends StatefulWidget {
 }
 
 class _BulkImportDialogState extends State<BulkImportDialog> {
-  static const _example = '''12 :: I'd like to + V-inf :: Tôi muốn làm gì
-12 :: Before/After + V-ing :: Trước/Sau khi làm gì
-11 :: Work under pressure :: Làm việc dưới áp lực
+  static const _example = '''11 :: Work under pressure :: Làm việc dưới áp lực
+3 :: solid :: ổn, tốt :: good · reliable · decent
 1 :: apple :: quả táo
+# Mở rộng: POS :: từ :: nghĩa [:: common (tối đa 3 từ phổ biến nhất)]
 # Dòng bắt đầu # là comment''';
 
   final _controller = TextEditingController();
@@ -254,7 +254,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       key: key,
       children: [
         Text(
-          'Mỗi dòng: số_POS :: từ :: nghĩa (hoặc dùng || làm ngăn cách, hoặc giữ nguyên từ / POS / nghĩa cũ). Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
+          'Mỗi dòng: số_POS :: từ :: nghĩa [:: common (tối đa 3 từ)]. Hoặc dùng || làm ngăn cách, hoặc giữ nguyên từ / POS / nghĩa cũ (không synonyms). Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withAlpha(150),
             fontFamily: 'Be Vietnam Pro',
