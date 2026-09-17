@@ -66,6 +66,8 @@ class _ReviewPageState extends State<ReviewPage>
   final List<Map<String, dynamic>> _sessionResults = [];
   final List<Future<void>> _pendingUpdates = [];
   bool _isPopping = false;
+  bool _wordOptionsOpen = false;
+  bool _isDeletingWord = false;
 
   Map<int, String> _calculatedIntervals = {};
 
@@ -104,7 +106,7 @@ class _ReviewPageState extends State<ReviewPage>
   /// Guard _isPopping: chan double-tap Done / Done + back cung luc gay
   /// double Navigator.pop trong luc Navigator dang locked (!vidu _debugLocked).
   Future<void> _popWithFlush([bool result = false]) async {
-    if (_isPopping) return;
+    if (_isPopping || _isDeletingWord) return;
     _isPopping = true;
     try {
       await _flushUpdates();
@@ -254,7 +256,93 @@ class _ReviewPageState extends State<ReviewPage>
   /// Tu hien tai - null neu index ngoai pham vi (khong bao gio RangeError).
   Map<String, dynamic>? get _currentWordSafe => wordAt(_dueWords, _currentIndex);
 
+  Future<void> _showWordOptions() async {
+    final word = _currentWordSafe;
+    if (word == null || _wordOptionsOpen || _isCompleted || _isPopping) return;
+    _wordOptionsOpen = true;
+    _answerFocusNode.unfocus();
+    final wordId = word['id'] as int;
+    final wordText = (word['word'] ?? '').toString();
+    try {
+      final delete = await showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: ListTile(
+              leading: Icon(Icons.delete_outline, color: Theme.of(ctx).colorScheme.error),
+              title: const Text('Xóa từ'),
+              onTap: () => Navigator.pop(ctx, true),
+            ),
+          ),
+        ),
+      );
+      if (delete != true || !mounted) return;
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Xóa từ này?'),
+          content: Text('"$wordText" sẽ bị xóa khỏi thư viện của bạn, không chỉ bỏ qua trong phiên ôn tập. Không thể hoàn tác.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).colorScheme.error),
+              child: const Text('Xóa'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      setState(() => _isDeletingWord = true);
+      // Finish earlier Again writes before deleting the same database row.
+      await _flushUpdates();
+      if (!mounted) return;
+      await _db.deleteVocabularyWord(wordId);
+      if (!mounted) return;
+      setState(() {
+        final removedBefore = _dueWords.take(_currentIndex)
+            .where((w) => w['id'] == wordId).length;
+        _dueWords.removeWhere((w) => w['id'] == wordId);
+        _currentIndex -= removedBefore;
+        _isCompleted = _currentIndex >= _dueWords.length;
+        _showAnswer = false;
+        _isAnswerCorrect = null;
+        _answerController.clear();
+        _flipController.reset();
+        _calculatedIntervals = {};
+        _hintLevel = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã xóa "$wordText"')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể xóa từ. Vui lòng thử lại.')),
+        );
+      }
+    } finally {
+      _wordOptionsOpen = false;
+      if (mounted) {
+        setState(() => _isDeletingWord = false);
+        if (!_isCompleted) {
+          if (_showAnswer) {
+            _pageFocusNode.requestFocus();
+          } else {
+            _requestInputFocus();
+          }
+        }
+      }
+    }
+  }
+
   void _rateWord(int quality) {
+    if (_wordOptionsOpen || _isCompleted) return;
     // Safari chi bat keyboard cho focus DONG BO trong gesture: xin focus
     // truoc moi tinh toan/setState. De cuoi handler + qua unfocus/refocus
     // 2 node la mat keyboard (element focused nhung keyboard khong len).
@@ -313,6 +401,7 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   void _showAnswerCard() {
+    if (_wordOptionsOpen || _isCompleted) return;
     final word = _currentWordSafe;
     if (word == null) return;
 
@@ -351,7 +440,7 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   void _tapHint() {
-    if (_showAnswer) return;
+    if (_showAnswer || _wordOptionsOpen) return;
     final wordStr = (_currentWordSafe?['word'] ?? '').toString();
     if (wordStr.isEmpty) return;
     final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
@@ -365,7 +454,7 @@ class _ReviewPageState extends State<ReviewPage>
 
   Future<void> _quickEditMeaning() async {
     final w = _currentWordSafe;
-    if (w == null || !mounted) return;
+    if (w == null || !mounted || _wordOptionsOpen) return;
     final next = await showQuickMeaningEdit(
       context: context,
       word: (w['word'] ?? '').toString(),
@@ -439,6 +528,8 @@ class _ReviewPageState extends State<ReviewPage>
       );
     }
 
+    if (_isCompleted) return _buildCompletedScreen();
+
     if (_dueWords.isEmpty) {
       return Scaffold(
         backgroundColor: theme.colorScheme.surface,
@@ -497,10 +588,6 @@ class _ReviewPageState extends State<ReviewPage>
       );
     }
 
-    if (_isCompleted) {
-      return _buildCompletedScreen();
-    }
-
     final currentWord = _currentWordSafe;
     if (currentWord == null) {
       // Index ngoai pham vi (du lieu thay doi giua chay) - ket thuc phien
@@ -509,8 +596,13 @@ class _ReviewPageState extends State<ReviewPage>
     }
     final progress = (_currentIndex + 1) / _dueWords.length;
 
-    return CallbackShortcuts(
+    return PopScope(
+      canPop: !_isDeletingWord,
+      child: AbsorbPointer(
+        absorbing: _isDeletingWord,
+        child: CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true): _showWordOptions,
         const SingleActivator(LogicalKeyboardKey.digit0): _tapHint,
         const SingleActivator(LogicalKeyboardKey.numpad0): _tapHint,
       },
@@ -586,6 +678,7 @@ class _ReviewPageState extends State<ReviewPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+              if (_isDeletingWord) const LinearProgressIndicator(),
               // Progress bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
@@ -611,7 +704,10 @@ class _ReviewPageState extends State<ReviewPage>
               // Main card — cao tu nhien, cuon cung ca trang.
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: AnimatedBuilder(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onLongPress: _showWordOptions,
+                  child: AnimatedBuilder(
                   animation: _flipAnimation,
                   builder: (context, child) {
                     // null (grammar tu cham) giu mau trung tinh nhu khi tra loi dung.
@@ -645,6 +741,7 @@ class _ReviewPageState extends State<ReviewPage>
                           : _buildAnswerCardContent(currentWord, theme, compactMode),
                     );
                   },
+                  ),
                 ),
               ),
 
@@ -699,6 +796,8 @@ class _ReviewPageState extends State<ReviewPage>
             ),
           ),
         ),
+      ),
+      ),
       ),
       ),
     );
