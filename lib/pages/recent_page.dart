@@ -604,6 +604,11 @@ class _RecentPageState extends State<RecentPage> {
     final isSelected = _selectedWords.contains(wordId);
 
     if (_isSelectionMode) {
+      final timeAgo = createdAt == null ? null : _formatRelative(createdAt);
+      final timeStyle = TextStyle(
+        fontFamily: 'Be Vietnam Pro', fontSize: 11, fontWeight: FontWeight.w600,
+        color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+      );
       return GestureDetector(
         onTap: () => _toggleWordSelection(wordId),
         child: Container(
@@ -635,15 +640,35 @@ class _RecentPageState extends State<RecentPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(wordText, style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    )),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(wordText, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                          )),
+                        ),
+                        if (meaning.isEmpty && timeAgo != null) ...[
+                          const SizedBox(width: 6),
+                          Text(timeAgo, style: timeStyle),
+                        ],
+                      ],
+                    ),
                     if (meaning.isNotEmpty)
-                      Text(meaning, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(
-                        fontFamily: 'Be Vietnam Pro', fontSize: 13,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      )),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(meaning, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(
+                              fontFamily: 'Be Vietnam Pro', fontSize: 13,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            )),
+                          ),
+                          if (timeAgo != null) ...[
+                            const SizedBox(width: 6),
+                            Text(timeAgo, style: timeStyle),
+                          ],
+                        ],
+                      ),
                   ],
                 ),
               ),
