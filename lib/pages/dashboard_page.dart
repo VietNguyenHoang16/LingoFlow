@@ -9,7 +9,6 @@ import '../widgets/bulk_import_dialog.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/pwa_install_banner.dart';
 import '../widgets/review_banner_buttons.dart';
-import 'dart:async';
 
 import 'review_page.dart';
 import 'profile_page.dart';
@@ -69,6 +68,8 @@ class _DashboardPageState extends State<DashboardPage> {
     });
     try {
       final data = await _db.getDashboardStats(widget.userId);
+      // Prefetch index de search loc ngay tai may, khong chan UI.
+      _db.wordIndex(widget.userId).ignore();
       if (!mounted) return;
       setState(() {
         _categoryStats = data.categoryStats;
@@ -471,60 +472,94 @@ class SearchBottomSheet extends StatefulWidget {
 class _SearchBottomSheetState extends State<SearchBottomSheet> {
   final TextEditingController _searchController = TextEditingController();
   final DatabaseService _db = DatabaseService();
+  List<Map<String, dynamic>> _allWords = [];
   List<Map<String, dynamic>> _searchResults = [];
-  bool _isSearching = false;
-  Timer? _debounce;
-  int _searchSeq = 0;
-  final Map<String, List<Map<String, dynamic>>> _searchCache = {};
+  bool _isLoadingIndex = false;
+  bool _indexFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIndex();
+  }
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onQueryChanged(String query) {
-    _debounce?.cancel();
-    setState(() {});
-    if (query.trim().isEmpty) {
-      setState(() { _searchResults = []; _isSearching = false; });
-      return;
+  /// Tai danh sach tu nhe 1 lan, sau do loc ngay tai may (khong goi mang khi go).
+  Future<void> _loadIndex() async {
+    setState(() {
+      _isLoadingIndex = true;
+      _indexFailed = false;
+    });
+    try {
+      final words = await _db.wordIndex(widget.userId);
+      if (!mounted) return;
+      setState(() {
+        _allWords = words;
+        _isLoadingIndex = false;
+      });
+      _applyFilter(_searchController.text);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingIndex = false;
+        _indexFailed = true;
+      });
     }
-    _debounce = Timer(const Duration(milliseconds: 300), () => _runSearch(query));
   }
 
-  Future<void> _runSearch(String query) async {
-    final key = query.trim().toLowerCase();
-    final cached = _searchCache[key];
-    if (cached != null) {
-      setState(() { _searchResults = cached; _isSearching = false; });
-      return;
-    }
-    final seq = ++_searchSeq;
-    setState(() => _isSearching = true);
-    try {
-      final results = await _db.searchWord(widget.userId, query);
-      _searchCache[key] = results;
-      if (!mounted || seq != _searchSeq) return;
-      setState(() { _searchResults = results; _isSearching = false; });
-    } catch (e) {
-      if (!mounted || seq != _searchSeq) return;
-      setState(() => _isSearching = false);
-    }
+  void _onQueryChanged(String query) {
+    setState(() {}); // refresh suffix clear button
+    _applyFilter(query);
+  }
+
+  /// Cung ngu nghia voi action searchWord tren server: khop word HOAC topic_tag.
+  void _applyFilter(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      if (q.isEmpty) {
+        _searchResults = [];
+        return;
+      }
+      _searchResults = _allWords
+          .where((w) =>
+              (w['word'] as String? ?? '').toLowerCase().contains(q) ||
+              (w['topic_tag'] as String? ?? '').toLowerCase().contains(q))
+          .toList();
+    });
   }
 
   /// Chỉnh sửa từ trong kết quả tìm kiếm
   Future<void> _editSearchResult(Map<String, dynamic> word) async {
+    // getWordIndex khong chua full_details/common_synonyms -> phai lay truoc
+    // neu khong se ghi de bang chuoi rong.
+    Map<String, dynamic>? details;
+    try {
+      details = await _db.getWordDetails(word['id'] as int);
+    } catch (_) {
+      details = null;
+    }
+    if (!mounted) return;
+    if (details == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tải được chi tiết từ, thử lại sau')),
+      );
+      return;
+    }
+
     final result = await showEditWordSheet(
       context: context,
       word: (word['word'] as String?)?.trim() ?? '',
       meaning: (word['meaning'] as String?)?.trim() ?? '',
       pronunciation: (word['pronunciation'] as String?)?.trim() ?? '',
-      fullDetails: (word['full_details'] as String?)?.trim() ?? '',
+      fullDetails: (details['full_details'] as String?)?.trim() ?? '',
       wordType: (word['word_type'] as String?)?.trim() ?? '',
       topicTag: (word['topic_tag'] as String?)?.trim() ?? '',
-      commonSynonyms: (word['common_synonyms'] as String?)?.trim() ?? '',
+      commonSynonyms: (details['common_synonyms'] as String?)?.trim() ?? '',
     );
     if (result == null || !mounted) return;
 
@@ -540,21 +575,12 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
         commonSynonyms: result.commonSynonyms,
       );
 
-      // Cập nhật danh sách hiển thị ngay
-      final index = _searchResults.indexWhere((w) => w['id'] == word['id']);
-      if (index != -1) {
-        setState(() {
-          _searchResults[index] = {...word,
-            'word': result.word,
-            'meaning': result.meaning,
-            'pronunciation': result.pronunciation,
-            'full_details': result.fullDetails,
-            'word_type': result.wordType,
-            'topic_tag': result.topicTag,
-            'common_synonyms': result.commonSynonyms,
-          };
-        });
-      }
+      // Sua tai cho de _allWords cung doi theo, roi loc lai theo query hien tai
+      word['word'] = result.word;
+      word['meaning'] = result.meaning;
+      word['word_type'] = result.wordType;
+      word['topic_tag'] = result.topicTag;
+      _applyFilter(_searchController.text);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã chỉnh sửa từ')),
@@ -591,9 +617,10 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     try {
       await _db.deleteVocabularyWord(word['id'] as int);
 
-      // Xóa khỏi danh sách hiển thị
+      // Xóa khỏi danh sách hiển thị + index local
       setState(() {
         _searchResults.removeWhere((w) => w['id'] == word['id']);
+        _allWords.removeWhere((w) => w['id'] == word['id']);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -649,9 +676,21 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
             ),
           ),
           Expanded(
-            child: _isSearching
+            child: _isLoadingIndex
                 ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                : _searchResults.isEmpty && _searchController.text.isNotEmpty
+                : _indexFailed
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Không tải được danh sách từ',
+                                style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onSurfaceVariant, fontSize: 15)),
+                            const SizedBox(height: 8),
+                            TextButton(onPressed: _loadIndex, child: const Text('Thử lại')),
+                          ],
+                        ),
+                      )
+                    : _searchResults.isEmpty && _searchController.text.isNotEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,

@@ -13,6 +13,18 @@ class DatabaseService {
 
   bool _isInitialized = false;
 
+  /// Cache getWordIndex theo userId; xoa khi co action sua du lieu tu.
+  static final Map<int, List<Map<String, dynamic>>> _wordIndexCache = {};
+  static const Set<String> _wordIndexMutations = {
+    'addVocabularyWord',
+    'bulkAddWords',
+    'bulkDeleteWords',
+    'deleteVocabularyWord',
+    'updateVocabularyWord',
+    'updateVocabularyWordDetails',
+    'deleteList',
+  };
+
   static const String _mobileApiBaseUrl = String.fromEnvironment(
     'LINGOFLOW_API_BASE_URL',
     defaultValue: 'https://vocab-virid.vercel.app',
@@ -72,6 +84,10 @@ class DatabaseService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = payload['error']?.toString() ?? 'Request that bai (HTTP ${response.statusCode})';
       throw Exception(message);
+    }
+
+    if (_wordIndexMutations.contains(action)) {
+      _wordIndexCache.clear();
     }
 
     return payload['data'] as T;
@@ -383,6 +399,23 @@ class DatabaseService {
   Future<List<Map<String, dynamic>>> searchWord(int userId, String query) async {
     final rows = await _request<List<dynamic>>('searchWord', data: {'userId': userId, 'query': query});
     return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  /// Danh sach tu nhe (id/word/meaning/type/tag/list) de loc ngay tai may.
+  /// Cache trong bo nho, tu xoa khi co thao tac sua du lieu tu.
+  Future<List<Map<String, dynamic>>> wordIndex(int userId, {bool force = false}) async {
+    final cached = _wordIndexCache[userId];
+    if (cached != null && !force) return cached;
+    final rows = await _request<List<dynamic>>('getWordIndex', data: {'userId': userId});
+    final words = rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+    _wordIndexCache[userId] = words;
+    return words;
+  }
+
+  Future<Map<String, dynamic>?> getWordDetails(int wordId) async {
+    final value = await _request<dynamic>('getWordDetails', data: {'wordId': wordId});
+    if (value == null) return null;
+    return Map<String, dynamic>.from(value as Map);
   }
 
   Future<void> close() async {

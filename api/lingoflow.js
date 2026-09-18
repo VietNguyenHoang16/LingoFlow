@@ -101,9 +101,17 @@ async function dropColumnIfExists(table, column) {
   }
 }
 
+// Tang len moi khi them migration trong ensureSchema, neu khong se bi gate bo qua.
+const SCHEMA_VERSION = 2;
+
 async function ensureSchema() {
   if (!schemaReady) {
     schemaReady = (async () => {
+      // Fast path: schema da dung version -> 2 query thay vi ~20 (cold start).
+      await query(`CREATE TABLE IF NOT EXISTS schema_meta (id INTEGER PRIMARY KEY, version INTEGER NOT NULL)`);
+      const meta = await query('SELECT version FROM schema_meta WHERE id = 1');
+      if (meta.length > 0 && asInt(meta[0].version) >= SCHEMA_VERSION) return;
+
       // Core tables
       await query(`
         CREATE TABLE IF NOT EXISTS users (
@@ -192,6 +200,11 @@ async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS idx_vocabulary_lists_user_category
         ON vocabulary_lists(user_id, category)
       `);
+
+      await query(
+        'INSERT INTO schema_meta (id, version) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET version = $1',
+        [SCHEMA_VERSION],
+      );
     })().catch((error) => {
       schemaReady = undefined;
       throw error;
@@ -864,6 +877,45 @@ async function handleAction(action, data) {
     }
 
     // ---- Search ----
+    // Toan bo tu cua user voi payload nhe -> client loc ngay tai may.
+    case 'getWordIndex': {
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag,
+                vl.id AS list_id, vl.name AS list_name, vl.category AS category
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1
+         ORDER BY vw.word ASC`,
+        [data.userId],
+      );
+      return rows.map((row) => ({
+        id: asInt(row.id),
+        word: row.word || '',
+        meaning: row.meaning || '',
+        word_type: row.word_type || '',
+        topic_tag: row.topic_tag || '',
+        list_id: asInt(row.list_id),
+        list_name: row.list_name || '',
+        category: row.category || '',
+      }));
+    }
+
+    // Lay field nang (khong co trong getWordIndex) khi mo sheet sua tu.
+    case 'getWordDetails': {
+      const rows = await query(
+        `SELECT vw.full_details, vw.common_synonyms
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vw.id = $1 AND vl.user_id = $2 LIMIT 1`,
+        [data.wordId, data.userId],
+      );
+      if (rows.length === 0) return null;
+      return {
+        full_details: rows[0].full_details || '',
+        common_synonyms: rows[0].common_synonyms || '',
+      };
+    }
+
     case 'searchWord': {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag, vl.id AS list_id, vl.name AS list_name,
