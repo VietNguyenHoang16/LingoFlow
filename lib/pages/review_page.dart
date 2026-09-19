@@ -77,6 +77,9 @@ class _ReviewPageState extends State<ReviewPage>
   @override
   void initState() {
     super.initState();
+    // Phím Enter (grammar review) can phan hoi ca khi khong node nao focus,
+    // nen dung handler toan cuc giong practice_page thay vi KeyboardListener.
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     _answerFocusNode.addListener(_handleAnswerFocusChange);
     _flipController = AnimationController(
       duration: const Duration(milliseconds: 400),
@@ -119,6 +122,7 @@ class _ReviewPageState extends State<ReviewPage>
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     unawaited(_flushUpdates());
     _answerFocusNode.removeListener(_handleAnswerFocusChange);
     _answerController.dispose();
@@ -437,6 +441,28 @@ class _ReviewPageState extends State<ReviewPage>
 
     _flipController.forward();
     unawaited(_speak((word['word'] ?? '').toString()));
+  }
+
+  /// Enter = "Show answer" cho che do grammar (khong co o nhap de onSubmitted).
+  /// Global handler giong practice_page: activity key doc lap voi focus,
+  /// cho phep bam Enter ngay sau khi mo man hinh (page node chua focus).
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final key = event.logicalKey;
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.numpadEnter) {
+      return false;
+    }
+    // Khong mode grammar: Enter thuoc ve o nhap (onSubmitted) - khong chan.
+    if (!widget.grammarReview) return false;
+    // Dang hien dap an roi hoac phien ket thuc: de phim di, khong flip lai.
+    if (_showAnswer || _isCompleted) return true;
+    // Dialog / bottom sheet dang mo (sua nghia, xoa tu): Enter thuoc ve ho,
+    // tranh nuot phim cua hop thoai (nut mac dinh nhan Enter).
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    _showAnswerCard();
+    return true;
   }
 
   void _tapHint() {
