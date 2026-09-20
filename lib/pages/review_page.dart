@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import '../services/answer_comparison.dart';
 import '../services/database_service.dart';
 import '../services/review_word_utils.dart';
+import '../widgets/answer_diff_text.dart';
 import '../widgets/review_example_panel.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
@@ -13,6 +15,10 @@ import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/topic_tag_badge.dart';
+
+/// Màu tô ký tự gõ sai trên nền gradient của thẻ đáp án (indigo khi gần đúng,
+/// đỏ khi sai): amber sáng đủ tương phản cho cả hai nền.
+const Color _answerMismatchColor = Color(0xFFFFD54F);
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -50,6 +56,9 @@ class _ReviewPageState extends State<ReviewPage>
   final GlobalKey _questionCardKey = GlobalKey();
   final ScrollController _bodyScrollController = ScrollController();
   bool? _isAnswerCorrect;
+  // Dấu từng ký tự của lần trả lời hiện tại để tô chỗ gõ thiếu / thừa / sai
+  // (null = không tô gì, ví dụ chế độ grammar tự chấm).
+  AnswerDiff? _answerDiff;
   // Safari iPad khong bao viewInsets.bottom (keyboard phu overlay) -> dung
   // focus de biet keyboard dang mo, thay vi chi dua vao viewInsets.
   bool _inputFocused = false;
@@ -316,6 +325,7 @@ class _ReviewPageState extends State<ReviewPage>
         _isCompleted = _currentIndex >= _dueWords.length;
         _showAnswer = false;
         _isAnswerCorrect = null;
+        _answerDiff = null;
         _answerController.clear();
         _flipController.reset();
         _calculatedIntervals = {};
@@ -387,6 +397,7 @@ class _ReviewPageState extends State<ReviewPage>
 
       _showAnswer = false;
       _isAnswerCorrect = null;
+      _answerDiff = null;
       _answerController.clear();
       _flipController.reset();
       _calculatedIntervals = {};
@@ -433,8 +444,13 @@ class _ReviewPageState extends State<ReviewPage>
       _showAnswer = true;
       // Grammar tu cham: khong so sanh chuoi go -> giu _isAnswerCorrect = null.
       if (!widget.grammarReview) {
-        _isAnswerCorrect = _answerController.text.trim().toLowerCase() ==
-            (word['word'] ?? '').toString().toLowerCase();
+        // Giữ nguyên kết luận đúng/sai như trước, đồng thời lưu dấu từng ký tự
+        // để tô chỗ người dùng gõ thiếu / thừa / sai.
+        _answerDiff = diffAnswer(
+          typed: _answerController.text,
+          expected: (word['word'] ?? '').toString(),
+        );
+        _isAnswerCorrect = _answerDiff!.isCorrect;
       }
       _calculatedIntervals = intervals;
     });
@@ -937,6 +953,78 @@ class _ReviewPageState extends State<ReviewPage>
     );
   }
 
+  /// Từ đáp án trên mặt sau thẻ: giữ nguyên style cũ, chỉ tô thêm ký tự gõ
+  /// thiếu / gõ sai khi có dấu lệch.
+  Widget _buildAnswerWord(
+    Map<String, dynamic> currentWord,
+    ThemeData theme,
+    bool compact,
+  ) {
+    final wordText = (currentWord['word'] ?? '').toString();
+    final wordStyle = TextStyle(
+      fontFamily: 'Plus Jakarta Sans',
+      fontSize: compact ? 24 : 30,
+      fontWeight: FontWeight.w800,
+      color: theme.colorScheme.onPrimary,
+      letterSpacing: -0.3,
+    );
+
+    final diff = _answerDiff;
+    if (!widget.grammarReview && diff != null && diff.hasMismatch) {
+      return AnswerDiffText(
+        text: wordText,
+        marks: diff.expectedMarks,
+        baseStyle: wordStyle,
+        mismatchColor: _answerMismatchColor,
+      );
+    }
+
+    return Text(
+      wordText,
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: wordStyle,
+    );
+  }
+
+  /// Dòng "You typed: ...": nội dung y như trước, chỉ gạch ngang / tô đỏ ký tự
+  /// người dùng gõ thừa hoặc gõ lệch.
+  Widget _buildTypedLine(ThemeData theme, bool compact) {
+    const prefix = 'You typed: ';
+    final typedText = _answerController.text;
+    final baseStyle = TextStyle(
+      fontSize: compact ? 11 : 13,
+      color: theme.colorScheme.onPrimary.withAlpha(170),
+      fontStyle: FontStyle.italic,
+      fontFamily: 'Be Vietnam Pro',
+    );
+
+    final diff = _answerDiff;
+    if (diff == null || !diff.typedMarks.any((m) => m.isMismatch)) {
+      return Text('$prefix$typedText', style: baseStyle);
+    }
+
+    // Dấu tính trên riêng chuỗi đã gõ -> chèn thêm dấu "keep" cho phần tiền tố
+    // để widget dựng lại đúng cả dòng.
+    final prefixChars = prefix.split('');
+    final marks = <CharMark>[
+      for (var i = 0; i < prefixChars.length; i++)
+        CharMark(prefixChars[i], CharMarkKind.keep, i),
+      for (final mark in diff.typedMarks)
+        CharMark(mark.char, mark.kind, mark.index + prefixChars.length),
+    ];
+
+    return AnswerDiffText(
+      text: '$prefix$typedText',
+      marks: marks,
+      baseStyle: baseStyle,
+      mismatchColor: _answerMismatchColor,
+      replacedDecoration: TextDecoration.lineThrough,
+      maxLines: 2,
+    );
+  }
+
   Widget _buildAnswerCardContent(
     Map<String, dynamic> currentWord,
     ThemeData theme,
@@ -955,19 +1043,7 @@ class _ReviewPageState extends State<ReviewPage>
           ),
           SizedBox(height: compact ? 6 : 10),
         ],
-        Text(
-          currentWord['word'] ?? '',
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontSize: compact ? 24 : 30,
-            fontWeight: FontWeight.w800,
-            color: theme.colorScheme.onPrimary,
-            letterSpacing: -0.3,
-          ),
-        ),
+        _buildAnswerWord(currentWord, theme, compact),
         if ((currentWord['pronunciation'] ?? '').isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
@@ -1022,15 +1098,7 @@ class _ReviewPageState extends State<ReviewPage>
         ),
         if (!widget.grammarReview && _answerController.text.trim().isNotEmpty && _isAnswerCorrect != true) ...[
           SizedBox(height: compact ? 6 : 10),
-          Text(
-            'You typed: ${_answerController.text}',
-            style: TextStyle(
-              fontSize: compact ? 11 : 13,
-              color: theme.colorScheme.onPrimary.withAlpha(170),
-              fontStyle: FontStyle.italic,
-              fontFamily: 'Be Vietnam Pro',
-            ),
-          ),
+          _buildTypedLine(theme, compact),
         ],
         if ((currentWord['full_details'] ?? '').isNotEmpty && !compact) ...[
           const SizedBox(height: 10),
