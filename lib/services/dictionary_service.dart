@@ -28,7 +28,8 @@ class DictionaryService {
     return null;
   }
 
-  @visibleForTesting
+  /// Bo dau '/' bao quanh IPA (dictionaryapi.dev tra ve "/ipa/").
+  /// Dung chung voi WordEnrichmentService khi sua tu.
   static String stripSlashes(String ipa) =>
       ipa.replaceAll(RegExp(r'^/+|/+$'), '');
 

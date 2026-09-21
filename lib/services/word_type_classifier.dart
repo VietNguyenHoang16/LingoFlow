@@ -10,7 +10,9 @@ class WordTypeClassifier {
   final DatabaseService _db = DatabaseService();
   final DictionaryService _dict = DictionaryService();
 
-  static const Map<String, String> _posToKey = {
+  /// Map part-of-speech cua dictionary API -> key loai tu cua app.
+  /// Public de WordEnrichmentService dung chung khi sua tu.
+  static const Map<String, String> kPosToWordType = {
     'noun': 'noun',
     'verb': 'verb',
     'adjective': 'adjective',
@@ -52,7 +54,7 @@ class WordTypeClassifier {
         for (final t in types) {
           final pos = (t as Map)['type']?.toString().toLowerCase().trim();
           if (pos == null) continue;
-          final key = _posToKey[pos];
+          final key = kPosToWordType[pos];
           if (key != null) keys.add(key);
         }
         if (keys.isEmpty) {
