@@ -897,6 +897,8 @@ class _ReviewPageState extends State<ReviewPage>
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onLongPress: _showWordOptions,
+                  // Web/desktop: chuot phai mo menu (long-press kho phat hien).
+                  onSecondaryTap: _showWordOptions,
                   child: AnimatedBuilder(
                   animation: _flipAnimation,
                   builder: (context, child) {
@@ -907,28 +909,56 @@ class _ReviewPageState extends State<ReviewPage>
                             : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(160)])
                         : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
 
-                    return Container(
-                      key: _questionCardKey,
-                      width: double.infinity,
-                      padding: EdgeInsets.all(compactMode ? 14 : 20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: showColors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: showColors[0].withAlpha(70),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
+                    return Stack(
+                      children: [
+                        Container(
+                          key: _questionCardKey,
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(
+                            compactMode ? 14 : 20,
+                            (compactMode ? 14 : 20) + 20,
+                            compactMode ? 14 : 20,
+                            compactMode ? 14 : 20,
                           ),
-                        ],
-                      ),
-                      child: !_showAnswer
-                          ? _buildQuestionCardContent(currentWord, theme, compactMode)
-                          : _buildAnswerCardContent(currentWord, theme, compactMode),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: showColors,
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: showColors[0].withAlpha(70),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: !_showAnswer
+                              ? _buildQuestionCardContent(currentWord, theme, compactMode)
+                              : _buildAnswerCardContent(currentWord, theme, compactMode),
+                        ),
+                        // Nut hien: web click mo menu (mobile van long-press).
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: IconButton(
+                            tooltip: 'Tùy chọn',
+                            onPressed: _showWordOptions,
+                            icon: Icon(
+                              Icons.more_horiz_rounded,
+                              color: theme.colorScheme.onPrimary.withAlpha(220),
+                              size: 22,
+                            ),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black.withAlpha(25),
+                              minimumSize: const Size(36, 36),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
                   ),
