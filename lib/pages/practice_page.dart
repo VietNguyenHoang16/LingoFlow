@@ -654,6 +654,8 @@ class _PracticePageState extends State<PracticePage> {
         const SingleActivator(LogicalKeyboardKey.digit2): () => _handleKeyOption(1),
         const SingleActivator(LogicalKeyboardKey.digit3): () => _handleKeyOption(2),
         const SingleActivator(LogicalKeyboardKey.digit4): () => _handleKeyOption(3),
+        const SingleActivator(LogicalKeyboardKey.digit0): _tapHint,
+        const SingleActivator(LogicalKeyboardKey.numpad0): _tapHint,
       },
       child: Focus(
         autofocus: true,
