@@ -584,6 +584,7 @@ class _ReviewPageState extends State<ReviewPage>
         easeFactor: (word['ease_factor'] as num).toDouble(),
         correctStreak: word['correct_streak'] as int,
         reviewCount: word['review_count'] as int,
+        lapseCount: word['lapse_count'] as int? ?? 0,
       );
       intervals[q] = res.newInterval == 0 ? '< 1m' : '${res.newInterval}d';
     }

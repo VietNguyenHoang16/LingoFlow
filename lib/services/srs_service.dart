@@ -42,7 +42,9 @@ class SrsService {
   /// Leech detection
   static const int leechThreshold = 3;    // 3 lần Again → đánh dấu Leech
   static const int leechMaxInterval = 4;  // Leech: interval tối đa 4 ngày
-  static const double hardMultiplier = 0.5; // Hard: giảm 50% interval
+  static const double hardMultiplier = 0.3; // Hard: giảm 70% interval
+  static const int hardMaxInterval = 7;   // Hard (interval>=2): trần 7 ngày
+  static const int hardLapseThreshold = 14; // Hard trên từ >=14d thì +1 lapse
 
   /// Kiểm tra từ có phải là Leech không
   static bool isLeech(int lapseCount) => lapseCount >= leechThreshold;
@@ -93,11 +95,17 @@ class SrsService {
       newEaseFactor = max(1.3, easeFactor - 0.2);
     } else {
       // Trả lời đúng (Hard, Good, Easy)
-      newStreak = correctStreak + 1;
+      // Hard: giữ nguyên streak để không leo mastery khi còn yếu.
+      newStreak = quality == qualityHard ? correctStreak : correctStreak + 1;
 
       // Reset lapse count khi trả lời Good hoặc Easy
       if (quality >= qualityGood) {
         newLapseCount = 0;
+      } else if (quality == qualityHard &&
+          (currentInterval >= hardLapseThreshold || lapseCount > 0)) {
+        // Hard trên từ đã ôn lâu (>=14d) hoặc đang yếu (đã có lapse):
+        // tính 1 lapse để Hard liên tục vẫn rơi vào Leech (trần 4 ngày).
+        newLapseCount = lapseCount + 1;
       }
 
       if (currentInterval == 0) {
@@ -121,8 +129,10 @@ class SrsService {
       } else {
         // Lần 3+
         if (quality == qualityHard) {
-          // Hard: GIẢM interval 50% (không nhân easeFactor)
+          // Hard: GIẢM 70% interval (không nhân easeFactor) + trần 7 ngày
+          // để từ đã ôn lâu mà còn khó không bị hẹn quá xa.
           newInterval = max(1, (currentInterval * hardMultiplier).round());
+          newInterval = min(newInterval, hardMaxInterval);
         } else {
           // Good/Easy: interval * easeFactor (tăng bình thường)
           newInterval = (currentInterval * easeFactor).round();
@@ -137,6 +147,10 @@ class SrsService {
 
       // Cập nhật ease factor theo công thức SM-2
       newEaseFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      if (quality == qualityHard) {
+        // Hard phạt thêm ease để lần Good sau giãn chậm hơn.
+        newEaseFactor -= 0.06;
+      }
       newEaseFactor = max(1.3, newEaseFactor);
     }
 
