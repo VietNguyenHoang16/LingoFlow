@@ -14,8 +14,9 @@ Link tải nhanh bản khuyến nghị:
 
 ## Bản khuyến nghị (số liệu kiểm chứng)
 
-- Kích thước: `21,173,352 bytes` (20.2 MB)
-- SHA256: `3D5B946E5D6F62D412CF42419F34FA80A1DA5B3C0333C74B10EE345DAA5CAAF2`
+- Kích thước: `21,173,384 bytes` (20.2 MB)
+- SHA256: `F20ECAB38520C3CCDC12AB56E79E3CC14CEBA13351D3C28171CB7E7DD577A214`
+- Ngày build: `10/10/2026` — gồm fix SRS `Hard` phạt nặng hơn (`0.3x` + trần `7d` + tính `lapse`)
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 
