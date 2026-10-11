@@ -192,6 +192,9 @@ class _ReviewPageState extends State<ReviewPage>
     }
     void focusAndReveal() {
       if (!mounted || _showAnswer || _isCompleted || _dueWords.isEmpty) return;
+      // Safari iPad: chi mo keyboard khi focus DONG BO trong gesture cham.
+      // Focus tu postFrame/async (sau load API, sau cham diem) khong len phim.
+      // Giu autofocus cho Android/desktop, con iPad hien nut cham-de-mo-phim.
       // Safari: page node giu focus se chan answer node, phai nha truoc.
       if (_pageFocusNode.hasFocus) _pageFocusNode.unfocus();
       _answerFocusNode.requestFocus();
@@ -1340,6 +1343,19 @@ class _ReviewPageState extends State<ReviewPage>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Safari iPad: focus ngoai gesture khong mo duoc keyboard. Boc o nhap
+        // trong GestureDetector de tap cham nao cung xin focus DONG BO.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (_showAnswer || _isCompleted) return;
+            if (_pageFocusNode.hasFocus) _pageFocusNode.unfocus();
+            _answerFocusNode.requestFocus();
+            _scrollAnswerIntoView();
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
         // Text field - chi build lai TextField khi text doi, khong rebuild ca trang
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: _answerController,
@@ -1404,6 +1420,9 @@ class _ReviewPageState extends State<ReviewPage>
               ),
             ),
           ),
+            ],
+          ),
+        ),
         const SizedBox(height: 8),
         // Hint + Check buttons row
         Row(
