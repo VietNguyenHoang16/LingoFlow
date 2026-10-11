@@ -550,10 +550,13 @@ async function handleAction(action, data) {
       }
       // Tu nay ve sau: tu dong sinh cau vi du tuan tu tung tu.
       // Het budget AI -> cac tu con lai dung mau tinh ngay.
+      // `used` giu lai cau da sinh trong lo nay nen mot lo import lon
+      // khong bao gio tra ve hai cau giong nhau.
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
+      const usedSentences = new Set();
       for (const p of pendingExamples) {
         const skipAi = Date.now() > deadline;
-        await enrichWordExample(query, p.id, p, { timeoutMs: 8000, skipAi });
+        await enrichWordExample(query, p.id, p, { timeoutMs: 8000, skipAi, used: usedSentences });
       }
       return { insertedCount };
     }
@@ -956,6 +959,96 @@ async function handleAction(action, data) {
         meaning: rows[0].meaning || '',
         list_name: rows[0].list_name || '',
       };
+    }
+
+    // Sua cau vi du bi trung cho chinh user dang dang nhap. Truoc day
+    // templateExample() chi co 1 cau co dinh cho moi loai tu, nen mot lo
+    // import lon tao ra nhieu cau giong het nhau ("The X was easy to
+    // recognize."). Action nay sinh lai bang template bank da da dang.
+    case 'repairDuplicateExamples': {
+      const apply = Boolean(data.apply);
+      const limit = asInt(data.limit) || 0;
+
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.example_sentence
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND COALESCE(vw.example_sentence, '') <> ''
+         ORDER BY vw.id
+         ${limit > 0 ? 'LIMIT ' + Math.min(limit, 2000) : ''}`,
+        [data.userId],
+      );
+
+      // Nhom theo "skeleton" = cau da bo tu di chinh -> hai tu cung khuon
+      // cau se ra cung mot skeleton.
+      const groups = new Map();
+      for (const row of rows) {
+        const word = String(row.word || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        let skeleton = normalizeSentenceKey(row.example_sentence);
+        if (word) {
+          const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          skeleton = skeleton.replace(new RegExp(escaped, 'g'), '{w}');
+        }
+        if (!groups.has(skeleton)) groups.set(skeleton, []);
+        groups.get(skeleton).push(row);
+      }
+
+      const duplicateGroups = [...groups.entries()].filter(([, list]) => list.length > 1);
+      const clicheGroups = [...groups.entries()].filter(([skeleton]) => LEGACY_CLAICHES.includes(skeleton));
+
+      const targets = new Map();
+      for (const [skeleton, list] of [...duplicateGroups, ...clicheGroups]) {
+        for (const row of list) targets.set(asInt(row.id), row);
+      }
+
+      const report = {
+        scanned: rows.length,
+        duplicateGroups: duplicateGroups.length,
+        clicheGroups: clicheGroups.length,
+        toFix: targets.size,
+        applied: false,
+        updated: 0,
+        preview: [],
+      };
+
+      if (targets.size === 0) return report;
+
+      // Cau cua tu khong sua duoc giu vao `used` de cau moi sinh ra khong
+      // trung voi chung (vd tu do co cau rieng tu AI).
+      const used = new Set();
+      for (const row of rows) {
+        if (!targets.has(asInt(row.id))) used.add(normalizeSentenceKey(row.example_sentence));
+      }
+
+      const plan = [];
+      for (const row of targets.values()) {
+        const next = templateExample(
+          { word: row.word, meaning: row.meaning || '', wordType: row.word_type || '' },
+          { used },
+        );
+        plan.push({ id: asInt(row.id), word: row.word, before: row.example_sentence, next });
+      }
+
+      report.preview = plan.slice(0, 8).map((item) => ({
+        word: item.word,
+        before: item.before,
+        after: item.next.sentence,
+        translation: item.next.translation,
+      }));
+
+      if (!apply) return report;
+
+      for (const item of plan) {
+        await query(
+          `UPDATE vocabulary_words
+           SET example_sentence = $1, example_translation = $2, example_target = $3
+           WHERE id = $4`,
+          [item.next.sentence, item.next.translation, item.next.target, item.id],
+        );
+        report.updated += 1;
+      }
+      report.applied = true;
+      return report;
     }
 
     default:
