@@ -1,0 +1,34 @@
+name: iOS free build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+      - run: dart analyze lib/pages/review_page.dart
+      - run: flutter test test/review_ipad_keyboard_test.dart test/review_enter_key_test.dart
+
+      - name: Build iOS unsigned
+        run: flutter build ios --release --no-codesign
+
+      - name: Dong goi IPA unsigned
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r LingoFlow-unsigned.ipa Payload
+          ls -lh LingoFlow-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LingoFlow-unsigned-ipa
+          path: build/ios/iphoneos/LingoFlow-unsigned.ipa
