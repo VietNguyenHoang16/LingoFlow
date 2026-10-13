@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
+import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/flip_word_card.dart';
 import '../services/word_details_parser.dart';
@@ -22,6 +23,7 @@ class _RecentPageState extends State<RecentPage> {
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   final Set<int> _flippedWords = {};
   final Set<int> _selectedWords = {};
+  StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
@@ -36,6 +38,9 @@ class _RecentPageState extends State<RecentPage> {
     super.initState();
     _loadRecent();
     _searchController.addListener(_onSearchChanged);
+    // Them/sua/xoa tu o trang khac -> tai lai nen, khong can doi tab.
+    _wordChangeSub =
+        WordChangeBus().stream.listen((_) => _loadRecent(background: true));
   }
 
   void _onSearchChanged() {
@@ -49,6 +54,7 @@ class _RecentPageState extends State<RecentPage> {
 
   @override
   void dispose() {
+    _wordChangeSub?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -118,6 +124,7 @@ class _RecentPageState extends State<RecentPage> {
     try {
       await _db.deleteVocabularyWord(wordId);
       _flippedWords.remove(wordId);
+      WordChangeBus().notifyChanged('delete-word');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Đã xóa "$wordText"')),
@@ -245,6 +252,7 @@ class _RecentPageState extends State<RecentPage> {
       );
       // Đồng bộ nền để khớp server, giữ nguyên vị trí cuộn.
       await _loadRecent(background: true);
+      WordChangeBus().notifyChanged('edit-word');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
     } catch (e) {
       // Rollback khi lỗi mạng.

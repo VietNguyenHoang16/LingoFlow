@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import '../services/word_change_bus.dart';
 import '../services/dictionary_service.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
@@ -42,6 +45,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   final DatabaseService _db = DatabaseService();
   final SrsService _srs = SrsService();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
+  StreamSubscription<WordChangeEvent>? _wordChangeSub;
   bool _isImporting = false;
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
@@ -336,6 +340,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       try {
         await _db.bulkDeleteWords(_selectedWords.toList());
         await _loadWords(persistProgress: true);
+        WordChangeBus().notifyChanged('bulk-delete');
         setState(() {
           _selectedWords.clear();
           _isSelectionMode = false;
@@ -372,6 +377,18 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   void initState() {
     super.initState();
     _loadWords();
+    // Trang khac them/sua/xoa -> tai lai nen nhung khong ghi de progress
+    // dang hien (tranh nhay so khi user dang thao tac o day).
+    _wordChangeSub = WordChangeBus().stream.listen((_) {
+      if (_isImporting) return;
+      _loadWords(persistProgress: false, background: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _wordChangeSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _speak(String text) async {
@@ -382,7 +399,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     }
   }
 
-  Future<void> _loadWords({bool persistProgress = false}) async {
+  Future<void> _loadWords({bool persistProgress = false, bool background = false}) async {
     try {
       final words = await _db.getVocabularyWords(widget.listId);
       final total = words.length;
@@ -581,6 +598,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             await _db.bulkAddVocabularyWords(widget.listId, newWords.reversed.toList());
 
         await _loadWords(persistProgress: true);
+        WordChangeBus().notifyChanged('add-words');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Da them $insertedCount tu!')),
@@ -617,6 +635,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       try {
         await _db.deleteVocabularyWord(wordId);
         await _loadWords(persistProgress: true);
+        WordChangeBus().notifyChanged('delete-word');
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -687,6 +706,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         commonSynonyms: result.commonSynonyms,
       );
       await _loadWords(persistProgress: true);
+      WordChangeBus().notifyChanged('edit-word');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Da cap nhat "${result.word}"')),
@@ -735,6 +755,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã sửa nghĩa!')),
         );
+        WordChangeBus().notifyChanged('edit-word');
       }
     } catch (e) {
       if (mounted) {
@@ -848,6 +869,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Đã thêm ví dụ')),
                           );
+                          WordChangeBus().notifyChanged('edit-word');
                         }
                       } catch (e) {
                         if (mounted) {

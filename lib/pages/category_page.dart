@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
+import '../services/word_change_bus.dart';
 import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
@@ -35,6 +36,7 @@ class _CategoryPageState extends State<CategoryPage> {
   String _searchQuery = '';
   String? _filterTopicTag;
   Timer? _searchDebounce;
+  StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   String get _categoryLabel => kWordTypeLabel[widget.category] ?? widget.category;
   int get _wordCount => _words.length;
@@ -48,6 +50,8 @@ class _CategoryPageState extends State<CategoryPage> {
     super.initState();
     _loadWords();
     _searchController.addListener(_onSearchChanged);
+    _wordChangeSub =
+        WordChangeBus().stream.listen((_) => _loadWords(background: true));
   }
 
   void _onSearchChanged() {
@@ -61,6 +65,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
   @override
   void dispose() {
+    _wordChangeSub?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -99,9 +104,11 @@ class _CategoryPageState extends State<CategoryPage> {
     }
   }
 
-  Future<void> _loadWords() async {
+  Future<void> _loadWords({bool background = false}) async {
+    if (!background && mounted) setState(() => _isLoading = true);
     try {
       final words = await _db.getWordsByCategory(widget.userId, widget.category);
+      if (!mounted) return;
       setState(() {
         _words = words;
         _isLoading = false;
@@ -149,6 +156,7 @@ class _CategoryPageState extends State<CategoryPage> {
         commonSynonyms: result.commonSynonyms,
       );
       await _loadWords();
+      WordChangeBus().notifyChanged('edit-word');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
     } catch (e) {
       if (mounted) {
@@ -176,6 +184,7 @@ class _CategoryPageState extends State<CategoryPage> {
       try {
         await _db.deleteVocabularyWord(wordId);
         await _loadWords();
+        WordChangeBus().notifyChanged('delete-word');
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da xoa!')));
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));

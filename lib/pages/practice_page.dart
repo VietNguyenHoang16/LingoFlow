@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/srs_service.dart';
+import '../services/word_change_bus.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
@@ -198,6 +199,7 @@ class _PracticePageState extends State<PracticePage> {
     if (_pendingReviewUpdates.isEmpty) return;
     final pending = List<Future<void>>.from(_pendingReviewUpdates);
     await Future.wait(pending);
+    WordChangeBus().notifyChanged('practice-flush');
   }
 
   /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh.

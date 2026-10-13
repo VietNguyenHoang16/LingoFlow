@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../services/answer_comparison.dart';
 import '../services/database_service.dart';
 import '../services/review_word_utils.dart';
+import '../services/word_change_bus.dart';
 import '../widgets/answer_diff_text.dart';
 import '../widgets/review_example_panel.dart';
 import '../services/srs_service.dart';
@@ -119,6 +120,8 @@ class _ReviewPageState extends State<ReviewPage>
   Future<void> _flushUpdates() async {
     if (_pendingUpdates.isEmpty) return;
     await Future.wait(List<Future<void>>.from(_pendingUpdates));
+    // SRS da luu xong -> bao cac trang tai lai so lieu nen.
+    WordChangeBus().notifyChanged('review-flush');
   }
 
   /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh,

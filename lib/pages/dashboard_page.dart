@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import '../services/word_change_bus.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/animated_pressable.dart';
@@ -31,6 +34,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _isLoading = true;
   String? _loadError;
   int _currentIndex = 0;
+  StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
@@ -59,13 +63,23 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadData();
+    _wordChangeSub =
+        WordChangeBus().stream.listen((_) => _loadData(background: true));
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _loadError = null;
-    });
+  @override
+  void dispose() {
+    _wordChangeSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData({bool background = false}) async {
+    if (!background) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
     try {
       final data = await _db.getDashboardStats(widget.userId);
       // Prefetch index de search loc ngay tai may, khong chan UI.
@@ -113,6 +127,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     if (inserted > 0 && mounted) {
       await _loadData();
+      WordChangeBus().notifyChanged('bulk-import');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Đã thêm $inserted từ')),
@@ -581,6 +596,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       word['word_type'] = result.wordType;
       word['topic_tag'] = result.topicTag;
       _applyFilter(_searchController.text);
+      WordChangeBus().notifyChanged('edit-word');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã chỉnh sửa từ')),
@@ -622,6 +638,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
         _searchResults.removeWhere((w) => w['id'] == word['id']);
         _allWords.removeWhere((w) => w['id'] == word['id']);
       });
+      WordChangeBus().notifyChanged('delete-word');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã xóa từ')),
