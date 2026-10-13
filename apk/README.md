@@ -6,7 +6,7 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | **Khuyến nghị** — gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **20.4 MB** | arm64-v8a | **Khuyến nghị** — gần như mọi điện thoại Android từ ~2016 đến nay |
 | `vocab-release.apk` | 53.8 MB | arm64-v8a + armeabi-v7a + x86 + x86_64 | Máy 32-bit đời cũ, máy giả lập (Nox / BlueStacks / LDPlayer) |
 
 Link tải nhanh bản khuyến nghị:
@@ -14,8 +14,8 @@ Link tải nhanh bản khuyến nghị:
 
 ## Bản khuyến nghị (số liệu kiểm chứng)
 
-- Kích thước: `21,173,384 bytes` (20.2 MB)
-- SHA256: `251A7681AD5745C4D56F591CA2B1DCDF01F6E72F59F5F772C55091951F10D5FE`
+- Kích thước: `21,409,740 bytes` (20.4 MB)
+- SHA256: `CEAC716B89269F75349F721E86C6D80DAACAA7DDC1A20B9EC4892F16AE409802`
 - Ngày build: `14/10/2026` — gồm fix SRS `Hard` phạt nặng hơn (`0.3x` + trần `7d` + tính `lapse`) và đồng bộ dữ liệu realtime (`WordChangeBus`: thêm/sửa/xóa/ôn xong thấy ngay trên mọi trang, không cần chuyển tab)
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
