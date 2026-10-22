@@ -2,17 +2,16 @@
 
 Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở lên để cài.
 
-## Chọn bản nào?
+## Bản phát hành
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.4 MB** | arm64-v8a | **Khuyến nghị** — gần như mọi điện thoại Android từ ~2016 đến nay |
-| `vocab-release.apk` | 53.8 MB | arm64-v8a + armeabi-v7a + x86 + x86_64 | Máy 32-bit đời cũ, máy giả lập (Nox / BlueStacks / LDPlayer) |
+| **`vocab-arm64-release.apk`** | **20.4 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-Link tải nhanh bản khuyến nghị:
+Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
-## Bản khuyến nghị (số liệu kiểm chứng)
+## Thông tin bản phát hành
 
 - Kích thước: `21,410,388 bytes` (20.4 MB)
 - SHA256: `D01ABA8E5CD41AF83172CE4CD48786B874C1D2FFB0E575B0C457A395D59E5CEE`
@@ -39,7 +38,7 @@ flutter build apk --release --target-platform android-arm64 \
 
 - Đã bật sẵn `isMinifyEnabled` + `isShrinkResources` trong `android/app/build.gradle.kts`
   và tree-shake icon của Flutter.
-- Bản arm64 chỉ chứa 1 ABI (`libflutter.so` ~11.1 MB + `libapp.so` ~5.4 MB) nên nhỏ hơn
-  nhiều so với APK universal gộp 4 ABI.
+- Bản arm64 chỉ chứa 1 ABI (`libflutter.so` ~11.1 MB + `libapp.so` ~5.4 MB) nên nhẹ hơn
+  APK universal gộp 4 ABI.
 - File giải mã crash log khi cần debug: `build/symbols/app.android-arm64.symbols`
   (không đưa vào repo; cần giữ lại sau mỗi lần build obfuscate).
