@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../services/ai_settings_service.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../services/pronunciation_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/ai_api_settings_sheet.dart';
@@ -41,12 +41,15 @@ class _ProfilePageState extends State<ProfilePage> {
     final voice = await _ttsSettings.getSelectedVoice();
     final rate = await _ttsSettings.getSpeechRate();
     final session = await _auth.getSession();
-    final aiConfigs = await AiSettingsService().load();
+    var aiCount = 0;
+    try {
+      aiCount = (await DatabaseService().getAiConfigs()).length;
+    } catch (_) {}
     setState(() {
       _selectedVoice = voice;
       _speechRate = rate;
       _phone = session?['phone'] ?? '';
-      _aiCount = aiConfigs.length;
+      _aiCount = aiCount;
       _isLoading = false;
     });
   }
@@ -54,9 +57,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _openAiSettings() async {
     final changed = await AiApiSettingsSheet.show(context);
     if (changed != true) return;
-    final configs = await AiSettingsService().load();
+    var aiCount = _aiCount;
+    try {
+      aiCount = (await DatabaseService().getAiConfigs()).length;
+    } catch (_) {}
     if (!mounted) return;
-    setState(() => _aiCount = configs.length);
+    setState(() => _aiCount = aiCount);
   }
 
   Future<void> _runPronunciationBackfill() async {

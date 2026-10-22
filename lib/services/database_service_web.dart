@@ -55,12 +55,6 @@ class DatabaseService {
     _isInitialized = true;
   }
 
-  Future<Map<String, dynamic>> _aiConfigData() async {
-    final configs = await AiSettingsService().apiPayload();
-    if (configs.isEmpty) return const {};
-    return {'aiConfigs': configs};
-  }
-
   Future<T> _request<T>(
     String action, {
     Map<String, dynamic> data = const {},
@@ -204,7 +198,6 @@ class DatabaseService {
     String? commonSynonyms,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
-      ...await _aiConfigData(),
       'listId': listId,
       'word': word,
       'pronunciation': pronunciation,
@@ -229,7 +222,6 @@ class DatabaseService {
     String? commonSynonyms,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
-      ...await _aiConfigData(),
       'userId': userId,
       'category': category,
       'word': word,
@@ -257,7 +249,7 @@ class DatabaseService {
   Future<BulkAddResult> bulkAddVocabularyWords(int listId, List<Map<String, dynamic>> words) async {
     final result = await _request<Map<String, dynamic>>(
       'bulkAddWords',
-      data: {...await _aiConfigData(), 'listId': listId, 'words': words},
+      data: {'listId': listId, 'words': words},
       timeout: const Duration(seconds: 60),
     );
     return _bulkResult(result);
@@ -271,12 +263,7 @@ class DatabaseService {
   ) async {
     final result = await _request<Map<String, dynamic>>(
       'bulkAddWords',
-      data: {
-        ...await _aiConfigData(),
-        'userId': userId,
-        'category': category,
-        'words': words,
-      },
+      data: {'userId': userId, 'category': category, 'words': words},
       timeout: const Duration(seconds: 60),
     );
     return _bulkResult(result);
@@ -307,10 +294,30 @@ class DatabaseService {
     );
   }
 
+  Future<List<AiProviderConfig>> getAiConfigs() async {
+    final rows = await _request<List<dynamic>>('getAiConfigs');
+    return rows
+        .whereType<Map>()
+        .map((row) => AiProviderConfig.fromJson(Map<String, dynamic>.from(row)))
+        .where((config) => config.isComplete)
+        .take(AiProviderConfig.maxProviders)
+        .toList();
+  }
+
+  Future<void> saveAiConfigs(List<AiProviderConfig> configs) async {
+    await _request<dynamic>('saveAiConfigs', data: {
+      'configs': configs
+          .where((config) => config.isComplete)
+          .take(AiProviderConfig.maxProviders)
+          .map((config) => config.toApiJson())
+          .toList(),
+    });
+  }
+
   Future<Map<String, String>> generateWordExample(int wordId) async {
     final result = await _request<Map<String, dynamic>>(
       'generateWordExample',
-      data: {...await _aiConfigData(), 'wordId': wordId},
+      data: {'wordId': wordId},
       timeout: const Duration(seconds: 45),
     );
     return {

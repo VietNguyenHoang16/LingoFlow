@@ -66,13 +66,13 @@ class _ProviderForm {
 }
 
 class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
-  final AiSettingsService _settings = AiSettingsService();
   final DatabaseService _db = DatabaseService();
   final List<_ProviderForm> _forms = [];
 
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  String? _loadError;
 
   @override
   void initState() {
@@ -89,22 +89,40 @@ class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
   }
 
   Future<void> _load() async {
-    final configs = await _settings.load();
-    if (!mounted) return;
     setState(() {
-      for (final form in _forms) {
-        form.dispose();
-      }
-      _forms
-        ..clear()
-        ..addAll(configs.map((config) => _ProviderForm(config: config)));
-      if (_forms.isEmpty) _forms.add(_ProviderForm());
-      _loading = false;
+      _loading = true;
+      _loadError = null;
     });
+    try {
+      final configs = await _db.getAiConfigs();
+      if (!mounted) return;
+      setState(() {
+        for (final form in _forms) {
+          form.dispose();
+        }
+        _forms
+          ..clear()
+          ..addAll(configs.map((config) => _ProviderForm(config: config)));
+        if (_forms.isEmpty) _forms.add(_ProviderForm());
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        for (final form in _forms) {
+          form.dispose();
+        }
+        _forms
+          ..clear()
+          ..add(_ProviderForm());
+        _loading = false;
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   void _add() {
-    if (_forms.length >= AiSettingsService.maxProviders) return;
+    if (_forms.length >= AiProviderConfig.maxProviders) return;
     setState(() => _forms.add(_ProviderForm()));
   }
 
@@ -160,6 +178,7 @@ class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
   }
 
   Future<void> _save() async {
+    if (_loadError != null) return;
     final configs = <AiProviderConfig>[];
     for (final form in _forms) {
       if (form.isEmpty) continue;
@@ -173,7 +192,16 @@ class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
       _saving = true;
       _error = null;
     });
-    await _settings.save(configs);
+    try {
+      await _db.saveAiConfigs(configs);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -239,6 +267,32 @@ class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
+                    : _loadError != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _loadError!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Be Vietnam Pro',
+                                  fontSize: 13,
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: _load,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Thử lại'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                         itemCount: _forms.length,
@@ -271,12 +325,13 @@ class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed:
-                            _forms.length < AiSettingsService.maxProviders
+                            _loadError == null &&
+                                _forms.length < AiProviderConfig.maxProviders
                             ? _add
                             : null,
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: Text(
-                          _forms.length < AiSettingsService.maxProviders
+                          _forms.length < AiProviderConfig.maxProviders
                               ? 'Thêm API'
                               : 'Tối đa 3 API',
                           style: const TextStyle(
@@ -295,7 +350,7 @@ class _AiApiSettingsSheetState extends State<AiApiSettingsSheet> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _saving ? null : _save,
+                        onPressed: _saving || _loadError != null ? null : _save,
                         style: FilledButton.styleFrom(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),

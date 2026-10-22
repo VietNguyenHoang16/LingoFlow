@@ -102,8 +102,40 @@ async function dropColumnIfExists(table, column) {
   }
 }
 
+const MAX_AI_CONFIGS = 3;
+
+function normalizeStoredAiConfigs(raw) {
+  if (!Array.isArray(raw)) return [];
+  const configs = [];
+  for (const item of raw.slice(0, MAX_AI_CONFIGS)) {
+    if (!item || typeof item !== 'object') continue;
+    const name = String(item.name || '').trim().slice(0, 60);
+    const baseUrl = String(item.baseUrl || '').trim().slice(0, 500);
+    const apiKey = String(item.apiKey || '').trim().slice(0, 500);
+    const model = String(item.model || '').trim().slice(0, 200);
+    if (!baseUrl || !apiKey || !model) continue;
+    configs.push({ name, baseUrl, apiKey, model });
+  }
+  return configs;
+}
+
+function parseStoredAiConfigs(raw) {
+  if (!raw) return [];
+  try {
+    const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return normalizeStoredAiConfigs(value);
+  } catch (_) {
+    return [];
+  }
+}
+
+async function getUserAiConfigs(userId) {
+  const rows = await query('SELECT ai_configs FROM users WHERE id = $1 LIMIT 1', [userId]);
+  return rows.length > 0 ? parseStoredAiConfigs(rows[0].ai_configs) : [];
+}
+
 // Tang len moi khi them migration trong ensureSchema, neu khong se bi gate bo qua.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 async function ensureSchema() {
   if (!schemaReady) {
@@ -121,6 +153,7 @@ async function ensureSchema() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+      await addColumnIfNotExists('users', 'ai_configs', 'TEXT');
 
       await query(`
         CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -455,10 +488,11 @@ async function handleAction(action, data) {
       }
       const wordType = (data.wordType || '').trim() || data.category || '';
       const topicTag = String(data.topicTag || '').trim().slice(0, 100);
+      const aiConfigs = await getUserAiConfigs(data.userId);
       // Sinh vi du truoc khi insert: AI loi -> khong luu tu, bao loi ro rang.
       const example = await generateExample(
         { word: data.word, meaning: data.meaning || '', wordType, topicTag },
-        { timeoutMs: 10000, aiConfigs: data.aiConfigs },
+        { timeoutMs: 10000, aiConfigs },
       );
       const rows = await query(
         `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
@@ -489,7 +523,7 @@ async function handleAction(action, data) {
           wordType: row.word_type || '',
           topicTag: row.topic_tag || '',
         },
-        { timeoutMs: 10000, aiConfigs: data.aiConfigs },
+        { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
       );
     }
 
@@ -522,6 +556,19 @@ async function handleAction(action, data) {
         apiKey: data.apiKey,
         model: data.model,
       });
+    }
+
+    case 'getAiConfigs': {
+      return getUserAiConfigs(data.userId);
+    }
+
+    case 'saveAiConfigs': {
+      const configs = normalizeStoredAiConfigs(data.configs);
+      await query('UPDATE users SET ai_configs = $1 WHERE id = $2', [
+        JSON.stringify(configs),
+        data.userId,
+      ]);
+      return configs;
     }
 
     case 'filterExistingWords': {
@@ -588,7 +635,7 @@ async function handleAction(action, data) {
       // Sinh vi du truoc khi insert, gioi han concurrency + tong thoi gian.
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
       const usedSentences = new Set();
-      const aiChain = createAiChain(data.aiConfigs);
+      const aiChain = createAiChain(await getUserAiConfigs(data.userId));
       const prepared = [];
       const failed = [];
       let cursor = 0;
