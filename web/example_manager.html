@@ -257,13 +257,16 @@
       const err = el('div', '', 'card-error');
       err.setAttribute('role', 'alert');
       const actions = el('div', null, 'actions');
+      const ai = el('button', 'AI gợi ý', 'ghost');
+      ai.type = 'button';
       const del = el('button', 'Xóa ví dụ', 'danger');
       del.type = 'button'; del.disabled = !row.exampleSentence;
       const save = el('button', 'Lưu ví dụ', 'primary');
       save.type = 'button';
+      ai.addEventListener('click', () => generateExample(row.id, ai, sentence, translation, target, err, upd));
       del.addEventListener('click', () => deleteExample(row.id, card, badge, del, save, err, sentence));
       save.addEventListener('click', () => saveExample(row.id, { sentence: sentence.value, translation: translation.value, target: target.value }, card, badge, del, save, err));
-      actions.append(del, save);
+      actions.append(ai, del, save);
       form.append(err, actions);
       inner.append(form);
       body.append(inner);
@@ -355,6 +358,34 @@
         state.hasMore = false;
       } finally {
         if (myReq === state.reqId) state.loading = false;
+      }
+    }
+
+    async function generateExample(id, button, sentence, translation, target, errBox, upd) {
+      errBox.textContent = '';
+      button.disabled = true;
+      const label = button.textContent;
+      button.textContent = 'Đang tạo...';
+      try {
+        const token = getToken();
+        if (!token) throw new Error('Hãy đăng nhập LingoFlow trước khi tạo ví dụ.');
+        const response = await fetch('/api/lingoflow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action: 'generateWordExample', data: { wordId: id } }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Tạo ví dụ thất bại (HTTP ${response.status}).`);
+        const data = payload.data || {};
+        sentence.value = data.sentence || '';
+        translation.value = data.translation || '';
+        target.value = data.target || target.value;
+        upd();
+      } catch (error) {
+        errBox.textContent = error.message || 'Không tạo được ví dụ.';
+      } finally {
+        button.disabled = false;
+        button.textContent = label;
       }
     }
 

@@ -112,6 +112,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String pronunciation,
     required String wordType,
     required String topicTag,
+    String exampleSentence = '',
+    String exampleTranslation = '',
   }) async {
     await ExampleManagerSheet.show(
       context: context,
@@ -122,6 +124,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       pronunciation: pronunciation,
       wordType: wordType,
       topicTag: topicTag,
+      exampleSentence: exampleSentence,
+      exampleTranslation: exampleTranslation,
     );
     // Tải lại từ để cập nhật giao diện sau khi sửa ví dụ
     await _loadWords();
@@ -137,6 +141,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String topicTag,
     String commonSynonyms = '',
     required bool isDifficult,
+    String exampleSentence = '',
+    String exampleTranslation = '',
   }) async {
     final theme = Theme.of(context);
     await showModalBottomSheet(
@@ -254,6 +260,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   wordId: wordId, word: word, fullDetails: fullDetails,
                   meaning: meaning, pronunciation: pronunciation,
                   wordType: wordType, topicTag: topicTag,
+                  exampleSentence: exampleSentence,
+                  exampleTranslation: exampleTranslation,
                 );
               },
             ),
@@ -594,15 +602,18 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         }
 
         // Chen 1 lan (server tu loai tu trung con xot)
-        final insertedCount =
+        final bulkResult =
             await _db.bulkAddVocabularyWords(widget.listId, newWords.reversed.toList());
 
         await _loadWords(persistProgress: true);
         WordChangeBus().notifyChanged('add-words');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Da them $insertedCount tu!')),
+            SnackBar(content: Text('Da them ${bulkResult.insertedCount} tu!')),
           );
+          if (bulkResult.failed.isNotEmpty) {
+            _showImportFailures(bulkResult.failed);
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -614,6 +625,34 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         if (mounted) setState(() => _isImporting = false);
       }
     }
+  }
+
+  void _showImportFailures(List<BulkAddFailure> failures) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${failures.length} từ chưa lưu được'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final failure in failures)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('${failure.word}: ${failure.message}'),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteWord(int wordId) async {
@@ -1868,6 +1907,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 topicTag: topicTag,
                 commonSynonyms: commonSynonyms,
                 isDifficult: isDifficult,
+                exampleSentence: exampleSentence,
+                exampleTranslation: exampleTranslation,
               ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),

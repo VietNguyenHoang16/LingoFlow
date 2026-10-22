@@ -42,11 +42,13 @@ class ImportResult {
   final int insertedCount;
   final int totalValid;
   final bool cancelled;
+  final List<BulkAddFailure> failedWords;
 
   const ImportResult({
     required this.insertedCount,
     required this.totalValid,
     required this.cancelled,
+    this.failedWords = const [],
   });
 }
 
@@ -311,6 +313,8 @@ class BulkWordImporter {
       return ImportResult(insertedCount: 0, totalValid: valid.length, cancelled: true);
     }
 
+    final failures = <BulkAddFailure>[];
+
     // Giai doan 1: fetch phat am song song (có progress từng từ)
     pronunciations.clear();
     onProgress?.call(0, valid.length);
@@ -322,7 +326,12 @@ class BulkWordImporter {
     );
 
     if (isCancelled?.call() ?? false) {
-      return ImportResult(insertedCount: 0, totalValid: valid.length, cancelled: true);
+      return ImportResult(
+        insertedCount: 0,
+        totalValid: valid.length,
+        cancelled: true,
+        failedWords: failures,
+      );
     }
 
     // Giai doan 2: chen theo lo 100 dong / request, nhom theo wordType
@@ -341,6 +350,7 @@ class BulkWordImporter {
             insertedCount: inserted,
             totalValid: valid.length,
             cancelled: true,
+            failedWords: failures,
           );
         }
         final chunk = group.sublist(i, (i + chunkSize).clamp(0, group.length));
@@ -353,7 +363,9 @@ class BulkWordImporter {
               'commonSynonyms': l.commonSynonyms,
             }).toList();
         try {
-          inserted += await _db.bulkAddCategoryWords(userId, entry.key, payload);
+          final result = await _db.bulkAddCategoryWords(userId, entry.key, payload);
+          inserted += result.insertedCount;
+          failures.addAll(result.failed);
         } catch (_) {
           // Loi ca lo - thu tung dong de giu toi da du lieu.
           for (final line in chunk) {
@@ -369,7 +381,12 @@ class BulkWordImporter {
                 commonSynonyms: line.commonSynonyms,
               );
               inserted++;
-            } catch (_) {}
+            } catch (error) {
+              failures.add(BulkAddFailure(
+                word: line.word,
+                message: error.toString().replaceFirst('Exception: ', ''),
+              ));
+            }
           }
         }
         done += chunk.length;
@@ -380,6 +397,7 @@ class BulkWordImporter {
       insertedCount: inserted,
       totalValid: valid.length,
       cancelled: false,
+      failedWords: failures,
     );
   }
 }

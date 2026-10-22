@@ -309,7 +309,7 @@ function clean(value, max) {
   return s.length > max ? '' : s;
 }
 
-async function callGemini({ apiKey, modelName, prompt, timeoutMs }) {
+async function callGemini({ apiKey, modelName, prompt, timeoutMs, temperature = 0.95 }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -320,7 +320,7 @@ async function callGemini({ apiKey, modelName, prompt, timeoutMs }) {
         headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.7 },
+          generationConfig: { responseMimeType: 'application/json', temperature },
         }),
         signal: controller.signal,
       },
@@ -334,78 +334,99 @@ async function callGemini({ apiKey, modelName, prompt, timeoutMs }) {
       ?.map((part) => part?.text || '')
       .join('')
       .trim() || '';
-    const parsed = JSON.parse(raw);
-    const sentence = clean(parsed.sentence, 1000);
-    const translation = clean(parsed.translation, 1000);
-    if (!sentence || !translation) throw new Error('Empty Gemini example');
-    return { sentence, translation };
+    if (!raw) throw new Error('Empty AI response');
+    return JSON.parse(raw);
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function generateExample({ word, meaning, wordType }, { timeoutMs = 10000 } = {}) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.XAI_API_KEY;
-  if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
+function buildExamplePrompt({ word, meaning, wordType, topicTag }) {
   const w = String(word || '').trim();
-  if (!w) throw new Error('Missing word');
+  const topic = String(topicTag || '').trim();
+  return `You write ONE natural English example sentence for a Vietnamese learner, plus its natural Vietnamese translation.
 
-  const prompt = `You write ONE very easy English example sentence (A1-A2 level, under 15 words) for a Vietnamese learner, plus its natural Vietnamese translation. The sentence MUST contain the target word and must be specific and memorable (mention who, where or when). Do NOT use generic filler like "today" or "every day". Reply with JSON only: {"sentence":"...","translation":"..."}. Word: ${w} (${wordType || 'word'}) - meaning: ${firstMeaning(meaning)}`;
-  try {
-    const { sentence, translation } = await callGemini({ apiKey, modelName: model(), prompt, timeoutMs });
-    return { sentence, translation, target: w };
-  } catch (_) {
-    // Model chinh qua tai/het han -> thu model du phong truoc khi roi ve mau tinh.
-    const { sentence, translation } = await callGemini({ apiKey, modelName: GEMINI_FALLBACK_MODEL, prompt, timeoutMs });
-    return { sentence, translation, target: w };
+Create a fresh, concrete scene that makes the meaning obvious: a person doing something, a place, an object or a moment in time. Let the context teach the meaning instead of explaining it.
+
+Rules:
+- Exactly one sentence, 5-20 words.
+- The sentence MUST contain the target word exactly as written (capitalization may differ).
+- Do not follow a fixed sentence pattern and do not reuse clichés. Avoid openings like "The ___ was ...", "I usually ...", "Every day ..." or "Today ..." unless that is truly the most natural choice.
+- Simple, everyday English (A2-B1). No definition, no quotes around the sentence.
+- The Vietnamese translation must be natural spoken Vietnamese and match the sentence.
+
+Word: ${w}
+Part of speech: ${wordType || 'unknown'}
+Vietnamese meaning: ${firstMeaning(meaning)}
+Topic: ${topic || 'general'}
+
+Reply with JSON only: {"sentence":"...","translation":"..."}`;
+}
+
+function normalizeGeneratedExample(parsed, word) {
+  const sentence = clean(parsed?.sentence, 240);
+  const translation = clean(parsed?.translation, 1000);
+  if (!sentence || !translation) throw new Error('AI returned an empty example');
+  const target = String(word || '').trim();
+  if (target && !sentence.toLowerCase().includes(target.toLowerCase())) {
+    throw new Error('AI example is missing the target word');
   }
+  return { sentence, translation, target };
 }
 
-// Cau ruc cot cho tinh huong "het ngan sach AI trong lo import": dung template
-// bank thay vi mot cau co dinh, va con chot AI trung cau voi lo hien tai.
-function tooGeneric(sentence) {
-  return /\b(today|yesterday|every day)\b/i.test(sentence)
-    && sentence.trim().split(/\s+/).length <= 7;
+function exampleErrorMessage(error) {
+  const raw = String(error?.message || error || '');
+  if (/Missing GEMINI_API_KEY/i.test(raw)) {
+    return 'Máy chủ chưa cấu hình AI (GEMINI_API_KEY).';
+  }
+  if (/abort|timeout|timed out/i.test(raw)) {
+    return 'AI phản hồi quá chậm. Vui lòng thử lại.';
+  }
+  if (/fetch failed|network|ENOTFOUND|ECONN|socket/i.test(raw)) {
+    return 'Không kết nối được tới AI. Vui lòng thử lại.';
+  }
+  if (/429|quota|rate limit|too many/i.test(raw)) {
+    return 'AI đang quá tải. Vui lòng thử lại sau ít phút.';
+  }
+  if (/empty|missing the target|length|duplicat|json|unexpected|invalid/i.test(raw)) {
+    return 'AI trả về câu ví dụ không hợp lệ. Vui lòng thử lại.';
+  }
+  return `Không tạo được ví dụ: ${raw}`;
 }
 
-// Sinh vi du cho 1 tu vua insert: thu AI, loi -> mau tinh. Khong bao gio throw.
-async function enrichWordExample(query, wordId, info, opts = {}) {
-  let example;
-  let source = 'ai';
-  if (opts.skipAi) {
-    example = templateExample(info, { used: opts.used });
-    source = 'template';
-  } else {
+async function generateExample({ word, meaning, wordType, topicTag }, { timeoutMs = 10000, used } = {}) {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.XAI_API_KEY;
+  if (!apiKey) throw new Error(exampleErrorMessage(new Error('Missing GEMINI_API_KEY')));
+  const w = String(word || '').trim();
+  if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
+
+  const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
+  const models = [model(), GEMINI_FALLBACK_MODEL];
+  let lastError;
+  for (const modelName of models) {
     try {
-      example = await generateExample(info, opts);
-      // AI tra ve cau trung voi cau da co trong lo hoac qua chung -> lay mau tinh.
-      const key = normalizeSentenceKey(example.sentence);
-      if (tooGeneric(example.sentence) || (opts.used instanceof Set && opts.used.has(key))) {
-        throw new Error('Gemini example is not unique enough');
+      const parsed = await callGemini({ apiKey, modelName, prompt, timeoutMs });
+      const example = normalizeGeneratedExample(parsed, w);
+      if (used instanceof Set) {
+        const key = normalizeSentenceKey(example.sentence);
+        if (used.has(key)) throw new Error('AI example is duplicated in this batch');
+        used.add(key);
       }
-    } catch (_) {
-      example = templateExample(info, { used: opts.used });
-      source = 'template';
+      return example;
+    } catch (error) {
+      lastError = error;
     }
   }
-  if (opts.used instanceof Set) opts.used.add(normalizeSentenceKey(example.sentence));
-
-  try {
-    await query(
-      `UPDATE vocabulary_words
-       SET example_sentence = $1, example_translation = $2, example_target = $3
-       WHERE id = $4`,
-      [example.sentence, example.translation, example.target, wordId],
-    );
-  } catch (_) {}
-  return source;
+  throw new Error(exampleErrorMessage(lastError));
 }
 
 module.exports = {
   TEMPLATE_BANK,
-  enrichWordExample,
+  buildExamplePrompt,
+  exampleErrorMessage,
   firstMeaning,
   generateExample,
+  normalizeGeneratedExample,
   normalizeSentenceKey,
   pickUniqueExample,
   primaryType,

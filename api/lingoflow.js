@@ -1,10 +1,11 @@
 ﻿const { Pool } = require('pg');
 const crypto = require('crypto');
-const { enrichWordExample, templateExample } = require('./_lib/xai');
+const { generateExample, templateExample } = require('./_lib/xai');
 
-// Tong ngan sach sinh vi du AI cho 1 request bulk (tuan tu). Het budget ->
-// cac tu con lai dung mau tinh ngay de khong vuot maxDuration cua Vercel.
-const BULK_AI_BUDGET_MS = 12000;
+// Tong ngan sach sinh vi du AI cho 1 request bulk. Het budget -> cac tu con
+// lai duoc bao loi thay vi luu khong co vi du.
+const BULK_AI_BUDGET_MS = 30000;
+const BULK_AI_CONCURRENCY = 4;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -454,21 +455,64 @@ async function handleAction(action, data) {
       }
       const wordType = (data.wordType || '').trim() || data.category || '';
       const topicTag = String(data.topicTag || '').trim().slice(0, 100);
-      const rows = await query(
-        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id`,
-        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag, (data.commonSynonyms || '').trim()],
-      );
-      const wordId = asInt(rows[0].id);
-      // Tu nay ve sau: tu dong sinh cau vi du de hieu bang AI. Loi -> mau tinh.
-      await enrichWordExample(
-        query,
-        wordId,
-        { word: data.word, meaning: data.meaning || '', wordType },
+      // Sinh vi du truoc khi insert: AI loi -> khong luu tu, bao loi ro rang.
+      const example = await generateExample(
+        { word: data.word, meaning: data.meaning || '', wordType, topicTag },
         { timeoutMs: 10000 },
       );
-      return wordId;
+      const rows = await query(
+        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING id`,
+        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag, (data.commonSynonyms || '').trim(), example.sentence, example.translation, example.target],
+      );
+      return asInt(rows[0].id);
+    }
+
+    case 'generateWordExample': {
+      const wordId = asInt(data.wordId);
+      if (!wordId) throw new Error('Thieu wordId');
+      const rows = await query(
+        `SELECT vw.word, vw.meaning, vw.word_type, vw.topic_tag
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vw.id = $1 AND vl.user_id = $2
+         LIMIT 1`,
+        [wordId, data.userId],
+      );
+      if (rows.length === 0) throw new Error('Khong tim thay tu nay');
+      const row = rows[0];
+      return generateExample(
+        {
+          word: row.word || '',
+          meaning: row.meaning || '',
+          wordType: row.word_type || '',
+          topicTag: row.topic_tag || '',
+        },
+        { timeoutMs: 10000 },
+      );
+    }
+
+    case 'updateWordExample': {
+      const wordId = asInt(data.wordId);
+      if (!wordId) throw new Error('Thieu wordId');
+      const sentence = String(data.sentence || '').trim();
+      const translation = String(data.translation || '').trim();
+      const target = String(data.target || '').trim();
+      if (sentence.length > 1000 || translation.length > 1000 || target.length > 255) {
+        throw new Error('Vi du qua dai');
+      }
+      if (sentence && !translation) throw new Error('Thieu ban dich');
+      const rows = await query(
+        `UPDATE vocabulary_words
+         SET example_sentence = $1, example_translation = $2, example_target = $3
+         WHERE id = $4
+           AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $5)
+         RETURNING id`,
+        [sentence || null, translation || null, target || null, wordId, data.userId],
+      );
+      if (rows.length === 0) throw new Error('Khong tim thay tu nay');
+      return { sentence, translation, target };
     }
 
     case 'filterExistingWords': {
@@ -486,7 +530,7 @@ async function handleAction(action, data) {
 
     case 'bulkAddWords': {
       const items = Array.isArray(data.words) ? data.words : [];
-      if (items.length === 0) return { insertedCount: 0 };
+      if (items.length === 0) return { insertedCount: 0, failed: [] };
 
       let listId = data.listId;
       if (!listId && data.category) {
@@ -501,64 +545,104 @@ async function handleAction(action, data) {
         throw new Error('Khong co quyen them vao danh sach nay');
       }
 
-      // Loai tu trung (theo user, khong phai chi trong list nay)
-      const candidates = [...new Set(items.map((it) => String(it.word || '').toLowerCase()).filter(Boolean))];
-      const existingRows = candidates.length > 0 ? await query(
+      // Loai tu trung (theo user, khong phai chi trong list nay).
+      const lowerWords = [...new Set(items.map((it) => String(it.word || '').toLowerCase()).filter(Boolean))];
+      const existingRows = lowerWords.length > 0 ? await query(
         `SELECT DISTINCT LOWER(vw.word) AS w
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND LOWER(vw.word) = ANY($2)`,
-        [data.userId, candidates],
+        [data.userId, lowerWords],
       ) : [];
       const existing = new Set(existingRows.map((row) => row.w));
 
-      let insertedCount = 0;
-      const pendingExamples = [];
-      const CHUNK = 100;
-      for (let i = 0; i < items.length; i += CHUNK) {
-        const chunk = [];
-        const params = [listId];
-        const seenInPayload = new Set();
-        const entries = [];
-        for (const it of items.slice(i, i + CHUNK)) {
-          const word = String(it.word || '').trim();
-          if (!word) continue;
-          const lower = word.toLowerCase();
-          if (existing.has(lower) || seenInPayload.has(lower)) continue;
-          seenInPayload.add(lower);
-          const base = params.length;
-          const topicTag = String(it.topicTag || '').trim().slice(0, 100);
-          const wordType = (it.wordType || '').trim();
-          const meaning = it.meaning || '';
-          params.push(word, it.pronunciation || '', meaning, it.fullDetails || '', wordType, topicTag, (it.commonSynonyms || '').trim());
-          chunk.push(`($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`);
-          entries.push({ word, meaning, wordType });
-        }
-        if (chunk.length === 0) continue;
-        const inserted = await query(
-          `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms)
-           VALUES ${chunk.join(', ')}
-           RETURNING id, word`,
-          params,
-        );
-        insertedCount += inserted.length;
-        const byWord = new Map(entries.map((e) => [e.word.toLowerCase(), e]));
-        for (const row of inserted) {
-          const info = byWord.get(String(row.word || '').toLowerCase());
-          if (info) pendingExamples.push({ id: asInt(row.id), ...info });
-        }
+      const candidates = [];
+      const seenInPayload = new Set();
+      for (const it of items) {
+        const word = String(it.word || '').trim();
+        if (!word) continue;
+        const lower = word.toLowerCase();
+        if (existing.has(lower) || seenInPayload.has(lower)) continue;
+        seenInPayload.add(lower);
+        candidates.push({
+          word,
+          pronunciation: it.pronunciation || '',
+          meaning: it.meaning || '',
+          fullDetails: it.fullDetails || '',
+          wordType: (it.wordType || '').trim(),
+          topicTag: String(it.topicTag || '').trim().slice(0, 100),
+          commonSynonyms: (it.commonSynonyms || '').trim(),
+        });
       }
-      // Tu nay ve sau: tu dong sinh cau vi du tuan tu tung tu.
-      // Het budget AI -> cac tu con lai dung mau tinh ngay.
-      // `used` giu lai cau da sinh trong lo nay nen mot lo import lon
-      // khong bao gio tra ve hai cau giong nhau.
+      if (candidates.length === 0) return { insertedCount: 0, failed: [] };
+
+      // Sinh vi du truoc khi insert, gioi han concurrency + tong thoi gian.
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
       const usedSentences = new Set();
-      for (const p of pendingExamples) {
-        const skipAi = Date.now() > deadline;
-        await enrichWordExample(query, p.id, p, { timeoutMs: 8000, skipAi, used: usedSentences });
+      const prepared = [];
+      const failed = [];
+      let cursor = 0;
+      async function worker() {
+        while (true) {
+          const index = cursor;
+          cursor += 1;
+          if (index >= candidates.length) return;
+          const info = candidates[index];
+          if (Date.now() > deadline) {
+            failed.push({ word: info.word, message: 'Hết thời gian tạo ví dụ.' });
+            continue;
+          }
+          try {
+            const example = await generateExample(info, { timeoutMs: 5000, used: usedSentences });
+            prepared.push({ ...info, example });
+          } catch (error) {
+            failed.push({ word: info.word, message: error.message });
+          }
+        }
       }
-      return { insertedCount };
+      await Promise.all(
+        Array.from({ length: Math.min(BULK_AI_CONCURRENCY, candidates.length) }, worker),
+      );
+
+      let insertedCount = 0;
+      const CHUNK = 100;
+      for (let i = 0; i < prepared.length; i += CHUNK) {
+        const chunk = prepared.slice(i, i + CHUNK);
+        const params = [listId];
+        const values = chunk.map((it) => {
+          const base = params.length;
+          params.push(
+            it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType,
+            it.topicTag, it.commonSynonyms,
+            it.example.sentence, it.example.translation, it.example.target,
+          );
+          return `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10})`;
+        });
+        try {
+          const inserted = await query(
+            `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
+             VALUES ${values.join(', ')}
+             RETURNING id`,
+            params,
+          );
+          insertedCount += inserted.length;
+        } catch (_) {
+          // Loi ca lo - thu tung dong de giu toi da du lieu.
+          for (const it of chunk) {
+            try {
+              await query(
+                `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [listId, it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType, it.topicTag, it.commonSynonyms, it.example.sentence, it.example.translation, it.example.target],
+              );
+              insertedCount += 1;
+            } catch (rowError) {
+              failed.push({ word: it.word, message: `Lỗi lưu dữ liệu: ${rowError.message}` });
+            }
+          }
+        }
+      }
+      return { insertedCount, failed };
     }
 
     case 'bulkDeleteWords': {

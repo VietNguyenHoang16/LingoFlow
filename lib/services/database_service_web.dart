@@ -6,6 +6,20 @@ import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
 
+class BulkAddFailure {
+  final String word;
+  final String message;
+
+  const BulkAddFailure({required this.word, required this.message});
+}
+
+class BulkAddResult {
+  final int insertedCount;
+  final List<BulkAddFailure> failed;
+
+  const BulkAddResult({required this.insertedCount, this.failed = const []});
+}
+
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
@@ -43,6 +57,7 @@ class DatabaseService {
   Future<T> _request<T>(
     String action, {
     Map<String, dynamic> data = const {},
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     final token = await AuthService().getToken();
     late http.Response response;
@@ -56,7 +71,7 @@ class DatabaseService {
             },
             body: jsonEncode({'action': action, 'data': data}),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(timeout);
     } on Exception catch (e) {
       final msg = e.toString();
       if (msg.contains('SocketException') ||
@@ -190,7 +205,7 @@ class DatabaseService {
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
-    });
+    }, timeout: const Duration(seconds: 30));
     return _asInt(id);
   }
 
@@ -215,7 +230,7 @@ class DatabaseService {
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
-    });
+    }, timeout: const Duration(seconds: 30));
     return _asInt(id);
   }
 
@@ -229,17 +244,18 @@ class DatabaseService {
     return rows.map((w) => w.toString()).toSet();
   }
 
-  /// Them hang loat vao mot list. Tra ve so tu chen thanh cong.
-  Future<int> bulkAddVocabularyWords(int listId, List<Map<String, dynamic>> words) async {
+  /// Them hang loat vao mot list. Tra ve so tu chen + danh sach tu loi.
+  Future<BulkAddResult> bulkAddVocabularyWords(int listId, List<Map<String, dynamic>> words) async {
     final result = await _request<Map<String, dynamic>>(
       'bulkAddWords',
       data: {'listId': listId, 'words': words},
+      timeout: const Duration(seconds: 60),
     );
-    return _asInt(result['insertedCount']);
+    return _bulkResult(result);
   }
 
-  /// Them hang loat theo category. Tra ve so tu chen thanh cong.
-  Future<int> bulkAddCategoryWords(
+  /// Them hang loat theo category. Tra ve so tu chen + danh sach tu loi.
+  Future<BulkAddResult> bulkAddCategoryWords(
     int userId,
     String category,
     List<Map<String, dynamic>> words,
@@ -247,8 +263,57 @@ class DatabaseService {
     final result = await _request<Map<String, dynamic>>(
       'bulkAddWords',
       data: {'userId': userId, 'category': category, 'words': words},
+      timeout: const Duration(seconds: 60),
     );
-    return _asInt(result['insertedCount']);
+    return _bulkResult(result);
+  }
+
+  BulkAddResult _bulkResult(Map<String, dynamic> result) {
+    final raw = result['failed'];
+    final failed = raw is List
+        ? raw
+            .whereType<Map>()
+            .map((row) => BulkAddFailure(
+                  word: (row['word'] ?? '').toString(),
+                  message: (row['message'] ?? '').toString(),
+                ))
+            .toList()
+        : <BulkAddFailure>[];
+    return BulkAddResult(
+      insertedCount: _asInt(result['insertedCount']),
+      failed: failed,
+    );
+  }
+
+  Future<Map<String, String>> generateWordExample(int wordId) async {
+    final result = await _request<Map<String, dynamic>>(
+      'generateWordExample',
+      data: {'wordId': wordId},
+      timeout: const Duration(seconds: 30),
+    );
+    return {
+      'sentence': (result['sentence'] ?? '').toString(),
+      'translation': (result['translation'] ?? '').toString(),
+      'target': (result['target'] ?? '').toString(),
+    };
+  }
+
+  Future<void> updateWordExample(
+    int wordId, {
+    required String sentence,
+    required String translation,
+    String target = '',
+  }) async {
+    await _request<void>(
+      'updateWordExample',
+      data: {
+        'wordId': wordId,
+        'sentence': sentence,
+        'translation': translation,
+        'target': target,
+      },
+      timeout: const Duration(seconds: 20),
+    );
   }
 
   Future<void> bulkDeleteWords(List<int> wordIds) async {

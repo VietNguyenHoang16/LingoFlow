@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/bulk_word_importer.dart';
+import '../services/database_service.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 
@@ -63,6 +64,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   int _phase = 0;
   int _inserted = 0;
   bool _wasCancelled = false;
+  List<BulkAddFailure> _failedWords = const [];
   String? _fatalError;
   DateTime _lastProgressTick = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -118,6 +120,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       _phase = 0;
       _inserted = 0;
       _wasCancelled = false;
+      _failedWords = const [];
       _fatalError = null;
       _isProcessing = true;
     });
@@ -158,6 +161,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     setState(() {
       _inserted = result.insertedCount;
       _wasCancelled = result.cancelled;
+      _failedWords = result.failedWords;
       _stage = 3;
       _isProcessing = false;
     });
@@ -521,6 +525,38 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withAlpha(150),
                 fontFamily: 'Be Vietnam Pro',
+              ),
+            ),
+          ],
+          if (_failedWords.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              '${_failedWords.length} từ chưa lưu được:',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontFamily: 'Be Vietnam Pro',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 150),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final failure in _failedWords)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${failure.word}: ${failure.message}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'Be Vietnam Pro',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
