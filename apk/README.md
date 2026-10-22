@@ -15,8 +15,8 @@ Link tải nhanh bản khuyến nghị:
 ## Bản khuyến nghị (số liệu kiểm chứng)
 
 - Kích thước: `21,410,388 bytes` (20.4 MB)
-- SHA256: `453D888CF339606D2D6F484615B167789D400062F6A186323FCA06CC3E54DA44`
-- Ngày build: `22/10/2026` — cấu hình tối đa 3 API tạo ví dụ lưu theo tài khoản trên server (ưu tiên từ trên xuống, test kết nối, tự chuyển API khi lỗi)
+- SHA256: `D01ABA8E5CD41AF83172CE4CD48786B874C1D2FFB0E575B0C457A395D59E5CEE`
+- Ngày build: `22/10/2026` — cấu hình tối đa 3 API lưu theo tài khoản; import tự retry từ lỗi do AI chậm (timeout 15s, tự chuyển API, tối đa 3 lượt)
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 
