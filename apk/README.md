@@ -6,7 +6,7 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | **Khuyến nghị** — gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **20.4 MB** | arm64-v8a | **Khuyến nghị** — gần như mọi điện thoại Android từ ~2016 đến nay |
 | `vocab-release.apk` | 53.8 MB | arm64-v8a + armeabi-v7a + x86 + x86_64 | Máy 32-bit đời cũ, máy giả lập (Nox / BlueStacks / LDPlayer) |
 
 Link tải nhanh bản khuyến nghị:
@@ -14,9 +14,9 @@ Link tải nhanh bản khuyến nghị:
 
 ## Bản khuyến nghị (số liệu kiểm chứng)
 
-- Kích thước: `21,173,384 bytes` (20.2 MB)
-- SHA256: `7613FD1592274809DE3AC0D0413EDFEF22CD9534514A3EF90A17023AD80869D9`
-- Ngày build: `22/10/2026` — gồm AI tự sinh ví dụ khi thêm từ, chặn lưu nếu AI lỗi, báo danh sách từ lỗi khi nhập lô và nút **AI gợi ý** trong app + trang `/example`
+- Kích thước: `21,410,388 bytes` (20.4 MB)
+- SHA256: `8D6F546C0147C38F4D9DA8EF6203CE89F43F70DF2078913B5697359AA126702C`
+- Ngày build: `22/10/2026` — gồm cấu hình tối đa 3 API tạo ví dụ (ưu tiên từ trên xuống, test kết nối, tự chuyển API khi lỗi)
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 
