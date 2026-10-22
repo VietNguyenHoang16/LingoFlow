@@ -122,6 +122,10 @@ function isPermanentProviderError(error) {
   return status === 401 || status === 403 || status === 404;
 }
 
+function isTimeoutError(error) {
+  return /abort|timeout|timed out/i.test(String(error?.message || error || ''));
+}
+
 // Nhan dang "(n) y nghia" hoac "y nghia (n)" -> lay phan nghia.
 function firstMeaning(raw) {
   const text = String(raw || '').trim();
@@ -511,13 +515,29 @@ function exampleErrorMessage(error) {
 function createAiChain(rawConfigs) {
   const configs = sanitizeAiConfigs(rawConfigs);
   const disabled = new Set();
+  const timeoutCounts = new Map();
   let preferred = 0;
 
-  async function generate({ word, meaning, wordType, topicTag }, { timeoutMs = 10000, used } = {}) {
+  async function generate(
+    { word, meaning, wordType, topicTag },
+    { timeoutMs = 10000, used, deadline } = {},
+  ) {
     const w = String(word || '').trim();
     if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
     const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
     let lastError;
+    let deadlineHit = false;
+
+    // Gioi han tung lan goi theo deadline chung de request khong vuot 60s.
+    const attemptTimeout = () => {
+      if (!deadline) return timeoutMs;
+      const remaining = deadline - Date.now();
+      if (remaining < 1000) {
+        deadlineHit = true;
+        return 0;
+      }
+      return Math.min(timeoutMs, remaining);
+    };
 
     const order = configs.map((_, index) => index);
     if (preferred > 0 && order.includes(preferred)) {
@@ -527,6 +547,8 @@ function createAiChain(rawConfigs) {
 
     for (const index of order) {
       if (disabled.has(index)) continue;
+      const attemptMs = attemptTimeout();
+      if (!attemptMs) break;
       const config = configs[index];
       try {
         const raw = await callOpenAiCompatible({
@@ -534,7 +556,7 @@ function createAiChain(rawConfigs) {
           apiKey: config.apiKey,
           model: config.model,
           prompt,
-          timeoutMs,
+          timeoutMs: attemptMs,
         });
         const example = normalizeGeneratedExample(parseJsonContent(raw), w);
         if (used instanceof Set) {
@@ -543,9 +565,16 @@ function createAiChain(rawConfigs) {
           used.add(key);
         }
         preferred = index;
+        timeoutCounts.delete(index);
         return example;
       } catch (error) {
         lastError = error;
+        if (isTimeoutError(error)) {
+          const count = (timeoutCounts.get(index) || 0) + 1;
+          timeoutCounts.set(index, count);
+          // Timeout 2 lan lien tiep -> bo qua provider nay cho cac tu sau.
+          if (count >= 2) disabled.add(index);
+        }
         if (isPermanentProviderError(error)) disabled.add(index);
       }
     }
@@ -553,8 +582,10 @@ function createAiChain(rawConfigs) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.XAI_API_KEY;
     if (apiKey) {
       for (const modelName of [model(), GEMINI_FALLBACK_MODEL]) {
+        const attemptMs = attemptTimeout();
+        if (!attemptMs) break;
         try {
-          const parsed = await callGemini({ apiKey, modelName, prompt, timeoutMs });
+          const parsed = await callGemini({ apiKey, modelName, prompt, timeoutMs: attemptMs });
           const example = normalizeGeneratedExample(parsed, w);
           if (used instanceof Set) {
             const key = normalizeSentenceKey(example.sentence);
@@ -568,6 +599,7 @@ function createAiChain(rawConfigs) {
       }
     }
 
+    if (deadlineHit) throw new Error('AI phản hồi quá chậm. Vui lòng thử lại.');
     throw new Error(exampleErrorMessage(lastError || new Error('Missing GEMINI_API_KEY')));
   }
 

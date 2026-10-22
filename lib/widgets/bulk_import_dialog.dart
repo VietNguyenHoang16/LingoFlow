@@ -65,6 +65,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   int _inserted = 0;
   bool _wasCancelled = false;
   List<BulkAddFailure> _failedWords = const [];
+  String? _retryLabel;
   String? _fatalError;
   DateTime _lastProgressTick = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -121,6 +122,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       _inserted = 0;
       _wasCancelled = false;
       _failedWords = const [];
+      _retryLabel = null;
       _fatalError = null;
       _isProcessing = true;
     });
@@ -151,6 +153,13 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
         setState(() {
           _done = done;
           _total = total;
+          _phase = 1;
+        });
+      },
+      onRetry: (round, remaining) {
+        if (!mounted) return;
+        setState(() {
+          _retryLabel = 'Đang thử lại $remaining từ (lượt $round)…';
           _phase = 1;
         });
       },
@@ -348,7 +357,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     final pct = (_phase == 0 ? fetchPct * 0.7 : 0.7 + savePct * 0.3).clamp(0.0, 1.0);
     final phaseLabel = _phase == 0
         ? 'Đang lấy phát âm $_fetched/$_fetchTotal…'
-        : 'Đang lưu $_done/$_total…';
+        : _retryLabel ?? 'Đang lưu $_done/$_total…';
 
     final validWords = _lines.where((l) => l.isValid).take(20).toList();
     // Số từ đã xong ở phase hiện tại để tick list.

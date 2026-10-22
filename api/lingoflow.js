@@ -4,8 +4,18 @@ const { createAiChain, generateExample, templateExample, testAiProvider } = requ
 
 // Tong ngan sach sinh vi du AI cho 1 request bulk. Het budget -> cac tu con
 // lai duoc bao loi thay vi luu khong co vi du.
-const BULK_AI_BUDGET_MS = 30000;
+const BULK_AI_BUDGET_MS = 35000;
+const BULK_AI_TIMEOUT_MS = 15000;
 const BULK_AI_CONCURRENCY = 4;
+
+// Loi tam thoi -> client tu dong thu lai qua request moi.
+function isRetryableAiFailure(message) {
+  const text = String(message || '');
+  if (/API key không hợp lệ|Không tìm thấy model|Máy chủ chưa cấu hình AI/i.test(text)) {
+    return false;
+  }
+  return /quá chậm|quá tải|Không kết nối|Không tạo được|HTTP 5\d\d|không hợp lệ/i.test(text);
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -646,14 +656,26 @@ async function handleAction(action, data) {
           if (index >= candidates.length) return;
           const info = candidates[index];
           if (Date.now() > deadline) {
-            failed.push({ word: info.word, message: 'Hết thời gian tạo ví dụ.' });
+            failed.push({
+              word: info.word,
+              message: 'Hết thời gian tạo ví dụ.',
+              retryable: true,
+            });
             continue;
           }
           try {
-            const example = await aiChain.generate(info, { timeoutMs: 5000, used: usedSentences });
+            const example = await aiChain.generate(info, {
+              timeoutMs: BULK_AI_TIMEOUT_MS,
+              used: usedSentences,
+              deadline,
+            });
             prepared.push({ ...info, example });
           } catch (error) {
-            failed.push({ word: info.word, message: error.message });
+            failed.push({
+              word: info.word,
+              message: error.message,
+              retryable: isRetryableAiFailure(error.message),
+            });
           }
         }
       }
@@ -694,7 +716,11 @@ async function handleAction(action, data) {
               );
               insertedCount += 1;
             } catch (rowError) {
-              failed.push({ word: it.word, message: `Lỗi lưu dữ liệu: ${rowError.message}` });
+              failed.push({
+                word: it.word,
+                message: `Lỗi lưu dữ liệu: ${rowError.message}`,
+                retryable: false,
+              });
             }
           }
         }

@@ -227,3 +227,77 @@ test('chain fallback ve GEMINI_API_KEY cua server khi moi API nguoi dung loi', a
     else process.env.GEMINI_API_KEY = original;
   }
 });
+
+test('chain bo qua provider timeout 2 lan lien tiep', async () => {
+  const calls = [];
+
+  await withoutGeminiKey(() =>
+    withFetch(
+      async (url, options) => {
+        const target = String(url);
+        calls.push(target);
+        if (target.startsWith('https://slow.example')) {
+          return new Promise((_, reject) => {
+            options.signal.addEventListener('abort', () => {
+              reject(new Error('This operation was aborted'));
+            });
+          });
+        }
+        return jsonResponse(500, { error: { message: 'provider down' } });
+      },
+      async () => {
+        const chain = createAiChain([
+          { baseUrl: 'https://slow.example/v1', apiKey: 'slow', model: 'slow-model' },
+          { baseUrl: 'https://down.example/v1', apiKey: 'down', model: 'down-model' },
+        ]);
+
+        await assert.rejects(
+          () => chain.generate({ word: 'commute', meaning: 'di lam' }, { timeoutMs: 30 }),
+        );
+        await assert.rejects(
+          () => chain.generate({ word: 'commute', meaning: 'di lam' }, { timeoutMs: 30 }),
+        );
+        assert.deepEqual(calls, [
+          'https://slow.example/v1/chat/completions',
+          'https://down.example/v1/chat/completions',
+          'https://slow.example/v1/chat/completions',
+          'https://down.example/v1/chat/completions',
+        ]);
+
+        await assert.rejects(
+          () => chain.generate({ word: 'commute', meaning: 'di lam' }, { timeoutMs: 30 }),
+        );
+        assert.equal(calls.length, 5);
+        assert.ok(calls[4].startsWith('https://down.example'));
+      },
+    ),
+  );
+});
+
+test('chain ton trong deadline tong', async () => {
+  await withoutGeminiKey(() =>
+    withFetch(
+      async (url, options) =>
+        new Promise((_, reject) => {
+          options.signal.addEventListener('abort', () => {
+            reject(new Error('This operation was aborted'));
+          });
+        }),
+      async () => {
+        const chain = createAiChain([
+          { baseUrl: 'https://slow.example/v1', apiKey: 'k', model: 'm' },
+        ]);
+        const started = Date.now();
+        await assert.rejects(
+          () =>
+            chain.generate(
+              { word: 'commute' },
+              { timeoutMs: 5000, deadline: Date.now() + 60 },
+            ),
+          /quá chậm/i,
+        );
+        assert.ok(Date.now() - started < 1000);
+      },
+    ),
+  );
+});

@@ -10,8 +10,13 @@ import 'auth_service.dart';
 class BulkAddFailure {
   final String word;
   final String message;
+  final bool retryable;
 
-  const BulkAddFailure({required this.word, required this.message});
+  const BulkAddFailure({
+    required this.word,
+    required this.message,
+    this.retryable = false,
+  });
 }
 
 class BulkAddResult {
@@ -277,6 +282,7 @@ class DatabaseService {
             .map((row) => BulkAddFailure(
                   word: (row['word'] ?? '').toString(),
                   message: (row['message'] ?? '').toString(),
+                  retryable: row['retryable'] == true,
                 ))
             .toList()
         : <BulkAddFailure>[];

@@ -17,7 +17,10 @@ Flutter app and on `/example`.
 - AI failure on a single word: no row is inserted; the API returns a clear
   Vietnamese message.
 - Bulk import: generate examples with bounded concurrency and a time budget;
-  insert only successful words; return `{ insertedCount, failed: [...] }`.
+  insert only successful words; return
+  `{ insertedCount, failed: [{ word, message, retryable }] }`.
+- Bulk retry: the client retries `retryable` failures in up to 2 extra rounds
+  via new requests (3 attempts total), then reports what still failed.
 - Example managers: `AI gợi ý` fills the form; the user edits and saves.
 - Saving an example writes the three example columns, not `full_details`.
 - No template fallback in the add/import/generate paths.

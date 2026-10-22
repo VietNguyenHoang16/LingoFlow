@@ -303,6 +303,13 @@ class BulkWordImporter {
     void Function(int done, int total)? onProgress,
     void Function(int fetched, int total)? onFetchProgress,
     bool Function()? isCancelled,
+    void Function(int round, int remaining)? onRetry,
+    Future<BulkAddResult> Function(
+      int userId,
+      String category,
+      List<Map<String, dynamic>> words,
+    )? bulkAdd,
+    Map<String, String>? pronunciationsOverride,
   }) async {
     final valid = lines.where((l) => l.isValid).toList();
     if (valid.isEmpty) {
@@ -314,16 +321,22 @@ class BulkWordImporter {
     }
 
     final failures = <BulkAddFailure>[];
+    final addBulk = bulkAdd ?? _db.bulkAddCategoryWords;
 
     // Giai doan 1: fetch phat am song song (có progress từng từ)
     pronunciations.clear();
     onProgress?.call(0, valid.length);
     onFetchProgress?.call(0, valid.length);
-    await _fetchPronunciations(
-      valid,
-      onFetchProgress: onFetchProgress,
-      isCancelled: isCancelled,
-    );
+    if (pronunciationsOverride != null) {
+      pronunciations.addAll(pronunciationsOverride);
+      onFetchProgress?.call(valid.length, valid.length);
+    } else {
+      await _fetchPronunciations(
+        valid,
+        onFetchProgress: onFetchProgress,
+        isCancelled: isCancelled,
+      );
+    }
 
     if (isCancelled?.call() ?? false) {
       return ImportResult(
@@ -334,65 +347,84 @@ class BulkWordImporter {
       );
     }
 
-    // Giai doan 2: chen theo lo 100 dong / request, nhom theo wordType
-    int inserted = 0;
-    const chunkSize = 100;
-    final groups = <String, List<ImportLine>>{};
-    for (final l in valid) {
-      groups.putIfAbsent(l.wordType!, () => []).add(l);
-    }
-    int done = 0;
-    for (final entry in groups.entries) {
-      final group = entry.value;
-      for (int i = 0; i < group.length; i += chunkSize) {
-        if (isCancelled?.call() ?? false) {
-          return ImportResult(
-            insertedCount: inserted,
-            totalValid: valid.length,
-            cancelled: true,
-            failedWords: failures,
+    // Giai doan 2: chen theo lo, tu dong retry loi tam thoi qua request moi.
+    final lineByWord = {
+      for (final line in valid) line.word.toLowerCase(): line,
+    };
+    const maxRetryRounds = 2;
+    var remaining = valid;
+    var inserted = 0;
+    var resolved = 0;
+    var round = 0;
+
+    while (remaining.isNotEmpty && round <= maxRetryRounds) {
+      if (round > 0) {
+        onRetry?.call(round, remaining.length);
+        await Future.delayed(const Duration(seconds: 1));
+      }
+      if (isCancelled?.call() ?? false) {
+        return ImportResult(
+          insertedCount: inserted,
+          totalValid: valid.length,
+          cancelled: true,
+          failedWords: failures,
+        );
+      }
+
+      final nextRound = <ImportLine>[];
+      final groups = <String, List<ImportLine>>{};
+      for (final line in remaining) {
+        groups.putIfAbsent(line.wordType!, () => []).add(line);
+      }
+      final chunkSize = round == 0 ? 100 : 25;
+      var cancelled = false;
+
+      for (final entry in groups.entries) {
+        final group = entry.value;
+        for (var i = 0; i < group.length; i += chunkSize) {
+          if (isCancelled?.call() ?? false) {
+            cancelled = true;
+            break;
+          }
+          final chunk = group.sublist(i, (i + chunkSize).clamp(0, group.length));
+          final result = await _importChunk(
+            addBulk,
+            userId,
+            entry.key,
+            chunk,
+            allowSplit: round == 0,
           );
-        }
-        final chunk = group.sublist(i, (i + chunkSize).clamp(0, group.length));
-        final payload = chunk.map((l) => {
-              'word': l.word,
-              'pronunciation': pronunciations[l.word.toLowerCase()] ?? '',
-              'meaning': l.meaning,
-              'wordType': l.wordType,
-              'topicTag': l.topicTag,
-              'commonSynonyms': l.commonSynonyms,
-            }).toList();
-        try {
-          final result = await _db.bulkAddCategoryWords(userId, entry.key, payload);
           inserted += result.insertedCount;
-          failures.addAll(result.failed);
-        } catch (_) {
-          // Loi ca lo - thu tung dong de giu toi da du lieu.
-          for (final line in chunk) {
-            try {
-              await _db.addWordToCategory(
-                userId,
-                line.wordType!,
-                line.word,
-                pronunciations[line.word.toLowerCase()] ?? '',
-                line.meaning,
-                wordType: line.wordType,
-                topicTag: line.topicTag,
-                commonSynonyms: line.commonSynonyms,
-              );
-              inserted++;
-            } catch (error) {
-              failures.add(BulkAddFailure(
-                word: line.word,
-                message: error.toString().replaceFirst('Exception: ', ''),
-              ));
+          resolved += result.insertedCount;
+          for (final failure in result.failed) {
+            final line = lineByWord[failure.word.toLowerCase()];
+            if (failure.retryable && round < maxRetryRounds && line != null) {
+              nextRound.add(line);
+            } else {
+              failures.add(failure);
+              resolved += 1;
             }
           }
+          onProgress?.call(resolved.clamp(0, valid.length), valid.length);
         }
-        done += chunk.length;
-        onProgress?.call(done.clamp(0, valid.length), valid.length);
+        if (cancelled) break;
       }
+
+      if (cancelled) {
+        return ImportResult(
+          insertedCount: inserted,
+          totalValid: valid.length,
+          cancelled: true,
+          failedWords: failures,
+        );
+      }
+
+      remaining = nextRound;
+      round += 1;
     }
+
+    // Mot so tu co the bi server coi la trung sau request mat phan hoi.
+    onProgress?.call(valid.length, valid.length);
     return ImportResult(
       insertedCount: inserted,
       totalValid: valid.length,
@@ -400,4 +432,70 @@ class BulkWordImporter {
       failedWords: failures,
     );
   }
+
+  Future<BulkAddResult> _importChunk(
+    Future<BulkAddResult> Function(
+      int userId,
+      String category,
+      List<Map<String, dynamic>> words,
+    ) addBulk,
+    int userId,
+    String category,
+    List<ImportLine> chunk, {
+    required bool allowSplit,
+  }) async {
+    try {
+      return await addBulk(userId, category, _payload(chunk));
+    } catch (error) {
+      final message = error.toString().replaceFirst('Exception: ', '');
+      if (allowSplit && chunk.length > 10 && !_isAuthError(message)) {
+        final mid = chunk.length ~/ 2;
+        final first = await _importChunk(
+          addBulk,
+          userId,
+          category,
+          chunk.sublist(0, mid),
+          allowSplit: false,
+        );
+        final second = await _importChunk(
+          addBulk,
+          userId,
+          category,
+          chunk.sublist(mid),
+          allowSplit: false,
+        );
+        return BulkAddResult(
+          insertedCount: first.insertedCount + second.insertedCount,
+          failed: [...first.failed, ...second.failed],
+        );
+      }
+      return BulkAddResult(
+        insertedCount: 0,
+        failed: chunk
+            .map((line) => BulkAddFailure(
+                  word: line.word,
+                  message: message,
+                  retryable:
+                      !_isAuthError(message) &&
+                      !message.contains('Khong co quyen'),
+                ))
+            .toList(),
+      );
+    }
+  }
+
+  List<Map<String, dynamic>> _payload(List<ImportLine> chunk) => chunk.map((l) => {
+        'word': l.word,
+        'pronunciation': pronunciations[l.word.toLowerCase()] ?? '',
+        'meaning': l.meaning,
+        'wordType': l.wordType,
+        'topicTag': l.topicTag,
+        'commonSynonyms': l.commonSynonyms,
+      }).toList();
+
+  bool _isAuthError(String message) =>
+      message.contains('Phiên đăng nhập') ||
+      message.contains('Phien dang nhap') ||
+      message.contains('đăng nhập') ||
+      message.contains('dang nhap');
 }
