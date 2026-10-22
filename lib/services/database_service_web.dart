@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'ai_settings_service.dart';
 import 'auth_service.dart';
 
 class BulkAddFailure {
@@ -52,6 +53,12 @@ class DatabaseService {
     if (_isInitialized) return;
     await _request<void>('init');
     _isInitialized = true;
+  }
+
+  Future<Map<String, dynamic>> _aiConfigData() async {
+    final configs = await AiSettingsService().apiPayload();
+    if (configs.isEmpty) return const {};
+    return {'aiConfigs': configs};
   }
 
   Future<T> _request<T>(
@@ -197,6 +204,7 @@ class DatabaseService {
     String? commonSynonyms,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
+      ...await _aiConfigData(),
       'listId': listId,
       'word': word,
       'pronunciation': pronunciation,
@@ -205,7 +213,7 @@ class DatabaseService {
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
-    }, timeout: const Duration(seconds: 30));
+    }, timeout: const Duration(seconds: 45));
     return _asInt(id);
   }
 
@@ -221,6 +229,7 @@ class DatabaseService {
     String? commonSynonyms,
   }) async {
     final id = await _request<dynamic>('addVocabularyWord', data: {
+      ...await _aiConfigData(),
       'userId': userId,
       'category': category,
       'word': word,
@@ -230,7 +239,7 @@ class DatabaseService {
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
-    }, timeout: const Duration(seconds: 30));
+    }, timeout: const Duration(seconds: 45));
     return _asInt(id);
   }
 
@@ -248,7 +257,7 @@ class DatabaseService {
   Future<BulkAddResult> bulkAddVocabularyWords(int listId, List<Map<String, dynamic>> words) async {
     final result = await _request<Map<String, dynamic>>(
       'bulkAddWords',
-      data: {'listId': listId, 'words': words},
+      data: {...await _aiConfigData(), 'listId': listId, 'words': words},
       timeout: const Duration(seconds: 60),
     );
     return _bulkResult(result);
@@ -262,7 +271,12 @@ class DatabaseService {
   ) async {
     final result = await _request<Map<String, dynamic>>(
       'bulkAddWords',
-      data: {'userId': userId, 'category': category, 'words': words},
+      data: {
+        ...await _aiConfigData(),
+        'userId': userId,
+        'category': category,
+        'words': words,
+      },
       timeout: const Duration(seconds: 60),
     );
     return _bulkResult(result);
@@ -285,11 +299,19 @@ class DatabaseService {
     );
   }
 
+  Future<Map<String, dynamic>> testAiProvider(AiProviderConfig config) async {
+    return _request<Map<String, dynamic>>(
+      'testAiProvider',
+      data: config.toApiJson(),
+      timeout: const Duration(seconds: 20),
+    );
+  }
+
   Future<Map<String, String>> generateWordExample(int wordId) async {
     final result = await _request<Map<String, dynamic>>(
       'generateWordExample',
-      data: {'wordId': wordId},
-      timeout: const Duration(seconds: 30),
+      data: {...await _aiConfigData(), 'wordId': wordId},
+      timeout: const Duration(seconds: 45),
     );
     return {
       'sentence': (result['sentence'] ?? '').toString(),

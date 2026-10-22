@@ -14,6 +14,114 @@ function model() {
   return GEMINI_MODEL;
 }
 
+const MAX_AI_PROVIDERS = 3;
+
+function isPrivateHost(rawHost) {
+  const host = String(rawHost || '').toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return true;
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
+  if (host.includes(':') && (host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80'))) return true;
+  if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host)) return true;
+  return /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+}
+
+function normalizeChatEndpoint(raw) {
+  let url;
+  try {
+    url = new URL(String(raw || '').trim());
+  } catch (_) {
+    throw new Error('Base URL không hợp lệ.');
+  }
+  if (url.protocol !== 'https:') throw new Error('Base URL phải dùng https.');
+  if (isPrivateHost(url.hostname)) throw new Error('Base URL không được trỏ vào mạng nội bộ.');
+  const path = url.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+  url.pathname = `${path}/chat/completions`;
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+function sanitizeAiConfigs(raw) {
+  if (!Array.isArray(raw)) return [];
+  const configs = [];
+  for (const item of raw.slice(0, MAX_AI_PROVIDERS)) {
+    if (!item || typeof item !== 'object') continue;
+    const baseUrl = String(item.baseUrl || '').trim();
+    const apiKey = String(item.apiKey || '').trim();
+    const modelName = String(item.model || '').trim();
+    if (!baseUrl || !apiKey || !modelName) continue;
+    if (baseUrl.length > 500 || apiKey.length > 500 || modelName.length > 200) continue;
+    try {
+      configs.push({
+        name: String(item.name || '').trim().slice(0, 60),
+        endpoint: normalizeChatEndpoint(baseUrl),
+        apiKey,
+        model: modelName,
+      });
+    } catch (_) {
+      // Bo qua cau hinh khong hop le, thu API tiep theo.
+    }
+  }
+  return configs;
+}
+
+function parseJsonContent(raw) {
+  let text = String(raw || '').trim();
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) text = fence[1].trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start >= 0 && end > start) text = text.slice(start, end + 1);
+  if (!text) throw new Error('Empty AI response');
+  return JSON.parse(text);
+}
+
+function responseContent(content) {
+  if (typeof content === 'string') return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === 'string' ? part : part?.text || ''))
+      .join('')
+      .trim();
+  }
+  return '';
+}
+
+async function callOpenAiCompatible({ endpoint, apiKey, model: modelName, prompt, timeoutMs }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload?.error?.message || `API HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    const content = responseContent(payload?.choices?.[0]?.message?.content);
+    if (!content) throw new Error('Empty AI response');
+    return content;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isPermanentProviderError(error) {
+  const status = Number(error?.status);
+  return status === 401 || status === 403 || status === 404;
+}
+
 // Nhan dang "(n) y nghia" hoac "y nghia (n)" -> lay phan nghia.
 function firstMeaning(raw) {
   const text = String(raw || '').trim();
@@ -379,6 +487,12 @@ function exampleErrorMessage(error) {
   if (/Missing GEMINI_API_KEY/i.test(raw)) {
     return 'Máy chủ chưa cấu hình AI (GEMINI_API_KEY).';
   }
+  if (/401|403|unauthorized|forbidden|invalid api key|api key.*invalid/i.test(raw)) {
+    return 'API key không hợp lệ hoặc không có quyền.';
+  }
+  if (/404|model.*not found|unknown model|does not exist/i.test(raw)) {
+    return 'Không tìm thấy model trên nhà cung cấp API.';
+  }
   if (/abort|timeout|timed out/i.test(raw)) {
     return 'AI phản hồi quá chậm. Vui lòng thử lại.';
   }
@@ -394,43 +508,116 @@ function exampleErrorMessage(error) {
   return `Không tạo được ví dụ: ${raw}`;
 }
 
-async function generateExample({ word, meaning, wordType, topicTag }, { timeoutMs = 10000, used } = {}) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.XAI_API_KEY;
-  if (!apiKey) throw new Error(exampleErrorMessage(new Error('Missing GEMINI_API_KEY')));
-  const w = String(word || '').trim();
-  if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
+function createAiChain(rawConfigs) {
+  const configs = sanitizeAiConfigs(rawConfigs);
+  const disabled = new Set();
+  let preferred = 0;
 
-  const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
-  const models = [model(), GEMINI_FALLBACK_MODEL];
-  let lastError;
-  for (const modelName of models) {
-    try {
-      const parsed = await callGemini({ apiKey, modelName, prompt, timeoutMs });
-      const example = normalizeGeneratedExample(parsed, w);
-      if (used instanceof Set) {
-        const key = normalizeSentenceKey(example.sentence);
-        if (used.has(key)) throw new Error('AI example is duplicated in this batch');
-        used.add(key);
-      }
-      return example;
-    } catch (error) {
-      lastError = error;
+  async function generate({ word, meaning, wordType, topicTag }, { timeoutMs = 10000, used } = {}) {
+    const w = String(word || '').trim();
+    if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
+    const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
+    let lastError;
+
+    const order = configs.map((_, index) => index);
+    if (preferred > 0 && order.includes(preferred)) {
+      order.splice(order.indexOf(preferred), 1);
+      order.unshift(preferred);
     }
+
+    for (const index of order) {
+      if (disabled.has(index)) continue;
+      const config = configs[index];
+      try {
+        const raw = await callOpenAiCompatible({
+          endpoint: config.endpoint,
+          apiKey: config.apiKey,
+          model: config.model,
+          prompt,
+          timeoutMs,
+        });
+        const example = normalizeGeneratedExample(parseJsonContent(raw), w);
+        if (used instanceof Set) {
+          const key = normalizeSentenceKey(example.sentence);
+          if (used.has(key)) throw new Error('AI example is duplicated in this batch');
+          used.add(key);
+        }
+        preferred = index;
+        return example;
+      } catch (error) {
+        lastError = error;
+        if (isPermanentProviderError(error)) disabled.add(index);
+      }
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY || process.env.XAI_API_KEY;
+    if (apiKey) {
+      for (const modelName of [model(), GEMINI_FALLBACK_MODEL]) {
+        try {
+          const parsed = await callGemini({ apiKey, modelName, prompt, timeoutMs });
+          const example = normalizeGeneratedExample(parsed, w);
+          if (used instanceof Set) {
+            const key = normalizeSentenceKey(example.sentence);
+            if (used.has(key)) throw new Error('AI example is duplicated in this batch');
+            used.add(key);
+          }
+          return example;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+    }
+
+    throw new Error(exampleErrorMessage(lastError || new Error('Missing GEMINI_API_KEY')));
   }
-  throw new Error(exampleErrorMessage(lastError));
+
+  return { generate, configs };
+}
+
+async function generateExample(input, { timeoutMs = 10000, used, aiConfigs, chain } = {}) {
+  const activeChain = chain || createAiChain(aiConfigs);
+  return activeChain.generate(input, { timeoutMs, used });
+}
+
+async function testAiProvider(raw, { timeoutMs = 15000 } = {}) {
+  const configs = sanitizeAiConfigs([raw]);
+  if (configs.length === 0) {
+    return { ok: false, latencyMs: 0, message: 'Base URL, API key hoặc model không hợp lệ.' };
+  }
+  const config = configs[0];
+  const startedAt = Date.now();
+  try {
+    await callOpenAiCompatible({
+      endpoint: config.endpoint,
+      apiKey: config.apiKey,
+      model: config.model,
+      prompt: 'Reply with exactly: OK',
+      timeoutMs,
+    });
+    return { ok: true, latencyMs: Date.now() - startedAt, message: 'Kết nối thành công.' };
+  } catch (error) {
+    return { ok: false, latencyMs: Date.now() - startedAt, message: exampleErrorMessage(error) };
+  }
 }
 
 module.exports = {
   TEMPLATE_BANK,
   buildExamplePrompt,
+  callOpenAiCompatible,
+  createAiChain,
   exampleErrorMessage,
   firstMeaning,
   generateExample,
+  normalizeChatEndpoint,
   normalizeGeneratedExample,
   normalizeSentenceKey,
+  parseJsonContent,
   pickUniqueExample,
   primaryType,
+  sanitizeAiConfigs,
   templateExample,
+  testAiProvider,
+  MAX_AI_PROVIDERS,
   // Ten moi theo provider Gemini; giu ten cu de test/script cu van chay.
   GEMINI_MODEL,
   GEMINI_FALLBACK_MODEL,

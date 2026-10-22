@@ -1,6 +1,6 @@
 ﻿const { Pool } = require('pg');
 const crypto = require('crypto');
-const { generateExample, templateExample } = require('./_lib/xai');
+const { createAiChain, generateExample, templateExample, testAiProvider } = require('./_lib/xai');
 
 // Tong ngan sach sinh vi du AI cho 1 request bulk. Het budget -> cac tu con
 // lai duoc bao loi thay vi luu khong co vi du.
@@ -458,7 +458,7 @@ async function handleAction(action, data) {
       // Sinh vi du truoc khi insert: AI loi -> khong luu tu, bao loi ro rang.
       const example = await generateExample(
         { word: data.word, meaning: data.meaning || '', wordType, topicTag },
-        { timeoutMs: 10000 },
+        { timeoutMs: 10000, aiConfigs: data.aiConfigs },
       );
       const rows = await query(
         `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
@@ -489,7 +489,7 @@ async function handleAction(action, data) {
           wordType: row.word_type || '',
           topicTag: row.topic_tag || '',
         },
-        { timeoutMs: 10000 },
+        { timeoutMs: 10000, aiConfigs: data.aiConfigs },
       );
     }
 
@@ -513,6 +513,15 @@ async function handleAction(action, data) {
       );
       if (rows.length === 0) throw new Error('Khong tim thay tu nay');
       return { sentence, translation, target };
+    }
+
+    case 'testAiProvider': {
+      return testAiProvider({
+        name: data.name,
+        baseUrl: data.baseUrl,
+        apiKey: data.apiKey,
+        model: data.model,
+      });
     }
 
     case 'filterExistingWords': {
@@ -579,6 +588,7 @@ async function handleAction(action, data) {
       // Sinh vi du truoc khi insert, gioi han concurrency + tong thoi gian.
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
       const usedSentences = new Set();
+      const aiChain = createAiChain(data.aiConfigs);
       const prepared = [];
       const failed = [];
       let cursor = 0;
@@ -593,7 +603,7 @@ async function handleAction(action, data) {
             continue;
           }
           try {
-            const example = await generateExample(info, { timeoutMs: 5000, used: usedSentences });
+            const example = await aiChain.generate(info, { timeoutMs: 5000, used: usedSentences });
             prepared.push({ ...info, example });
           } catch (error) {
             failed.push({ word: info.word, message: error.message });

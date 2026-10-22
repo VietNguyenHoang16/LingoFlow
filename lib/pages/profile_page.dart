@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/ai_settings_service.dart';
 import '../services/auth_service.dart';
 import '../services/pronunciation_service.dart';
 import '../services/tts_settings_service.dart';
+import '../widgets/ai_api_settings_sheet.dart';
 import '../widgets/pwa_install_banner.dart';
 import 'login_page.dart';
 
@@ -22,6 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
   TtsVoiceOption? _selectedVoice;
   double _speechRate = 0.85;
   String _phone = '';
+  int _aiCount = 0;
   bool _isLoading = true;
 
   bool _isBackfilling = false;
@@ -38,12 +41,22 @@ class _ProfilePageState extends State<ProfilePage> {
     final voice = await _ttsSettings.getSelectedVoice();
     final rate = await _ttsSettings.getSpeechRate();
     final session = await _auth.getSession();
+    final aiConfigs = await AiSettingsService().load();
     setState(() {
       _selectedVoice = voice;
       _speechRate = rate;
       _phone = session?['phone'] ?? '';
+      _aiCount = aiConfigs.length;
       _isLoading = false;
     });
+  }
+
+  Future<void> _openAiSettings() async {
+    final changed = await AiApiSettingsSheet.show(context);
+    if (changed != true) return;
+    final configs = await AiSettingsService().load();
+    if (!mounted) return;
+    setState(() => _aiCount = configs.length);
   }
 
   Future<void> _runPronunciationBackfill() async {
@@ -505,6 +518,42 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _buildCard(
+                  theme: theme,
+                  isDark: isDark,
+                  child: InkWell(
+                    onTap: _openAiSettings,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildSectionTitle(
+                                  'API tạo ví dụ', Icons.key_rounded, theme),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tối đa 3 API, ưu tiên từ trên xuống. Đã cấu hình $_aiCount/3.',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
