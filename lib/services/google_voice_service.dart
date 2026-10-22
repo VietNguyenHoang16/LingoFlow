@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 
 class GoogleVoiceService {
   AudioPlayer? _player;
@@ -28,7 +29,10 @@ class GoogleVoiceService {
       await player.play(UrlSource(uri.toString()));
       _lastPlayedAt = DateTime.now();
       return true;
-    } catch (_) {
+    } catch (e) {
+      // Log loi de phan biet: proxy chet, mang le (network TLS), autoplay
+      // bi chan boi browser... thay vi im lang khong co dau vet.
+      debugPrint('GoogleVoiceService.speak failed: $e');
       return false;
     }
   }

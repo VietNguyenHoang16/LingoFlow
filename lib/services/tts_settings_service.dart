@@ -25,14 +25,26 @@ class TtsSettingsService {
       : _googleVoiceService = googleVoiceService ?? GoogleVoiceService();
 
   final GoogleVoiceService _googleVoiceService;
+
+  /// Test seam: moi phong `_isWeb` trong unit test tren desktop.
+  @visibleForTesting
+  static bool isWebOverride = false;
+
+  static bool get _isWeb => isWebOverride || kIsWeb;
+
+  /// Web engine (Safari/Chrome) la uterrance bi drop im lang khi speak()
+  /// duoc goi gan dung ngay sau cancel(). Phim them mot khoang nho.
+  static const Duration _restartDelay = Duration(milliseconds: 120);
+
   static const String _voiceIdKey = 'tts_voice_id';
   static const String _voiceNameKey = 'tts_voice_real_name';
   static const String _voiceLocaleKey = 'tts_voice_real_locale';
   static const String _speechRateKey = 'tts_speech_rate';
-  // Web (Safari iPad): giong he thong (speechSynthesis) doc ngay, khong phu
-  // thuoc mang/proxy. Mobile giu Google Translate nhu cu.
-  static String get _defaultVoiceId =>
-      kIsWeb ? 'en-US-female' : 'google-translate';
+  // Web (Safari/Chrome): speechSynthesis tren web la uterrance khong bat
+  // su kien (onstart/onend) sau khi bi drop -> speak() treo, queue kiet hang.
+  // Mac dinh doc bang audio Google Translate (HTML5 audio, da xac nhan hoat
+  // dong tren Safari/Chrome); khi proxy/ mang chet thi fallback giong he thong.
+  static const String _defaultVoiceId = 'google-translate';
   static const double _defaultSpeechRate = 0.85;
 
   static const TtsVoiceOption googleVoice = TtsVoiceOption(
@@ -143,7 +155,9 @@ class TtsSettingsService {
     return (await getSelectedVoice()).id == googleVoice.id;
   }
 
-  Future<bool> speakWith(String text) async {
+  /// [speakTimeout] chi co tac dung tren web: gioi han thoi gian cho mot
+  /// chunk de khong treo vinh vien khi engine khong bat su kien (test seam).
+  Future<bool> speakWith(String text, {Duration? speakTimeout}) async {
     final clean = sanitizeForSpeech(text);
     if (clean.isEmpty) return false;
     // Chuyen doc thanh hang doi: tap don chi doc cau moi nhat, tranh
@@ -152,7 +166,7 @@ class TtsSettingsService {
     final token = _speakSeq;
     final queued = _speakQueue.then((_) async {
       if (token != _speakSeq) return false;
-      return _speakNow(clean, token);
+      return _speakNow(clean, token, speakTimeout: speakTimeout);
     });
     _speakQueue = queued.then((_) {});
     return queued;
@@ -161,7 +175,17 @@ class TtsSettingsService {
   int _speakSeq = 0;
   Future<void> _speakQueue = Future.value();
 
-  Future<bool> _speakNow(String clean, int token) async {
+  /// Gioi han thoi gian cho mot chunk tren web, theo do dai chu voi
+  /// speech rate hien tai. Engine khong bat su kien -> timeout de khoi treo
+  /// queue vinh vien.
+  static Duration _speakTimeoutFor(String chunk, double rate) {
+    final safeRate = rate < 0.5 ? 0.5 : rate;
+    const baseMs = 2000;
+    final perCharMs = (chunk.length * 130 / safeRate).round();
+    return Duration(milliseconds: baseMs + perCharMs);
+  }
+
+  Future<bool> _speakNow(String clean, int token, {Duration? speakTimeout}) async {
     if (await isGoogleVoiceSelected()) {
       if (await _googleVoiceService.speak(clean)) return true;
       // Google fail (mat mang/proxy chan) -> fallback giong he thong
@@ -171,13 +195,33 @@ class TtsSettingsService {
     try {
       await tts.stop();
     } catch (_) {}
+    if (_isWeb) {
+      await Future<void>.delayed(_restartDelay);
+    }
+    final rate = await getSpeechRate();
     var spoke = false;
     for (final chunk in chunkForSpeech(clean)) {
       if (token != _speakSeq) return spoke;
       try {
-        await tts.speak(chunk);
+        if (_isWeb) {
+          await tts.speak(chunk).timeout(
+                speakTimeout ?? _speakTimeoutFor(chunk, rate),
+              );
+        } else {
+          await tts.speak(chunk);
+        }
         spoke = true;
-      } catch (_) {
+      } catch (e) {
+        debugPrint('TTS system speak failed (chunk=$chunk): $e');
+        if (_isWeb) {
+          // Chong kiet hang: giai phong engine truoc khi cho luot doc ke tiep.
+          try {
+            await tts.stop();
+          } catch (_) {}
+          try {
+            await Future<void>.delayed(_restartDelay);
+          } catch (_) {}
+        }
         return spoke;
       }
     }

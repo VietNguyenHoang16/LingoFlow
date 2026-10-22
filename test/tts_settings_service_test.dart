@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -54,6 +56,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    TtsSettingsService.isWebOverride = false;
   });
 
   test('google-translate is the default selected voice', () async {
@@ -180,6 +183,45 @@ void main() {
     expect(applies, 1);
     expect(fake.spoken, ['one', 'two', 'three']);
   });
+
+  test('web: hung system speak times out instead of wedging the queue', () async {
+    TtsSettingsService.isWebOverride = true;
+    SharedPreferences.setMockInitialValues({'tts_voice_id': 'en-US-female'});
+    TtsEngine.testReset();
+    final fallback = _HangingTts();
+    TtsEngine.ttsFactory = () => fallback;
+    addTearDown(() => TtsEngine.ttsFactory = null);
+    final settings = TtsSettingsService(googleVoiceService: _FakeGoogleVoice());
+
+    final ok = await settings.speakWith(
+      'hello',
+      speakTimeout: const Duration(milliseconds: 50),
+    );
+
+    expect(ok, isFalse);
+  });
+
+  test('web: queue recovers and speaks the next word after a hung utterance', () async {
+    TtsSettingsService.isWebOverride = true;
+    SharedPreferences.setMockInitialValues({'tts_voice_id': 'en-US-female'});
+    TtsEngine.testReset();
+    final fallback = _FlakyHangingTts();
+    TtsEngine.ttsFactory = () => fallback;
+    addTearDown(() => TtsEngine.ttsFactory = null);
+    final settings = TtsSettingsService(googleVoiceService: _FakeGoogleVoice());
+
+    final first = await settings.speakWith(
+      'hello',
+      speakTimeout: const Duration(milliseconds: 50),
+    );
+    expect(first, isFalse);
+    expect(fallback.hungCalls, 1);
+
+    final second = await settings.speakWith('world');
+
+    expect(second, isTrue);
+    expect(fallback.spoken, ['world']);
+  });
 }
 
 class _CountingTts extends _FakeTts {
@@ -191,5 +233,29 @@ class _CountingTts extends _FakeTts {
   Future<dynamic> setLanguage(String language) async {
     onApply();
     return 1;
+  }
+}
+
+class _HangingTts extends _FakeTts {
+  @override
+  Future<dynamic> speak(String text, {bool focus = false}) {
+    // Khong bao gio ket thuc gia lap engine web khong bat su kien (onstart/onend).
+    return Completer<dynamic>().future;
+  }
+}
+
+class _FlakyHangingTts extends _FakeTts {
+  int hungCalls = 0;
+  bool _hang = true;
+
+  @override
+  Future<dynamic> speak(String text, {bool focus = false}) {
+    // Utterance dau tien bi drop im lang (khong co onstart/onend).
+    if (_hang) {
+      hungCalls++;
+      _hang = false;
+      return Completer<dynamic>().future;
+    }
+    return super.speak(text);
   }
 }
