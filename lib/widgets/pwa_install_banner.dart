@@ -135,14 +135,10 @@ class _PwaInstallBannerState extends State<PwaInstallBanner> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [theme.colorScheme.primary, theme.colorScheme.primary.withAlpha(190)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.install_mobile_rounded, color: Colors.white, size: 24),
+            child: Icon(Icons.install_mobile_rounded, color: theme.colorScheme.onPrimary, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -376,10 +372,10 @@ class IOSInstallSheet extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer]),
+                color: theme.colorScheme.primary,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.install_mobile_rounded, color: Colors.white, size: 28),
+              child: Icon(Icons.install_mobile_rounded, color: theme.colorScheme.onPrimary, size: 28),
             ),
             const SizedBox(height: 14),
             Text('Cài LingoFlow lên iPhone',

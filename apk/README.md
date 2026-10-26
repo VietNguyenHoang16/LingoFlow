@@ -14,8 +14,8 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,345,204 bytes` (20.4 MB)
-- SHA256: `DE9C4CD8A81ECD66ED2DB74D2D31B2A0BDECE7BEBFE0A4EF2047EFF98EA83891`
-- Ngày build: `26/10/2026` — tông đen thuần #000000 / trắng #FFFFFF toàn app; banner Daily nền đen chữ trắng; giữ xanh/đỏ chỉ cho phản hồi đúng–sai
+- SHA256: `0CE6566089A2DB07E6080AC76400453ACE717DD2B08689696BEA7FD8CF8C1E59`
+- Ngày build: `26/10/2026` — tông đen thuần #000000 / trắng #FFFFFF toàn app; banner Daily nền đen chữ trắng; giữ xanh/đỏ chỉ cho phản hồi đúng–sai; bỏ gradient đen→trắng tạo vùng xám loang ở thẻ hoàn thành, header danh sách/chủ đề và banner cài PWA; thang màu loại từ + mastery đổi sang thang xám trung tính không ánh xanh
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 

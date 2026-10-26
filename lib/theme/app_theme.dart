@@ -7,33 +7,33 @@ import 'package:flutter/material.dart';
 // Word type color palette (Monochrome & Muted Slate).
 // Subtle, elegant tones suitable for modern editorial learning apps.
 const Map<String, Color> _wordTypeColorsLight = {
-  'noun': Color(0xFF27272A),         // Zinc 800
-  'verb': Color(0xFF3F3F46),         // Zinc 700
-  'adjective': Color(0xFF52525B),    // Zinc 600
-  'adverb': Color(0xFF52525B),       // Zinc 600
-  'preposition': Color(0xFF71717A),  // Zinc 500
-  'conjunction': Color(0xFF71717A),  // Zinc 500
-  'pronoun': Color(0xFF3F3F46),      // Zinc 700
-  'interjection': Color(0xFF52525B), // Zinc 600
-  'phrasal_verb': Color(0xFF27272A), // Zinc 800
-  'idiom': Color(0xFF27272A),        // Zinc 800
-  'collocation': Color(0xFF3F3F46),  // Zinc 700
-  'grammar': Color(0xFF18181B),      // Zinc 900
+  'noun': Color(0xFF000000),         // Pure black
+  'verb': Color(0xFF1F1F1F),         // Neutral dark
+  'adjective': Color(0xFF3D3D3D),
+  'adverb': Color(0xFF3D3D3D),
+  'preposition': Color(0xFF5C5C5C),
+  'conjunction': Color(0xFF5C5C5C),
+  'pronoun': Color(0xFF1F1F1F),
+  'interjection': Color(0xFF3D3D3D),
+  'phrasal_verb': Color(0xFF000000),
+  'idiom': Color(0xFF000000),
+  'collocation': Color(0xFF1F1F1F),
+  'grammar': Color(0xFF000000),
 };
 
 const Map<String, Color> _wordTypeColorsDark = {
-  'noun': Color(0xFFE4E4E7),         // Zinc 200
-  'verb': Color(0xFFD4D4D8),         // Zinc 300
-  'adjective': Color(0xFFA1A1AA),    // Zinc 400
-  'adverb': Color(0xFFA1A1AA),       // Zinc 400
-  'preposition': Color(0xFF71717A),  // Zinc 500
-  'conjunction': Color(0xFF71717A),  // Zinc 500
-  'pronoun': Color(0xFFD4D4D8),      // Zinc 300
-  'interjection': Color(0xFFA1A1AA), // Zinc 400
-  'phrasal_verb': Color(0xFFE4E4E7), // Zinc 200
-  'idiom': Color(0xFFE4E4E7),        // Zinc 200
-  'collocation': Color(0xFFD4D4D8),  // Zinc 300
-  'grammar': Color(0xFFF4F4F5),      // Zinc 100
+  'noun': Color(0xFFFFFFFF),         // Pure white
+  'verb': Color(0xFFE0E0E0),
+  'adjective': Color(0xFFC2C2C2),
+  'adverb': Color(0xFFC2C2C2),
+  'preposition': Color(0xFFA3A3A3),
+  'conjunction': Color(0xFFA3A3A3),
+  'pronoun': Color(0xFFE0E0E0),
+  'interjection': Color(0xFFC2C2C2),
+  'phrasal_verb': Color(0xFFFFFFFF),
+  'idiom': Color(0xFFFFFFFF),
+  'collocation': Color(0xFFE0E0E0),
+  'grammar': Color(0xFFFFFFFF),
 };
 
 class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
@@ -70,10 +70,10 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
   });
 
   static const light = LingoFlowColors(
-    masteryNew: Color(0xFF71717A),
-    masteryLearning: Color(0xFF52525B),
-    masteryReviewing: Color(0xFF27272A),
-    masteryMastered: Color(0xFF09090B),
+    masteryNew: Color(0xFF8C8C8C),
+    masteryLearning: Color(0xFF555555),
+    masteryReviewing: Color(0xFF1F1F1F),
+    masteryMastered: Color(0xFF000000),
     cardPalettes: [
       [Color(0xFF000000), Color(0xFF000000)],
       [Color(0xFF000000), Color(0xFF000000)],
@@ -91,10 +91,10 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
   );
 
   static const dark = LingoFlowColors(
-    masteryNew: Color(0xFF71717A),
-    masteryLearning: Color(0xFFA1A1AA),
-    masteryReviewing: Color(0xFFD4D4D8),
-    masteryMastered: Color(0xFFF4F4F5),
+    masteryNew: Color(0xFF8C8C8C),
+    masteryLearning: Color(0xFFB8B8B8),
+    masteryReviewing: Color(0xFFE0E0E0),
+    masteryMastered: Color(0xFFFFFFFF),
     cardPalettes: [
       [Color(0xFF000000), Color(0xFF000000)],
       [Color(0xFF000000), Color(0xFF000000)],

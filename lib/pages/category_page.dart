@@ -208,7 +208,7 @@ class _CategoryPageState extends State<CategoryPage> {
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
-            backgroundColor: catColor,
+            backgroundColor: const Color(0xFF000000),
             leading: Padding(
               padding: const EdgeInsets.all(8),
               child: GestureDetector(
@@ -222,9 +222,13 @@ class _CategoryPageState extends State<CategoryPage> {
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [catColor, catColor.withAlpha(200)],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  // Header den thuan chu trang thay gradient xam catColor.
+                  color: const Color(0xFF000000),
+                  border: Border.all(
+                    color: theme.brightness == Brightness.dark
+                        ? theme.colorScheme.outlineVariant
+                        : const Color(0xFF000000),
+                    width: 1,
                   ),
                 ),
                 child: SafeArea(

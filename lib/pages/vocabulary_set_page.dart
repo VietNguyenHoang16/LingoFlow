@@ -1291,13 +1291,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primary.withAlpha(200),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  // Header den thuan chu trang, cung tom ca 2 che do (chu da hardcode trang).
+                  color: const Color(0xFF000000),
+                  border: Border.all(
+                    color: theme.brightness == Brightness.dark
+                        ? theme.colorScheme.outlineVariant
+                        : const Color(0xFF000000),
+                    width: 1,
                   ),
                 ),
                 child: SafeArea(

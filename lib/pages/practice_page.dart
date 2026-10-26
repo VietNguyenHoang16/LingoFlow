@@ -529,12 +529,15 @@ class _PracticePageState extends State<PracticePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  // Nen den thuan thay gradient den->trang (tao vung xam loang).
+                  color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: theme.brightness == Brightness.dark
+                        ? theme.colorScheme.outlineVariant
+                        : theme.colorScheme.primary,
+                    width: 1,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: theme.colorScheme.primary.withAlpha(76),
@@ -545,7 +548,7 @@ class _PracticePageState extends State<PracticePage> {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.celebration, size: 64, color: theme.colorScheme.secondary),
+                    Icon(Icons.celebration, size: 64, color: theme.colorScheme.onPrimary),
                     const SizedBox(height: 16),
                     Text(
                       widget.studyMode ? 'Learned!' : 'Completed!',
@@ -560,7 +563,7 @@ class _PracticePageState extends State<PracticePage> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _buildStatColumn('Score', '$_score/$_totalAnswered', theme.colorScheme.onPrimary),
-                        _buildStatColumn('Accuracy', '$percentage%', theme.colorScheme.secondary),
+                        _buildStatColumn('Accuracy', '$percentage%', theme.colorScheme.onPrimary),
                         _buildStatColumn(
                           widget.studyMode ? 'Wrong Loop' : 'Level Up',
                           widget.studyMode ? '${_totalAnswered - _score}' : '+$_masteryUps',

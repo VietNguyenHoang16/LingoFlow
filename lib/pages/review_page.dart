@@ -1695,15 +1695,15 @@ class _ReviewPageState extends State<ReviewPage>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.primaryContainer,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                // Nen den thuan thay gradient den->trang (tao vung xam loang).
+                color: theme.colorScheme.primary,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.brightness == Brightness.dark
+                      ? theme.colorScheme.outlineVariant
+                      : theme.colorScheme.primary,
+                  width: 1,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: theme.colorScheme.primary.withAlpha(76),
@@ -1717,7 +1717,7 @@ class _ReviewPageState extends State<ReviewPage>
                   Icon(
                     Icons.emoji_events,
                     size: 64,
-                    color: theme.colorScheme.secondary,
+                    color: theme.colorScheme.onPrimary,
                   ),
                   const SizedBox(height: 12),
                   Text(
