@@ -13,9 +13,9 @@ Link tải nhanh:
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,410,388 bytes` (20.4 MB)
-- SHA256: `D01ABA8E5CD41AF83172CE4CD48786B874C1D2FFB0E575B0C457A395D59E5CEE`
-- Ngày build: `22/10/2026` — cấu hình tối đa 3 API lưu theo tài khoản; import tự retry từ lỗi do AI chậm (timeout 15s, tự chuyển API, tối đa 3 lượt)
+- Kích thước: `21,345,204 bytes` (20.4 MB)
+- SHA256: `65EC2582AD2BCE43AAC7FB837A6AC37290E50A14C9837B01CEF731B11A38E29D`
+- Ngày build: `26/10/2026` — cập nhật giao diện dashboard, luyện tập, ôn tập và trang hồ sơ
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 
