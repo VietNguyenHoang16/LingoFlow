@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/bulk_word_importer.dart';
 import '../services/database_service.dart';
-import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 
 /// Modal paste text + preview + import. Trả về số từ đã insert thành công
@@ -37,11 +36,10 @@ class BulkImportDialog extends StatefulWidget {
 }
 
 class _BulkImportDialogState extends State<BulkImportDialog> {
-  static const _example = '''11 :: Work under pressure :: Làm việc dưới áp lực
-3 :: solid :: ổn, tốt :: good · reliable · decent
-1 :: apple :: quả táo
-# Mở rộng: POS :: từ :: nghĩa [:: common (tối đa 3 từ phổ biến nhất)]
-# Dòng bắt đầu # là comment''';
+  static const _example = 'serendipity, resilient, break the ice, commute';
+
+  // Bước AI lấy nghĩa + loại từ (stage 4) - hiện trước preview.
+  static const int _stageAnalyzing = 4;
 
   final _controller = TextEditingController();
   final _importer = BulkWordImporter();
@@ -56,6 +54,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   int _errorCount = 0;
   int _duplicateCount = 0;
 
+  int _analyzeTotal = 0;
   int _done = 0;
   int _total = 0;
   int _fetched = 0;
@@ -76,21 +75,37 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   }
 
   Future<void> _goPreview() async {
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _fatalError = null;
+      _stage = _stageAnalyzing;
+      _analyzeTotal = 0;
+    });
     try {
-      final parsed = _importer.parseLines(_controller.text);
+      // 1. Tach danh sach tu + bo tu da co (nhanh, 1 request DB).
+      final parsed = _importer.parseWords(_controller.text);
       final checked = await _importer.checkDuplicates(widget.userId, parsed);
-      _applyCounts(checked);
       if (!mounted) return;
       setState(() {
         _lines = checked;
+        _analyzeTotal =
+            checked.where((l) => l.error == null).length;
+        _applyCounts(checked);
+      });
+      // 2. AI lay nghia tieng Viet + loai tu cho tung tu con lai.
+      final enriched = await _importer.enrichMeanings(widget.userId, checked);
+      if (!mounted) return;
+      setState(() {
+        _lines = enriched;
+        _applyCounts(enriched);
         _stage = 1;
         _isProcessing = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _fatalError = e.toString();
+        _fatalError = e.toString().replaceFirst('Exception: ', '');
+        _stage = 0;
         _isProcessing = false;
       });
     }
@@ -257,6 +272,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
         return _buildImporting(theme, key: const ValueKey(2));
       case 3:
         return _buildResult(theme, key: const ValueKey(3));
+      case _stageAnalyzing:
+        return _buildAnalyzing(theme, key: const ValueKey(_stageAnalyzing));
       default:
         return const SizedBox.shrink();
     }
@@ -267,7 +284,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       key: key,
       children: [
         Text(
-          'Mỗi dòng: số_POS :: từ :: nghĩa [:: common (tối đa 3 từ)]. Hoặc dùng || làm ngăn cách, hoặc giữ nguyên từ / POS / nghĩa cũ (không synonyms). Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
+          'Dán danh sách từ, ngăn cách bằng dấu phẩy. AI tự lấy nghĩa tiếng Việt, phân loại từ và tạo ví dụ cho từng từ. Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withAlpha(150),
             fontFamily: 'Be Vietnam Pro',
@@ -294,8 +311,6 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             isDense: true,
           ),
         ),
-        const SizedBox(height: 16),
-        _PosReference(),
         if (_fatalError != null) ...[
           const SizedBox(height: 12),
           Text(
@@ -304,6 +319,48 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildAnalyzing(ThemeData theme, {Key? key}) {
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.auto_awesome_rounded,
+            size: 44,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _analyzeTotal == 0
+                ? 'Đang đọc danh sách từ…'
+                : 'AI đang lấy nghĩa và phân loại $_analyzeTotal từ…',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'Be Vietnam Pro',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Thường mất 10–30 giây tùy số lượng từ.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withAlpha(140),
+              fontFamily: 'Be Vietnam Pro',
+            ),
+          ),
+          const SizedBox(height: 18),
+          const SizedBox(
+            width: 180,
+            child: LinearProgressIndicator(minHeight: 6),
+          ),
+        ],
+      ),
     );
   }
 
@@ -317,10 +374,37 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           runSpacing: 4,
           children: [
             _stat('Hợp lệ', _validCount, theme.colorScheme.primary),
-            _stat('Lỗi định dạng', _errorCount, theme.colorScheme.error),              _stat('Trùng từ', _duplicateCount, theme.colorScheme.onSurfaceVariant),
+            _stat('Không dùng được', _errorCount, theme.colorScheme.error),
+            _stat('Trùng từ', _duplicateCount, theme.colorScheme.onSurfaceVariant),
             _stat('Tổng dòng', _lines.length, theme.colorScheme.onSurface),
           ],
         ),
+        if (_errorCount > 0) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.error.withAlpha(15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    size: 16, color: theme.colorScheme.error),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '$_errorCount từ không dùng được sẽ bị bỏ qua (xem lỗi bên dưới).',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'Be Vietnam Pro',
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Expanded(
           child: Container(
@@ -529,7 +613,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           if (_errorCount + _duplicateCount > 0) ...[
             const SizedBox(height: 4),
             Text(
-              'Bỏ qua ${_errorCount + _duplicateCount} dòng lỗi.',
+              'Đã bỏ qua ${_errorCount + _duplicateCount} từ '
+              '($_duplicateCount đã có, $_errorCount không dùng được).',
+              textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withAlpha(150),
                 fontFamily: 'Be Vietnam Pro',
@@ -583,8 +669,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _isProcessing ? null : _goPreview,
-              icon: const Icon(Icons.visibility_rounded, size: 18),
-              label: const Text('Kiểm tra'),
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: const Text('Phân tích bằng AI'),
             ),
           ],
         );
@@ -610,6 +696,16 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             TextButton(
               onPressed: () => setState(() => _cancelled = true),
               child: const Text('Hủy import'),
+            ),
+          ],
+        );
+      case _stageAnalyzing:
+        return Row(
+          children: [
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(0),
+              child: const Text('Hủy'),
             ),
           ],
         );
@@ -790,62 +886,6 @@ class _PreviewRow extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PosReference extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final entries = kPosNumberToKey.entries.toList();
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bảng số POS',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'Be Vietnam Pro',
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface.withAlpha(150),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: entries.map((e) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${e.key}',
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    kWordTypeLabel[e.value] ?? e.value,
-                    style: const TextStyle(
-                      fontFamily: 'Be Vietnam Pro',
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
         ],
       ),
     );

@@ -42,6 +42,7 @@ Future<EditWordResult?> showEditWordSheet({
   bool showWordType = true,
   bool showDetails = true,
   bool requireMeaning = true,
+  bool allowEmptyMeaningOnWordChange = false,
 }) {
   // Controller do State của body sở hữu và dispose (KHÔNG dispose trong
   // whenComplete: route pop xong future hoàn thành ngay nhưng animation
@@ -66,6 +67,7 @@ Future<EditWordResult?> showEditWordSheet({
         showWordType: showWordType,
         showDetails: showDetails,
         requireMeaning: requireMeaning,
+        allowEmptyMeaningOnWordChange: allowEmptyMeaningOnWordChange,
       ),
     ),
   );
@@ -82,6 +84,7 @@ class _EditWordSheetBody extends StatefulWidget {
   final bool showWordType;
   final bool showDetails;
   final bool requireMeaning;
+  final bool allowEmptyMeaningOnWordChange;
 
   const _EditWordSheetBody({
     required this.initialWord,
@@ -94,6 +97,7 @@ class _EditWordSheetBody extends StatefulWidget {
     required this.showWordType,
     required this.showDetails,
     required this.requireMeaning,
+    this.allowEmptyMeaningOnWordChange = false,
   });
 
   @override
@@ -141,10 +145,13 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
   void _save() {
     final w = wordCtl.text.trim();
     final m = meaningCtl.text.trim();
+    // Đổi Từ -> cho phép để trống Nghĩa, AI sẽ lấy nghĩa mới.
+    final meaningOptional = widget.allowEmptyMeaningOnWordChange &&
+        w != widget.initialWord.trim();
     final commonCount = _countCommon(commonCtl.text);
     final err = w.isEmpty
         ? 'Vui lòng nhập từ'
-        : (widget.requireMeaning && m.isEmpty
+        : (widget.requireMeaning && !meaningOptional && m.isEmpty
             ? 'Vui lòng nhập nghĩa'
             : (commonCount > 3 ? 'Common tối đa 3 từ (hiện $commonCount)' : null));
     if (err != null) {
@@ -210,7 +217,12 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
             TextField(
               controller: meaningCtl,
               textInputAction: TextInputAction.next,
-              decoration: _dense('Nghĩa', 'Nhập nghĩa'),
+              decoration: _dense(
+                'Nghĩa',
+                widget.allowEmptyMeaningOnWordChange
+                    ? 'Để trống để AI lấy nghĩa mới'
+                    : 'Nhập nghĩa',
+              ),
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 10),

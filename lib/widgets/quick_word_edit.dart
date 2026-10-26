@@ -55,16 +55,19 @@ class _QuickWordDialogState extends State<_QuickWordDialog> {
   void _save() {
     final nextWord = wordCtl.text.trim();
     final nextMeaning = meaningCtl.text.trim();
-    if (nextWord.isEmpty || nextMeaning.isEmpty) {
+    final wordChanged = nextWord != widget.word.trim();
+    // Doi Tu -> nghia de trong duoc, AI se lay nghia moi.
+    final requireMeaning = !wordChanged;
+    if (nextWord.isEmpty || (requireMeaning && nextMeaning.isEmpty)) {
       setState(() {
         wordError = nextWord.isEmpty ? 'Vui lòng nhập từ' : null;
-        meaningError = nextMeaning.isEmpty ? 'Vui lòng nhập nghĩa' : null;
+        meaningError =
+            requireMeaning && nextMeaning.isEmpty ? 'Vui lòng nhập nghĩa' : null;
       });
       return;
     }
     FocusScope.of(context).unfocus();
-    if (nextWord == widget.word.trim() &&
-        nextMeaning == widget.meaning.trim()) {
+    if (!wordChanged && nextMeaning == widget.meaning.trim()) {
       Navigator.pop(context);
       return;
     }
@@ -99,6 +102,8 @@ class _QuickWordDialogState extends State<_QuickWordDialog> {
             decoration: InputDecoration(
               labelText: 'Nghĩa',
               hintText: 'Nhập nghĩa',
+              helperText: 'Đổi từ thì có thể để trống, AI tự lấy nghĩa mới',
+              helperMaxLines: 2,
               border: const OutlineInputBorder(),
               errorText: meaningError,
             ),

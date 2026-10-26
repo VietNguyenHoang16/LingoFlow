@@ -42,7 +42,7 @@ void main() {
     expect(find.text('Sửa từ & nghĩa'), findsNothing);
   });
 
-  testWidgets('nhap rong -> hien loi ca 2 o va khong dong', (tester) async {
+  testWidgets('nhap rong tu -> bao loi tu va khong dong', (tester) async {
     WordEditResult? got;
     var closed = false;
     await tester.pumpWidget(opener((r) {
@@ -53,15 +53,45 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '');
-    await tester.enterText(find.byType(TextField).last, '');
     await tester.tap(find.widgetWithText(FilledButton, 'Lưu'));
     await tester.pump();
 
     expect(find.text('Vui lòng nhập từ'), findsOneWidget);
-    expect(find.text('Vui lòng nhập nghĩa'), findsOneWidget);
     expect(find.text('Sửa từ & nghĩa'), findsOneWidget);
     expect(closed, isFalse);
     expect(got, isNull);
+  });
+
+  testWidgets('khong doi tu ma xoa nghia -> van bat nhap nghia', (tester) async {
+    WordEditResult? got;
+    await tester.pumpWidget(opener((r) => got = r));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.tap(find.widgetWithText(FilledButton, 'Lưu'));
+    await tester.pump();
+
+    expect(find.text('Vui lòng nhập nghĩa'), findsOneWidget);
+    expect(got, isNull);
+  });
+
+  testWidgets('doi tu + de trong nghia -> tra ve nghia rong cho AI dien', (
+    tester,
+  ) async {
+    WordEditResult? got;
+    await tester.pumpWidget(opener((r) => got = r));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'apples');
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.tap(find.widgetWithText(FilledButton, 'Lưu'));
+    await tester.pumpAndSettle();
+
+    expect(got?.word, 'apples');
+    expect(got?.meaning, '');
+    expect(find.text('Sửa từ & nghĩa'), findsNothing);
   });
 
   testWidgets('Huy -> dong va tra ve null (khong doi du lieu)', (tester) async {

@@ -486,6 +486,47 @@ function normalizeGeneratedExample(parsed, word) {
   return { sentence, translation, target };
 }
 
+// Loai tu ma app ho tro (trung voi CATEGORIES cua api va kWordTypeKeys cua app).
+const WORD_TYPES = [
+  'noun', 'verb', 'adjective', 'adverb', 'preposition',
+  'conjunction', 'pronoun', 'interjection', 'phrasal_verb',
+  'idiom', 'collocation', 'grammar',
+];
+
+// Nghia tieng Viet + loai tu cho mot tu nguoi dung dan vao khi import.
+function buildWordInfoPrompt({ word }) {
+  const w = String(word || '').trim();
+  return `You classify ONE English word or phrase for a Vietnamese learner.
+
+Rules:
+- "meaning" is a short, natural Vietnamese meaning (2-8 words). No part of speech tag, no quotes, no explanation, no English.
+- "wordType" is exactly one value from this list: ${WORD_TYPES.join(', ')}.
+  * phrasal_verb for two-word verbs (give up, look after)
+  * idiom for idioms and fixed figurative expressions
+  * collocation for common word pairs or short phrases that are not idioms
+  * grammar for grammar patterns or structures
+  * interjection for exclamations (wow, oops)
+- Pick the meaning a learner most needs first; do not list several senses.
+
+Word: ${w}
+
+Reply with JSON only: {"meaning":"...","wordType":"..."}`;
+}
+
+function normalizeGeneratedWordInfo(parsed, word) {
+  const meaning = clean(parsed?.meaning, 200);
+  if (!meaning) throw new Error('AI returned an empty meaning for word info');
+  const rawType = String(parsed?.wordType || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const wordType = rawType === 'exclamation' ? 'interjection' : rawType;
+  if (!WORD_TYPES.includes(wordType)) {
+    throw new Error(`AI returned an unknown word type for word info: ${rawType}`);
+  }
+  return { word: String(word || '').trim(), meaning, wordType };
+}
+
 function exampleErrorMessage(error) {
   const raw = String(error?.message || error || '');
   if (/Missing GEMINI_API_KEY/i.test(raw)) {
@@ -506,6 +547,9 @@ function exampleErrorMessage(error) {
   if (/429|quota|rate limit|too many/i.test(raw)) {
     return 'AI đang quá tải. Vui lòng thử lại sau ít phút.';
   }
+  if (/word info|unknown word type|empty meaning/i.test(raw)) {
+    return 'AI không lấy được nghĩa cho từ này.';
+  }
   if (/empty|missing the target|length|duplicat|json|unexpected|invalid/i.test(raw)) {
     return 'AI trả về câu ví dụ không hợp lệ. Vui lòng thử lại.';
   }
@@ -518,13 +562,9 @@ function createAiChain(rawConfigs) {
   const timeoutCounts = new Map();
   let preferred = 0;
 
-  async function generate(
-    { word, meaning, wordType, topicTag },
-    { timeoutMs = 10000, used, deadline } = {},
-  ) {
-    const w = String(word || '').trim();
-    if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
-    const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
+  // Goi lan luot cac provider da cau hinh, roi den Gemini tu env. `parse` bien
+  // JSON tho thanh ket qua cuoi va co the nem loi de thu provider ke tiep.
+  async function run(prompt, parse, { timeoutMs = 10000, deadline } = {}) {
     let lastError;
     let deadlineHit = false;
 
@@ -558,15 +598,10 @@ function createAiChain(rawConfigs) {
           prompt,
           timeoutMs: attemptMs,
         });
-        const example = normalizeGeneratedExample(parseJsonContent(raw), w);
-        if (used instanceof Set) {
-          const key = normalizeSentenceKey(example.sentence);
-          if (used.has(key)) throw new Error('AI example is duplicated in this batch');
-          used.add(key);
-        }
+        const value = parse(parseJsonContent(raw));
         preferred = index;
         timeoutCounts.delete(index);
-        return example;
+        return value;
       } catch (error) {
         lastError = error;
         if (isTimeoutError(error)) {
@@ -586,13 +621,7 @@ function createAiChain(rawConfigs) {
         if (!attemptMs) break;
         try {
           const parsed = await callGemini({ apiKey, modelName, prompt, timeoutMs: attemptMs });
-          const example = normalizeGeneratedExample(parsed, w);
-          if (used instanceof Set) {
-            const key = normalizeSentenceKey(example.sentence);
-            if (used.has(key)) throw new Error('AI example is duplicated in this batch');
-            used.add(key);
-          }
-          return example;
+          return parse(parsed);
         } catch (error) {
           lastError = error;
         }
@@ -603,7 +632,40 @@ function createAiChain(rawConfigs) {
     throw new Error(exampleErrorMessage(lastError || new Error('Missing GEMINI_API_KEY')));
   }
 
-  return { generate, configs };
+  async function generate(
+    { word, meaning, wordType, topicTag },
+    { timeoutMs = 10000, used, deadline } = {},
+  ) {
+    const w = String(word || '').trim();
+    if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
+    const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
+    return run(
+      prompt,
+      (parsed) => {
+        const example = normalizeGeneratedExample(parsed, w);
+        if (used instanceof Set) {
+          const key = normalizeSentenceKey(example.sentence);
+          if (used.has(key)) throw new Error('AI example is duplicated in this batch');
+          used.add(key);
+        }
+        return example;
+      },
+      { timeoutMs, deadline },
+    );
+  }
+
+  // Nghia tieng Viet + loai tu cho tu nguoi dung dan vao (import / sua tu).
+  async function generateWordInfo({ word }, { timeoutMs = 10000, deadline } = {}) {
+    const w = String(word || '').trim();
+    if (!w) throw new Error('Thiếu từ để lấy nghĩa.');
+    return run(
+      buildWordInfoPrompt({ word: w }),
+      (parsed) => normalizeGeneratedWordInfo(parsed, w),
+      { timeoutMs, deadline },
+    );
+  }
+
+  return { generate, generateWordInfo, configs };
 }
 
 async function generateExample(input, { timeoutMs = 10000, used, aiConfigs, chain } = {}) {
@@ -634,7 +696,9 @@ async function testAiProvider(raw, { timeoutMs = 15000 } = {}) {
 
 module.exports = {
   TEMPLATE_BANK,
+  WORD_TYPES,
   buildExamplePrompt,
+  buildWordInfoPrompt,
   callOpenAiCompatible,
   createAiChain,
   exampleErrorMessage,
@@ -642,6 +706,7 @@ module.exports = {
   generateExample,
   normalizeChatEndpoint,
   normalizeGeneratedExample,
+  normalizeGeneratedWordInfo,
   normalizeSentenceKey,
   parseJsonContent,
   pickUniqueExample,

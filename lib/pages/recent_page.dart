@@ -8,6 +8,7 @@ import '../widgets/edit_word_sheet.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
 import '../services/word_details_parser.dart';
+import '../services/word_enrichment_service.dart';
 import 'practice_page.dart';
 import 'profile_page.dart';
 import 'review_page.dart';
@@ -24,11 +25,17 @@ class RecentPage extends StatefulWidget {
 class _RecentPageState extends State<RecentPage> {
   final DatabaseService _db = DatabaseService();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
+  final WordEnrichmentService _enrichment = WordEnrichmentService();
   final Set<int> _flippedWords = {};
   final Set<int> _selectedWords = {};
   StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   List<Map<String, dynamic>> _words = [];
+  // Kết quả tìm trên toàn bộ từ đã lưu (server), tách khỏi 20 từ gần nhất.
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+  String? _searchError;
+  int _searchSeq = 0;
   Map<String, dynamic> _reviewStats = const {};
   bool _isLoading = true;
   bool _isSelectionMode = false;
@@ -44,17 +51,64 @@ class _RecentPageState extends State<RecentPage> {
     _loadReviewStats();
     _searchController.addListener(_onSearchChanged);
     // Them/sua/xoa tu o trang khac -> tai lai nen, khong can doi tab.
-    _wordChangeSub =
-        WordChangeBus().stream.listen((_) { _loadRecent(background: true); _loadReviewStats(); });
+    _wordChangeSub = WordChangeBus().stream.listen((_) {
+      _refreshActiveList();
+      _loadReviewStats();
+    });
   }
 
   void _onSearchChanged() {
-    // Debounce de khong rebuild ca trang moi ky tu.
+    // Debounce để không gọi server mỗi ký tự.
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      _searchSeq++;
+      setState(() {
+        _searchQuery = '';
+        _searchResults = [];
+        _isSearching = false;
+        _searchError = null;
+      });
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+      _runSearch(query);
     });
+  }
+
+  /// Tìm trên toàn bộ từ đã lưu (word / nghĩa / nhãn chủ đề) thay vì chỉ lọc
+  /// trong 20 từ gần nhất đang hiện ở danh sách.
+  Future<void> _runSearch(String query) async {
+    final seq = ++_searchSeq;
+    setState(() {
+      _searchQuery = query;
+      _isSearching = true;
+      _searchError = null;
+    });
+    try {
+      final results = await _db.searchWord(widget.userId, query);
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _isSearching = false;
+        _searchError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  /// Đang tìm kiếm -> kết quả toàn bộ từ; ngược lại danh sách 20 từ gần nhất.
+  Future<void> _refreshActiveList() async {
+    if (_searchQuery.isEmpty) {
+      await _loadRecent(background: true);
+    } else {
+      await _runSearch(_searchQuery);
+    }
   }
 
   @override
@@ -65,13 +119,8 @@ class _RecentPageState extends State<RecentPage> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredWords {
-    if (_searchQuery.isEmpty) return _words;
-    return _words.where((w) =>
-      (w['word'] as String? ?? '').toLowerCase().contains(_searchQuery) ||
-      (w['meaning'] as String? ?? '').toLowerCase().contains(_searchQuery)
-    ).toList();
-  }
+  List<Map<String, dynamic>> get _filteredWords =>
+      _searchQuery.isEmpty ? _words : _searchResults;
 
   Future<void> _speak(String text) async {
     try {
@@ -185,7 +234,7 @@ class _RecentPageState extends State<RecentPage> {
           SnackBar(content: Text('Đã xóa "$wordText"')),
         );
       }
-      await _loadRecent();
+      await _refreshActiveList();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -279,46 +328,102 @@ class _RecentPageState extends State<RecentPage> {
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       showWordType: false,
       showDetails: false,
+      allowEmptyMeaningOnWordChange: true,
     );
     if (result == null || !mounted) return;
 
     final id = word['id'] as int;
     final previous = Map<String, dynamic>.from(word);
+    final wordChanged = result.word != (previous['word'] ?? '').toString();
+
+    // Đổi Từ -> tự lấy phát âm / chi tiết từ từ điển, nghĩa + loại từ từ AI
+    // (giống màn Review). Hai request chạy song song.
+    WordEnrichment? enrichment;
+    AiWordInfo? aiInfo;
+    if (wordChanged) {
+      final enrichmentFuture = _enrichment.fetch(result.word);
+      final aiFuture = _enrichment.fetchAiInfo(result.word);
+      enrichment = await enrichmentFuture;
+      aiInfo = await aiFuture;
+      if (!mounted) return;
+    }
+
+    final meaning = (aiInfo?.meaning.isNotEmpty ?? false)
+        ? aiInfo!.meaning
+        : result.meaning;
+    if (meaning.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không lấy được nghĩa mới. Vui lòng nhập nghĩa.'),
+        ),
+      );
+      return;
+    }
+
+    final pronunciation = (enrichment?.pronunciation.isNotEmpty ?? false)
+        ? enrichment!.pronunciation
+        : result.pronunciation;
+    final fullDetails = (enrichment?.fullDetails.isNotEmpty ?? false)
+        ? enrichment!.fullDetails
+        : result.fullDetails;
+    final wordType = (aiInfo?.wordType.isNotEmpty ?? false)
+        ? aiInfo!.wordType
+        : ((enrichment?.wordType.isNotEmpty ?? false)
+            ? enrichment!.wordType
+            : (previous['word_type'] ?? '').toString());
+
     // Optimistic update: vá tại chỗ, không reload toàn trang nên không giật.
     setState(() {
-      word['word'] = result.word;
-      word['meaning'] = result.meaning;
-      word['pronunciation'] = result.pronunciation;
-      word['topic_tag'] = result.topicTag;
-      word['common_synonyms'] = result.commonSynonyms;
+      _patchWord(id, {
+        ...previous,
+        'word': result.word,
+        'meaning': meaning,
+        'pronunciation': pronunciation,
+        'full_details': fullDetails,
+        'word_type': wordType,
+        'topic_tag': result.topicTag,
+        'common_synonyms': result.commonSynonyms,
+      });
     });
     _flippedWords.remove(id);
-    // TEMP-DEBUG topic_tag
-    debugPrint('DBG recent save: wordId=$id topicTag=[${result.topicTag}]');
     try {
       await _db.updateVocabularyWord(
         wordId: id,
         word: result.word,
-        meaning: result.meaning,
-        pronunciation: result.pronunciation,
-        wordType: (previous['word_type'] as String?)?.trim() ?? '',
+        meaning: meaning,
+        pronunciation: pronunciation,
+        fullDetails: fullDetails,
+        wordType: wordType,
         topicTag: result.topicTag,
         commonSynonyms: result.commonSynonyms,
       );
-      // Đồng bộ nền để khớp server, giữ nguyên vị trí cuộn.
-      await _loadRecent(background: true);
+      // Đồng bộ nền để khớp server (ví dụ mới), giữ nguyên vị trí cuộn.
+      await _refreshActiveList();
       WordChangeBus().notifyChanged('edit-word');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              wordChanged ? 'Đã sửa "${result.word}" (AI cập nhật nghĩa + loại từ)' : 'Đã sửa!',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       // Rollback khi lỗi mạng.
       if (mounted) {
-        setState(() {
-          final i = _words.indexWhere((w) => w['id'] == id);
-          if (i != -1) _words[i] = previous;
-        });
+        setState(() => _patchWord(id, previous));
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loi: $e')));
       }
     }
+  }
+
+  /// Cập nhật row theo id ở cả danh sách gần nhất và kết quả tìm kiếm.
+  void _patchWord(int id, Map<String, dynamic> row) {
+    final i = _words.indexWhere((w) => w['id'] == id);
+    if (i != -1) _words[i] = row;
+    final j = _searchResults.indexWhere((w) => w['id'] == id);
+    if (j != -1) _searchResults[j] = row;
   }
 
   void _toggleSelectionMode() {
@@ -340,7 +445,8 @@ class _RecentPageState extends State<RecentPage> {
 
   void _startPractice() {
     if (_selectedWords.isEmpty) return;
-    final selected = _words.where((w) => _selectedWords.contains(w['id'] as int)).toList();
+    final selected =
+        _filteredWords.where((w) => _selectedWords.contains(w['id'] as int)).toList();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -788,6 +894,47 @@ class _RecentPageState extends State<RecentPage> {
 
   Widget _buildList(ThemeData theme) {
     final filtered = _filteredWords;
+    if (_searchError != null) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 100),
+          Center(
+            child: Text(_searchError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                color: theme.colorScheme.error, fontSize: 15,
+              )),
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () => _runSearch(_searchQuery),
+              child: const Text('Thử lại'),
+            ),
+          ),
+        ],
+      );
+    }
+    if (filtered.isEmpty && _isSearching) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 80),
+          Center(
+            child: CircularProgressIndicator(color: theme.colorScheme.primary),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text('Đang tìm trong toàn bộ từ đã lưu…',
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                color: theme.colorScheme.onSurfaceVariant, fontSize: 14,
+              )),
+          ),
+        ],
+      );
+    }
     if (filtered.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),

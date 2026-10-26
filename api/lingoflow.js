@@ -594,6 +594,55 @@ async function handleAction(action, data) {
       return rows.map((row) => row.w);
     }
 
+    // Nghia tieng Viet + loai tu cho danh sach tu nguoi dung dan vao (import).
+    // Moi tu loi duoc tra rieng trong `error` de client bo qua va bao lai.
+    case 'enrichWords': {
+      const rawWords = Array.isArray(data.words) ? data.words : [];
+      const words = [];
+      const seen = new Set();
+      for (const raw of rawWords) {
+        const word = String(raw || '').trim().slice(0, 100);
+        if (!word) continue;
+        const key = word.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        words.push(word);
+        if (words.length >= 60) break;
+      }
+      if (words.length === 0) return [];
+
+      const chain = createAiChain(await getUserAiConfigs(data.userId));
+      const deadline = Date.now() + BULK_AI_BUDGET_MS;
+      const results = [];
+      let cursor = 0;
+      async function worker() {
+        while (true) {
+          const index = cursor;
+          cursor += 1;
+          if (index >= words.length) return;
+          const word = words[index];
+          try {
+            const info = await chain.generateWordInfo(
+              { word },
+              { timeoutMs: BULK_AI_TIMEOUT_MS, deadline },
+            );
+            results[index] = { word, meaning: info.meaning, wordType: info.wordType };
+          } catch (error) {
+            results[index] = { word, meaning: '', wordType: '', error: error.message };
+          }
+        }
+      }
+      await Promise.all(
+        Array.from({ length: Math.min(BULK_AI_CONCURRENCY, words.length) }, worker),
+      );
+      return words.map((word, index) => results[index] || {
+        word,
+        meaning: '',
+        wordType: '',
+        error: 'Hết thời gian lấy nghĩa.',
+      });
+    }
+
     case 'bulkAddWords': {
       const items = Array.isArray(data.words) ? data.words : [];
       if (items.length === 0) return { insertedCount: 0, failed: [] };
@@ -1133,27 +1182,24 @@ async function handleAction(action, data) {
       };
     }
 
+    // Tim kiem tren toan bo tu da luu cua user (word / meaning / topic_tag).
     case 'searchWord': {
+      const q = String(data.query || '').trim().toLowerCase();
+      if (!q) return [];
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag, vl.id AS list_id, vl.name AS list_name,
-                vl.category AS category
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+                vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.created_at, vl.name AS list_name, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND (LOWER(vw.word) LIKE LOWER($2) OR LOWER(vw.topic_tag) LIKE LOWER($2))
-         ORDER BY vw.word ASC`,
-        [data.userId, '%' + (data.query || '') + '%'],
+         WHERE vl.user_id = $1
+               AND (LOWER(vw.word) LIKE $2 OR LOWER(vw.meaning) LIKE $2 OR LOWER(vw.topic_tag) LIKE $2)
+         ORDER BY vw.word ASC
+         LIMIT 200`,
+        [data.userId, `%${q}%`],
       );
-      return rows.map((row) => ({
-        id: asInt(row.id),
-        word: row.word || '',
-        meaning: row.meaning || '',
-        word_type: row.word_type || '',
-        topic_tag: row.topic_tag || '',
-    topic_tag: row.topic_tag || '',
-        list_id: asInt(row.list_id),
-        list_name: row.list_name || '',
-        category: row.category || '',
-      }));
+      return rows.map(mapWordRow);
     }
 
     case 'findWordByText': {

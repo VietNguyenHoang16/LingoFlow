@@ -19,6 +19,7 @@ void main() {
     Future<void> Function(List<Map<String, dynamic>> requests) check, {
     bool failUpdate = false,
     bool dictionaryMissing = false,
+    bool aiEnrichFails = false,
     Completer<void>? updateGate,
   }) async {
     SharedPreferences.setMockInitialValues({});
@@ -59,6 +60,26 @@ void main() {
       }
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       requests.add(body);
+      if (body['action'] == 'enrichWords') {
+        if (aiEnrichFails) {
+          return http.Response(
+            jsonEncode({'data': []}),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        final words = ((body['data'] as Map)['words'] as List).cast<String>();
+        return http.Response(
+          jsonEncode({
+            'data': [
+              for (final w in words)
+                {'word': w, 'meaning': 'nghĩa AI của $w', 'wordType': 'verb'},
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
       if (body['action'].toString().startsWith('get')) {
         return http.Response(
           jsonEncode({
@@ -213,7 +234,7 @@ void main() {
     });
   });
 
-  testWidgets('doi tu: lay phat am + chi tiet + loai tu va luu day du', (
+  testWidgets('doi tu: AI lay lai nghia + loai tu, tu dien lay phat am', (
     tester,
   ) async {
     await scenario(tester, (requests) async {
@@ -222,6 +243,7 @@ void main() {
       await tester.enterText(dialogMeaningField(), 'những quả táo');
       await save(tester);
 
+      expect(actions(requests, 'enrichWords'), hasLength(1));
       final dictionary = actions(requests, 'dictionary').single;
       expect((dictionary['url'] as String).contains('/en/apples'), isTrue);
 
@@ -229,9 +251,10 @@ void main() {
       final data = update['data'] as Map<String, dynamic>;
       expect(data['wordId'], 11);
       expect(data['word'], 'apples');
-      expect(data['meaning'], 'những quả táo');
+      // Nghia + loai tu do AI reclassify, khong dung nghia go tay.
+      expect(data['meaning'], 'nghĩa AI của apples');
+      expect(data['wordType'], 'verb');
       expect(data['pronunciation'], 'ˈæp.əl');
-      expect(data['wordType'], 'noun');
       expect(data['topicTag'], 'food');
       expect(data['commonSynonyms'], 'fruit');
       expect(
@@ -241,10 +264,48 @@ void main() {
       expect(actions(requests, 'updateVocabularyWordDetails'), isEmpty);
       expect(actions(requests, 'deleteVocabularyWord'), isEmpty);
 
-      expect(find.text('những quả táo'), findsOneWidget);
-      expect(find.textContaining('từ từ điển'), findsOneWidget);
+      expect(find.text('nghĩa AI của apples'), findsOneWidget);
+      expect(find.textContaining('Đã cập nhật "apples"'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  testWidgets('doi tu + de trong nghia: AI tu lay nghia moi va luu', (
+    tester,
+  ) async {
+    await scenario(tester, (requests) async {
+      await openEdit(tester);
+      await tester.enterText(dialogWordField(), 'apples');
+      await tester.enterText(dialogMeaningField(), '');
+      await save(tester);
+
+      final data = actions(requests, 'updateVocabularyWord').single['data']
+          as Map<String, dynamic>;
+      expect(data['meaning'], 'nghĩa AI của apples');
+      expect(data['wordType'], 'verb');
+      expect(find.text('nghĩa AI của apples'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('doi tu + de trong nghia + AI loi: khong luu, bao loi', (
+    tester,
+  ) async {
+    await scenario(
+      tester,
+      (requests) async {
+        await openEdit(tester);
+        await tester.enterText(dialogWordField(), 'apples');
+        await tester.enterText(dialogMeaningField(), '');
+        await save(tester);
+
+        expect(actions(requests, 'updateVocabularyWord'), isEmpty);
+        expect(find.textContaining('Không lấy được nghĩa mới'), findsOneWidget);
+        expect(find.text('quả táo'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      aiEnrichFails: true,
+    );
   });
 
   testWidgets('doi tu: dap an da go va dau sai duoc reset', (tester) async {
@@ -280,16 +341,17 @@ void main() {
         final data = actions(requests, 'updateVocabularyWord').single['data']
             as Map<String, dynamic>;
         expect(data['word'], 'zzzzz');
+        // Khong co du lieu moi -> giu nghia da go + phat am / loai tu cu.
         expect(data['meaning'], 'nghĩa mới');
-        // Khong co du lieu moi -> giu nguyen phat am / loai tu cu.
         expect(data['pronunciation'], 'ˈæp.əl');
         expect(data['wordType'], 'noun');
         expect(data['fullDetails'], '');
         expect(find.text('nghĩa mới'), findsOneWidget);
-        expect(find.textContaining('chưa lấy được'), findsOneWidget);
+        expect(find.textContaining('Đã cập nhật "zzzzz"'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
       dictionaryMissing: true,
+      aiEnrichFails: true,
     );
   });
 
@@ -345,16 +407,20 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
-        await tester.longPress(find.text('quả táo'), warnIfMissed: false);
+        await tester.longPress(
+          find.text('nghĩa AI của apples'),
+          warnIfMissed: false,
+        );
         await tester.pump();
         expect(actions(requests, 'updateVocabularyWord'), hasLength(1));
         expect(actions(requests, 'updateWordReview'), isEmpty);
 
         gate.complete();
         await tester.pumpAndSettle();
-        // Luu xong: bao thanh cong, nghia khong doi (chi doi Tu).
+        // Luu xong: bao thanh cong, nghia duoc AI cap nhat.
         expect(find.textContaining('Đã cập nhật "apples"'), findsOneWidget);
-        expect(find.text('quả táo'), findsOneWidget);
+        expect(find.text('nghĩa AI của apples'), findsOneWidget);
+        expect(find.text('quả táo'), findsNothing);
         expect(tester.takeException(), isNull);
       },
       updateGate: gate,

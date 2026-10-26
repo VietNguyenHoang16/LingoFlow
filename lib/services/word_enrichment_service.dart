@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'database_service.dart';
 import 'dictionary_service.dart';
 import 'word_type_classifier.dart';
 
@@ -29,6 +30,7 @@ class WordEnrichmentService {
   WordEnrichmentService._internal();
 
   final DictionaryService _dict = DictionaryService();
+  final DatabaseService _db = DatabaseService();
 
   /// Gioi han 3 definition moi loai tu - dong bo voi DictionaryService.
   static const int _maxDefinitionsPerType = 3;
@@ -50,6 +52,22 @@ class WordEnrichmentService {
       wordType: buildWordTypes(info['types']),
     );
     return enrichment.isEmpty ? null : enrichment;
+  }
+
+  /// Nghia tieng Viet + loai tu do AI phan loai (server action `enrichWords`).
+  /// Loi mang / AI khong tra loi -> null.
+  Future<AiWordInfo?> fetchAiInfo(String word) async {
+    final trimmed = word.trim();
+    if (trimmed.isEmpty) return null;
+    try {
+      final infos = await _db.enrichWords([trimmed]);
+      if (infos.isEmpty) return null;
+      final info = infos.first;
+      return info.isUsable ? info : null;
+    } catch (e) {
+      debugPrint('AI word info error: $e');
+      return null;
+    }
   }
 
   /// Build `full_details` theo format DB ma `parseFullDetails` doc duoc:

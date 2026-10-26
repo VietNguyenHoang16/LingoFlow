@@ -397,15 +397,36 @@ class _ReviewPageState extends State<ReviewPage>
     final wordChanged = result.word != (previous['word'] ?? '').toString();
     setState(() => _isWordBusy = true);
     try {
-      // Doi nghia khong dung toi field khac -> chi lay tu dien khi Tu doi.
-      final enrichment =
-          wordChanged ? await _fetchEnrichment(result.word) : null;
+      // Doi Tu -> vua lay phat am / chi tiet tu tu dien, vua nho AI phan loai
+      // lai va lay nghia moi. Hai request chay song song.
+      final enrichmentFuture = wordChanged
+          ? _fetchEnrichment(result.word)
+          : Future<WordEnrichment?>.value(null);
+      final aiInfoFuture = wordChanged
+          ? _enrichment.fetchAiInfo(result.word)
+          : Future<AiWordInfo?>.value(null);
+      final enrichment = await enrichmentFuture;
+      final aiInfo = await aiInfoFuture;
       if (!mounted) return;
+
+      // AI la nguon nghia chinh khi doi Tu (nguoi dung duoc de trong o Nghia).
+      final meaning = (aiInfo?.meaning.isNotEmpty ?? false)
+          ? aiInfo!.meaning
+          : result.meaning;
+      if (meaning.isEmpty) {
+        setState(() => _isWordBusy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không lấy được nghĩa mới. Vui lòng nhập nghĩa.'),
+          ),
+        );
+        return;
+      }
 
       final updated = <String, dynamic>{
         ...previous,
         'word': result.word,
-        'meaning': result.meaning,
+        'meaning': meaning,
       };
       if (enrichment != null) {
         if (enrichment.pronunciation.isNotEmpty) {
@@ -414,9 +435,13 @@ class _ReviewPageState extends State<ReviewPage>
         if (enrichment.fullDetails.isNotEmpty) {
           updated['full_details'] = enrichment.fullDetails;
         }
-        if (enrichment.wordType.isNotEmpty) {
-          updated['word_type'] = enrichment.wordType;
-        }
+      }
+      // Loai tu: uu tien AI, sau do moi den tu dien.
+      final wordType = (aiInfo?.wordType.isNotEmpty ?? false)
+          ? aiInfo!.wordType
+          : enrichment?.wordType;
+      if (wordType != null && wordType.isNotEmpty) {
+        updated['word_type'] = wordType;
       }
 
       setState(() {
@@ -429,7 +454,7 @@ class _ReviewPageState extends State<ReviewPage>
         example = await _db.updateVocabularyWord(
           wordId: wordId,
           word: result.word,
-          meaning: result.meaning,
+          meaning: meaning,
           pronunciation: (updated['pronunciation'] ?? '').toString(),
           fullDetails: (updated['full_details'] ?? '').toString(),
           wordType: (updated['word_type'] ?? '').toString(),
@@ -462,7 +487,9 @@ class _ReviewPageState extends State<ReviewPage>
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_editSavedMessage(result.word, wordChanged, enrichment)),
+          content: Text(
+            _editSavedMessage(result.word, wordChanged, enrichment, aiInfo),
+          ),
         ),
       );
       WordChangeBus().notifyChanged('edit-word');
@@ -510,18 +537,17 @@ class _ReviewPageState extends State<ReviewPage>
     String word,
     bool wordChanged,
     WordEnrichment? enrichment,
+    AiWordInfo? aiInfo,
   ) {
     if (!wordChanged) return 'Đã cập nhật nghĩa "$word"';
-    if (enrichment == null) {
-      return 'Đã cập nhật "$word" (chưa lấy được phát âm / chi tiết)';
-    }
     final parts = <String>[
-      if (enrichment.pronunciation.isNotEmpty) 'phát âm',
-      if (enrichment.fullDetails.isNotEmpty) 'chi tiết',
-      if (enrichment.wordType.isNotEmpty) 'loại từ',
+      if (aiInfo?.meaning.isNotEmpty ?? false) 'nghĩa',
+      if (aiInfo?.wordType.isNotEmpty ?? false) 'loại từ',
+      if (enrichment?.pronunciation.isNotEmpty ?? false) 'phát âm',
+      if (enrichment?.fullDetails.isNotEmpty ?? false) 'chi tiết',
     ];
     if (parts.isEmpty) return 'Đã cập nhật "$word"';
-    return 'Đã cập nhật "$word" + ${parts.join(', ')} từ từ điển';
+    return 'Đã cập nhật "$word" + ${parts.join(', ')}';
   }
 
   void _rateWord(int quality) {

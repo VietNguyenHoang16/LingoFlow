@@ -26,6 +26,24 @@ class BulkAddResult {
   const BulkAddResult({required this.insertedCount, this.failed = const []});
 }
 
+/// Nghia tieng Viet + loai tu do AI lay cho mot tu. `error` khac rong khi AI
+/// khong tra ve duoc (client bo qua tu do va bao lai).
+class AiWordInfo {
+  final String word;
+  final String meaning;
+  final String wordType;
+  final String error;
+
+  const AiWordInfo({
+    required this.word,
+    required this.meaning,
+    required this.wordType,
+    this.error = '',
+  });
+
+  bool get isUsable => meaning.isNotEmpty && wordType.isNotEmpty;
+}
+
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
@@ -247,6 +265,24 @@ class DatabaseService {
       'commonSynonyms': commonSynonyms ?? '',
     }, timeout: const Duration(seconds: 45));
     return _asInt(id);
+  }
+
+  /// Lay nghia tieng Viet + loai tu cho nhieu tu cung luc (AI).
+  Future<List<AiWordInfo>> enrichWords(List<String> words) async {
+    if (words.isEmpty) return const [];
+    final rows = await _request<List<dynamic>>(
+      'enrichWords',
+      data: {'words': words},
+      timeout: const Duration(seconds: 75),
+    );
+    return rows.whereType<Map>().map((row) {
+      return AiWordInfo(
+        word: (row['word'] ?? '').toString(),
+        meaning: (row['meaning'] ?? '').toString().trim(),
+        wordType: (row['wordType'] ?? '').toString().trim(),
+        error: (row['error'] ?? '').toString(),
+      );
+    }).toList();
   }
 
   /// Kiem tra nhieu tu cung luc - tra ve cac tu da ton tai (lowercase).
@@ -509,9 +545,15 @@ class DatabaseService {
   }
 
   // ---- Search ----
+  /// Tim tren toan bo tu da luu (word / meaning / topic_tag), tra ve day du
+  /// field nhu getRecentWords de hien thi + sua ngay tai cho.
   Future<List<Map<String, dynamic>>> searchWord(int userId, String query) async {
-    final rows = await _request<List<dynamic>>('searchWord', data: {'userId': userId, 'query': query});
-    return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+    final rows = await _request<List<dynamic>>(
+      'searchWord',
+      data: {'userId': userId, 'query': query},
+      timeout: const Duration(seconds: 30),
+    );
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
   /// Danh sach tu nhe (id/word/meaning/type/tag/list) de loc ngay tai may.

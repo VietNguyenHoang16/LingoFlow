@@ -4,9 +4,8 @@ import 'package:lingoflow/services/database_service.dart';
 
 ImportLine line(int n, String word) => ImportLine(
   lineNumber: n,
-  rawLine: '1 :: $word :: nghia',
+  rawLine: word,
   word: word,
-  posNumber: '1',
   meaning: 'nghia',
   wordType: 'noun',
 );
