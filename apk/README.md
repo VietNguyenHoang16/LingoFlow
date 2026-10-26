@@ -1,4 +1,4 @@
-# APK LingoFlow (Android)
+# APK VocabPro (Android)
 
 Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở lên để cài.
 
@@ -6,21 +6,21 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **18.9 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **20.0 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `19,762,060 bytes` (18.9 MB)
-- SHA256: `4BD19E34A49443B3FCA2F021C7D684944BF63118B04B48B62CA29DC15EA3D799`
-- Ngày build: `26/10/2026` — gộp 3 tab còn **1 màn hình duy nhất**: bỏ bottom navigation,
-  thay bằng nút **“Ôn tập hôm nay · N từ”** cố định ở đáy (luôn hiện số từ đến hạn, kèm chip
-  “Cấu trúc” khi có câu grammar đến hạn), bánh răng **Settings** đưa lên góc phải header.
-  Giao diện **emerald + kem ấm**: màu nhấn `#047857` (light) / `#34D399` (dark),
-  nền kem `#FFFCF6` và đen ngả lục `#0C1210`, badge loại từ 12 huế riêng,
-  mastery New→Learning→Reviewing→Mastered theo amber → orange → blue → emerald.
+- Kích thước: `20,968,454 bytes` (20.0 MB)
+- SHA256: `0AA615BA70C11EAD99D521D783C24C43827E06F8D2CBAF1D55268F41AA006AAE`
+- Ngày build: `27/10/2026` — đổi tên app thành **VocabPro**, thêm **intro động 2.2s**
+  (artwork VocabPro bay nhẹ + sparkles, chạm để bỏ qua) và **thiết kế lại màn đăng nhập**:
+  nền gradient chuyển động, logo + tên app trượt vào theo từng chữ cái, segmented toggle
+  Đăng nhập/Đăng ký trượt, ô số điện thoại có vòng sáng khi focus + dấu check khi đủ 9 số,
+  nút gradient có vệt sáng chạy, sai số thì rung (shake) + báo lỗi ngay dưới ô nhập.
+  Vẫn giữ bảng màu emerald + kem ấm. Splash native đổi sang xanh brand `#1E7FE6` với badge tròn.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 - Chữ ký: debug keystore (cùng khoá với các bản trước) nên cài đè trực tiếp, không cần gỡ app cũ

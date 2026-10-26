@@ -1,40 +1,22 @@
 {
-    "name": "LingoFlow",
-    "short_name": "LingoFlow",
+    "name": "VocabPro",
+    "short_name": "VocabPro",
     "id": "/",
     "scope": ".",
     "start_url": ".",
     "display": "standalone",
     "display_override": ["window-controls-overlay", "standalone"],
-    "background_color": "#FFFCF6",
+    "background_color": "#1E7FE6",
     "theme_color": "#047857",
-    "description": "LingoFlow vocabulary learning app.",
+    "description": "VocabPro - học từ vựng thông minh mỗi ngày.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "categories": ["education", "productivity"],
     "launch_handler": {"client_mode": "navigate-existing"},
     "icons": [
-        {
-            "src": "icons/Icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-maskable-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "maskable"
-        },
-        {
-            "src": "icons/Icon-maskable-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable"
-        }
+        {"src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png"},
+        {"src": "icons/Icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+        {"src": "icons/Icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
     ]
 }

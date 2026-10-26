@@ -146,7 +146,7 @@ class _PwaInstallBannerState extends State<PwaInstallBanner> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _pwa.isIOS ? 'Cài LingoFlow lên iPhone' : 'Cài LingoFlow',
+                  _pwa.isIOS ? 'Cài VocabPro lên iPhone' : 'Cài VocabPro',
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontWeight: FontWeight.w800,
@@ -378,7 +378,7 @@ class IOSInstallSheet extends StatelessWidget {
               child: Icon(Icons.install_mobile_rounded, color: theme.colorScheme.onPrimary, size: 28),
             ),
             const SizedBox(height: 14),
-            Text('Cài LingoFlow lên iPhone',
+            Text('Cài VocabPro lên iPhone',
                 style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w800, fontSize: 18, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 6),
             Text('Mở như app thật, toàn màn hình, không cần gõ lại địa chỉ',
@@ -523,7 +523,7 @@ class GenericInstallSheet extends StatelessWidget {
             const SizedBox(height: 18),
             Icon(Icons.install_mobile_rounded, size: 48, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
-            Text('Cài đặt LingoFlow',
+            Text('Cài đặt VocabPro',
                 style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w800, fontSize: 18, color: theme.colorScheme.onSurface)),
             const SizedBox(height: 8),
             Text('Trình duyệt của bạn hỗ trợ cài PWA.\nNhấn menu trình duyệt → “Cài đặt ứng dụng” hoặc “Add to Home Screen”.',

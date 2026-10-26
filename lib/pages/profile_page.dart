@@ -298,7 +298,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildSectionTitle('Ung dung', Icons.install_mobile_rounded, theme),
                         const SizedBox(height: 4),
                         Text(
-                          'Cai LingoFlow nhu app de mo nhanh va toan man hinh',
+                          'Cai VocabPro nhu app de mo nhanh va toan man hinh',
                           style: TextStyle(
                             fontFamily: 'Be Vietnam Pro',
                             fontSize: 12,
