@@ -13,12 +13,14 @@ Link tải nhanh:
 
 ## Thông tin bản phát hành
 
-- Kích thước: `19,762,740 bytes` (18.9 MB)
-- SHA256: `0BEFAF9E5B38697F89292070982E1A2175331F56BB8A051BB75986B10C070879`
-- Ngày build: `26/10/2026` — bỏ toàn bộ tông xám/đen–trắng, chuyển sang **emerald + kem ấm**:
-  màu nhấn `#047857` (light) / `#34D399` (dark), nền kem `#FFFCF6` và đen ngả lục `#0C1210`,
-  header/banner/nav dùng emerald, badge loại từ 12 huế riêng, mastery New→Learning→Reviewing→Mastered
-  theo amber → orange → blue → emerald, splash web + native đổi theo bảng màu mới.
+- Kích thước: `19,762,060 bytes` (18.9 MB)
+- SHA256: `4BD19E34A49443B3FCA2F021C7D684944BF63118B04B48B62CA29DC15EA3D799`
+- Ngày build: `26/10/2026` — gộp 3 tab còn **1 màn hình duy nhất**: bỏ bottom navigation,
+  thay bằng nút **“Ôn tập hôm nay · N từ”** cố định ở đáy (luôn hiện số từ đến hạn, kèm chip
+  “Cấu trúc” khi có câu grammar đến hạn), bánh răng **Settings** đưa lên góc phải header.
+  Giao diện **emerald + kem ấm**: màu nhấn `#047857` (light) / `#34D399` (dark),
+  nền kem `#FFFCF6` và đen ngả lục `#0C1210`, badge loại từ 12 huế riêng,
+  mastery New→Learning→Reviewing→Mastered theo amber → orange → blue → emerald.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 - Chữ ký: debug keystore (cùng khoá với các bản trước) nên cài đè trực tiếp, không cần gỡ app cũ

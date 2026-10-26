@@ -9,6 +9,8 @@ import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
 import '../services/word_details_parser.dart';
 import 'practice_page.dart';
+import 'profile_page.dart';
+import 'review_page.dart';
 
 class RecentPage extends StatefulWidget {
   final int userId;
@@ -27,6 +29,7 @@ class _RecentPageState extends State<RecentPage> {
   StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   List<Map<String, dynamic>> _words = [];
+  Map<String, dynamic> _reviewStats = const {};
   bool _isLoading = true;
   bool _isSelectionMode = false;
   String? _loadError;
@@ -38,10 +41,11 @@ class _RecentPageState extends State<RecentPage> {
   void initState() {
     super.initState();
     _loadRecent();
+    _loadReviewStats();
     _searchController.addListener(_onSearchChanged);
     // Them/sua/xoa tu o trang khac -> tai lai nen, khong can doi tab.
     _wordChangeSub =
-        WordChangeBus().stream.listen((_) => _loadRecent(background: true));
+        WordChangeBus().stream.listen((_) { _loadRecent(background: true); _loadReviewStats(); });
   }
 
   void _onSearchChanged() {
@@ -103,6 +107,40 @@ class _RecentPageState extends State<RecentPage> {
         _loadError = e.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  Future<void> _loadReviewStats() async {
+    try {
+      final data = await _db.getDashboardStats(widget.userId);
+      if (!mounted) return;
+      setState(() => _reviewStats = data.reviewStats);
+    } catch (e) {
+      debugPrint('Review stats load failed: $e');
+    }
+  }
+
+  int get _dueWords => (_reviewStats['dueToday'] as int?) ?? 0;
+  int get _dueGrammar => (_reviewStats['grammarDue'] as int?) ?? 0;
+
+  Future<void> _openReview({bool grammar = false}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewPage(userId: widget.userId, grammarReview: grammar),
+      ),
+    );
+    if (!mounted) return;
+    await _loadRecent(background: true);
+    await _loadReviewStats();
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProfilePage(userId: widget.userId)),
+    );
+    if (!mounted) return;
+    await _loadReviewStats();
   }
 
   Future<void> _bulkImport() async {
@@ -349,42 +387,166 @@ class _RecentPageState extends State<RecentPage> {
           ],
         ),
       ),
-      bottomNavigationBar: _isSelectionMode && _selectedWords.isNotEmpty
-          ? SafeArea(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  border: Border(
-                    top: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(80)),
-                  ),
+      bottomNavigationBar: _buildBottomBar(theme),
+    );
+  }
+
+  /// Bottom bar: chon tu de luyen khi dang selection mode, con lai la CTA on tap
+  /// luon hien so tu den han (thay cho tab Review cu).
+  Widget _buildBottomBar(ThemeData theme) {
+    if (_isSelectionMode && _selectedWords.isNotEmpty) {
+      return SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border(
+              top: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(80)),
+            ),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _startPractice,
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: Text(
+                'Luyện tập (${_selectedWords.length})',
+                style: const TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: _startPractice,
-                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                    label: Text(
-                      'Luyện tập (${_selectedWords.length})',
-                      style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
+              ),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final due = _dueWords;
+    final grammarDue = _dueGrammar;
+    final hasDue = due > 0;
+    final compactCta = MediaQuery.sizeOf(context).width < 360;
+    final ctaLabel = hasDue
+        ? (compactCta ? 'Ôn tập' : 'Ôn tập hôm nay')
+        : (compactCta ? 'Đã xong' : 'Hôm nay đã xong');
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          border: Border(
+            top: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(80)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => _openReview(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        hasDue ? theme.colorScheme.primary : theme.colorScheme.primaryContainer,
+                    foregroundColor:
+                        hasDue ? theme.colorScheme.onPrimary : theme.colorScheme.onPrimaryContainer,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(hasDue ? Icons.play_arrow_rounded : Icons.check_rounded, size: 20),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          ctaLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
+                      if (hasDue) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onPrimary.withAlpha(35),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '$due từ',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: theme.colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-            )
-          : null,
+            ),
+            if (grammarDue > 0) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: () => _openReview(grammar: true),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Cấu trúc',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        '$grammarDue',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildHeader(ThemeData theme) {
+    // Man hinh hep (<=360dp): Import chi con icon, tieu de nho lai de khong wrap.
+    final compact = MediaQuery.sizeOf(context).width < 360;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Column(
@@ -400,7 +562,7 @@ class _RecentPageState extends State<RecentPage> {
                       _isSelectionMode ? 'Chọn từ để luyện' : 'Recent Words',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 24,
+                        fontSize: compact ? 20 : 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.6,
                         color: theme.colorScheme.onSurface,
@@ -425,7 +587,7 @@ class _RecentPageState extends State<RecentPage> {
                 GestureDetector(
                   onTap: _bulkImport,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(10),
@@ -435,49 +597,57 @@ class _RecentPageState extends State<RecentPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.add_rounded, color: theme.colorScheme.onSurface, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Import',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
+                        if (!compact) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            'Import',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                 ),
                 if (_words.isNotEmpty) ...[
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _toggleSelectionMode,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.play_arrow_rounded, color: theme.colorScheme.onPrimary, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Luyện tập',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          ),
-                        ],
+                  Tooltip(
+                    message: 'Luyện tập',
+                    child: GestureDetector(
+                      onTap: _toggleSelectionMode,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.play_arrow_rounded, color: theme.colorScheme.onPrimary, size: 18),
                       ),
                     ),
                   ),
                 ],
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Cài đặt',
+                  child: GestureDetector(
+                    onTap: _openSettings,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                      ),
+                      child: Icon(Icons.settings_outlined, color: theme.colorScheme.onSurfaceVariant, size: 18),
+                    ),
+                  ),
+                ),
               ],
               if (_isSelectionMode)
                 GestureDetector(
