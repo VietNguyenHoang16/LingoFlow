@@ -117,6 +117,19 @@
         background-color: #0C1210;
           }
     }
+
+    /* Desktop: nen gradient giong khung app de splash khong lech tong mau. */
+    @media (min-width: 601px) {
+      body {
+        background: linear-gradient(135deg, #F2EDE1 0%, #E6F3EB 100%);
+      }
+    }
+
+    @media (min-width: 601px) and (prefers-color-scheme: dark) {
+      body {
+        background: linear-gradient(135deg, #07110E 0%, #0C1210 100%);
+      }
+    }
   </style>
   <script id="splash-screen-script">
     function removeSplashFromWeb() {
