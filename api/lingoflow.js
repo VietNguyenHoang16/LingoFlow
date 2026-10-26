@@ -834,23 +834,70 @@ async function handleAction(action, data) {
         [data.wordId, data.userId]);
       return null;
 
-    case 'updateVocabularyWordDetails':
-      await query(
-        `UPDATE vocabulary_words SET meaning = $1, pronunciation = $2, full_details = $3, word_type = $4, topic_tag = $5,
-         common_synonyms = $6
-         WHERE id = $7 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $8)`,
-        [(data.meaning || '').trim(), (data.pronunciation || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), String(data.topicTag || '').trim().slice(0, 100), (data.commonSynonyms || '').trim(), data.wordId, data.userId],
+    case 'updateVocabularyWordDetails': {
+      const wordId = asInt(data.wordId);
+      const current = await query(
+        `SELECT vw.word
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vw.id = $1 AND vl.user_id = $2
+         LIMIT 1`,
+        [wordId, data.userId],
       );
-      return null;
+      if (current.length === 0) throw new Error('Khong tim thay tu nay');
 
-    case 'updateVocabularyWord':
-      await query(
-        `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5, topic_tag = $6,
-         common_synonyms = $7
-         WHERE id = $8 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $9)`,
-        [(data.word || '').trim(), (data.pronunciation || '').trim(), (data.meaning || '').trim(), (data.fullDetails || '').trim(), (data.wordType || '').trim(), String(data.topicTag || '').trim().slice(0, 100), (data.commonSynonyms || '').trim(), data.wordId, data.userId],
+      const meaning = (data.meaning || '').trim();
+      const pronunciation = (data.pronunciation || '').trim();
+      const fullDetails = (data.fullDetails || '').trim();
+      const wordType = (data.wordType || '').trim();
+      const topicTag = String(data.topicTag || '').trim().slice(0, 100);
+      const commonSynonyms = (data.commonSynonyms || '').trim();
+      const refreshExample = data.refreshExample === true;
+      const example = refreshExample
+        ? await generateExample(
+            { word: current[0].word, meaning, wordType, topicTag },
+            { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
+          )
+        : null;
+      const values = [meaning, pronunciation, fullDetails, wordType, topicTag, commonSynonyms];
+      let sql = `UPDATE vocabulary_words SET meaning = $1, pronunciation = $2, full_details = $3, word_type = $4, topic_tag = $5,
+         common_synonyms = $6`;
+      if (example) {
+        values.push(example.sentence, example.translation, example.target);
+        sql += ', example_sentence = $7, example_translation = $8, example_target = $9';
+      }
+      const idParam = values.length + 1;
+      const userParam = values.length + 2;
+      sql += ` WHERE id = $${idParam} AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $${userParam})`;
+      values.push(wordId, data.userId);
+      await query(sql, values);
+      return example;
+    }
+
+    case 'updateVocabularyWord': {
+      const word = (data.word || '').trim();
+      const pronunciation = (data.pronunciation || '').trim();
+      const meaning = (data.meaning || '').trim();
+      const fullDetails = (data.fullDetails || '').trim();
+      const wordType = (data.wordType || '').trim();
+      const topicTag = String(data.topicTag || '').trim().slice(0, 100);
+      const commonSynonyms = (data.commonSynonyms || '').trim();
+      const example = await generateExample(
+        { word, meaning, wordType, topicTag },
+        { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
       );
-      return null;
+
+      const rows = await query(
+        `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5, topic_tag = $6,
+         common_synonyms = $7, example_sentence = $8, example_translation = $9, example_target = $10
+         WHERE id = $11 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $12)
+         RETURNING id`,
+        [word, pronunciation, meaning, fullDetails, wordType, topicTag, commonSynonyms,
+          example.sentence, example.translation, example.target, data.wordId, data.userId],
+      );
+      if (rows.length === 0) throw new Error('Khong tim thay tu nay');
+      return example;
+    }
 
     case 'updateWordReview': {
       const masteryLevel = asInt(data.masteryLevel);

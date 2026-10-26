@@ -1107,7 +1107,7 @@ class _ReviewPageState extends State<ReviewPage>
               vertical: compact ? 6 : 10,
             ),
             decoration: BoxDecoration(
-              color: Colors.black.withAlpha(30),
+              color: theme.colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -1623,7 +1623,7 @@ class _ReviewPageState extends State<ReviewPage>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withAlpha(51),
+                            color: Theme.of(context).colorScheme.shadow.withAlpha(51),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),

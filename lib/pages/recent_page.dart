@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
+import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
 import '../services/word_details_parser.dart';
 import 'practice_page.dart';
@@ -101,6 +102,22 @@ class _RecentPageState extends State<RecentPage> {
         _isLoading = false;
         _loadError = e.toString().replaceFirst('Exception: ', '');
       });
+    }
+  }
+
+  Future<void> _bulkImport() async {
+    final inserted = await BulkImportDialog.show(
+      context,
+      userId: widget.userId,
+    );
+    if (inserted > 0 && mounted) {
+      await _loadRecent();
+      WordChangeBus().notifyChanged('bulk-import');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã thêm $inserted từ')),
+        );
+      }
     }
   }
 
@@ -369,89 +386,118 @@ class _RecentPageState extends State<RecentPage> {
 
   Widget _buildHeader(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withAlpha(60),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(Icons.history_rounded, color: theme.colorScheme.onPrimary, size: 22),
-                ),
-              ),
-              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_isSelectionMode ? 'Chọn từ để luyện' : 'Recent', style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 22, fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5, color: theme.colorScheme.onSurface,
-                    )),
-                    Text(_isSelectionMode
-                        ? 'Đã chọn ${_selectedWords.length} từ'
-                        : '20 từ mới nhất', style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro',
-                      fontSize: 12, fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    )),
+                    Text(
+                      _isSelectionMode ? 'Chọn từ để luyện' : 'Recent Words',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _isSelectionMode
+                          ? 'Đã chọn ${_selectedWords.length} từ'
+                          : '${_filteredWords.length} từ gần đây',
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (!_isSelectionMode && _words.isNotEmpty)
+              if (!_isSelectionMode) ...[
                 GestureDetector(
-                  onTap: _toggleSelectionMode,
+                  onTap: _bulkImport,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withAlpha(15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: theme.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.play_arrow_rounded, color: theme.colorScheme.primary, size: 18),
+                        Icon(Icons.add_rounded, color: theme.colorScheme.onSurface, size: 16),
                         const SizedBox(width: 4),
-                        Text('Luyện tập', style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 13, fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.primary,
-                        )),
+                        Text(
+                          'Import',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
+                if (_words.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _toggleSelectionMode,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.play_arrow_rounded, color: theme.colorScheme.onPrimary, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Luyện tập',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
               if (_isSelectionMode)
                 GestureDetector(
                   onTap: _toggleSelectionMode,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.error.withAlpha(15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: theme.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
                     ),
-                    child: Text('Hủy', style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 13, fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.error,
-                    )),
+                    child: Text(
+                      'Hủy',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -460,15 +506,16 @@ class _RecentPageState extends State<RecentPage> {
           TextField(
             controller: _searchController,
             style: TextStyle(
-              fontFamily: 'Be Vietnam Pro', fontSize: 14,
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 14,
               color: theme.colorScheme.onSurface,
             ),
             decoration: InputDecoration(
-              hintText: 'Tìm trong danh sách...',
+              hintText: 'Tìm kiếm từ vựng...',
               prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant, size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurfaceVariant),
+                      icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurfaceVariant, size: 18),
                       onPressed: () => _searchController.clear(),
                     )
                   : null,

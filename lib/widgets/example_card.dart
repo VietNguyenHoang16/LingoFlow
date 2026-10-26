@@ -17,9 +17,10 @@ class ExampleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (example.isEmpty) return const SizedBox.shrink();
 
+    final fallback = Theme.of(context).colorScheme.onSurfaceVariant;
     final accentColor = pos != null
-        ? (context.lingoColors.wordTypeColors[pos!] ?? Colors.grey)
-        : Colors.grey;
+        ? (context.lingoColors.wordTypeColors[pos!] ?? fallback)
+        : fallback;
 
     return Container(
       width: double.infinity,

@@ -4,36 +4,36 @@ import 'package:flutter/material.dart';
 // LingoFlowColors — ThemeExtension for app-specific colors
 // ============================================================
 
-// Word type color palette (Monochrome & Muted Slate).
-// Subtle, elegant tones suitable for modern editorial learning apps.
+// Word type color palette (Emerald base + warm spectrum).
+// Each part of speech gets its own hue so badges stay readable and lively.
 const Map<String, Color> _wordTypeColorsLight = {
-  'noun': Color(0xFF000000),         // Pure black
-  'verb': Color(0xFF1F1F1F),         // Neutral dark
-  'adjective': Color(0xFF3D3D3D),
-  'adverb': Color(0xFF3D3D3D),
-  'preposition': Color(0xFF5C5C5C),
-  'conjunction': Color(0xFF5C5C5C),
-  'pronoun': Color(0xFF1F1F1F),
-  'interjection': Color(0xFF3D3D3D),
-  'phrasal_verb': Color(0xFF000000),
-  'idiom': Color(0xFF000000),
-  'collocation': Color(0xFF1F1F1F),
-  'grammar': Color(0xFF000000),
+  'noun': Color(0xFF1D4ED8), // blue
+  'verb': Color(0xFFB91C1C), // red
+  'adjective': Color(0xFF7C3AED), // violet
+  'adverb': Color(0xFFC2410C), // orange
+  'preposition': Color(0xFF0F766E), // teal
+  'conjunction': Color(0xFFA16207), // amber
+  'pronoun': Color(0xFFBE185D), // pink
+  'interjection': Color(0xFF4338CA), // indigo
+  'phrasal_verb': Color(0xFF047857), // emerald
+  'idiom': Color(0xFF9A3412), // rust
+  'collocation': Color(0xFF6D28D9), // purple
+  'grammar': Color(0xFF0E7490), // cyan
 };
 
 const Map<String, Color> _wordTypeColorsDark = {
-  'noun': Color(0xFFFFFFFF),         // Pure white
-  'verb': Color(0xFFE0E0E0),
-  'adjective': Color(0xFFC2C2C2),
-  'adverb': Color(0xFFC2C2C2),
-  'preposition': Color(0xFFA3A3A3),
-  'conjunction': Color(0xFFA3A3A3),
-  'pronoun': Color(0xFFE0E0E0),
-  'interjection': Color(0xFFC2C2C2),
-  'phrasal_verb': Color(0xFFFFFFFF),
-  'idiom': Color(0xFFFFFFFF),
-  'collocation': Color(0xFFE0E0E0),
-  'grammar': Color(0xFFFFFFFF),
+  'noun': Color(0xFF60A5FA),
+  'verb': Color(0xFFF87171),
+  'adjective': Color(0xFFA78BFA),
+  'adverb': Color(0xFFFB923C),
+  'preposition': Color(0xFF2DD4BF),
+  'conjunction': Color(0xFFFCD34D),
+  'pronoun': Color(0xFFF472B6),
+  'interjection': Color(0xFF818CF8),
+  'phrasal_verb': Color(0xFF34D399),
+  'idiom': Color(0xFFFDBA74),
+  'collocation': Color(0xFFC4B5FD),
+  'grammar': Color(0xFF22D3EE),
 };
 
 class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
@@ -70,44 +70,44 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
   });
 
   static const light = LingoFlowColors(
-    masteryNew: Color(0xFF8C8C8C),
-    masteryLearning: Color(0xFF555555),
-    masteryReviewing: Color(0xFF1F1F1F),
-    masteryMastered: Color(0xFF000000),
+    masteryNew: Color(0xFFB45309), // amber 700
+    masteryLearning: Color(0xFFC2410C), // orange 700
+    masteryReviewing: Color(0xFF1D4ED8), // blue 700
+    masteryMastered: Color(0xFF047857), // emerald 700
     cardPalettes: [
-      [Color(0xFF000000), Color(0xFF000000)],
-      [Color(0xFF000000), Color(0xFF000000)],
-      [Color(0xFF000000), Color(0xFF000000)],
+      [Color(0xFFECFDF5), Color(0xFFA7F3D0)],
+      [Color(0xFFFFF7ED), Color(0xFFFED7AA)],
+      [Color(0xFFEFF6FF), Color(0xFFBFDBFE)],
     ],
-    reviewBannerDue: [Color(0xFF000000), Color(0xFF000000)],
-    reviewBannerDone: [Color(0xFF000000), Color(0xFF000000)],
-    reviewBannerGrammar: [Color(0xFF000000), Color(0xFF000000)],
-    navActiveBg: Color(0xFF000000),
-    navActiveContent: Colors.white,
-    navInactiveContent: Color(0xFF666666),
-    streakFire: Color(0xFF000000),
-    confettiGold: Color(0xFF000000),
+    reviewBannerDue: [Color(0xFF064E3B), Color(0xFF047857)],
+    reviewBannerDone: [Color(0xFFD1FAE5), Color(0xFFA7F3D0)],
+    reviewBannerGrammar: [Color(0xFFB45309), Color(0xFFF59E0B)],
+    navActiveBg: Color(0xFF047857),
+    navActiveContent: Color(0xFFFFFFFF),
+    navInactiveContent: Color(0xFF7A7164),
+    streakFire: Color(0xFFEA580C),
+    confettiGold: Color(0xFFF59E0B),
     wordTypeColors: _wordTypeColorsLight,
   );
 
   static const dark = LingoFlowColors(
-    masteryNew: Color(0xFF8C8C8C),
-    masteryLearning: Color(0xFFB8B8B8),
-    masteryReviewing: Color(0xFFE0E0E0),
-    masteryMastered: Color(0xFFFFFFFF),
+    masteryNew: Color(0xFFFBBF24),
+    masteryLearning: Color(0xFFFB923C),
+    masteryReviewing: Color(0xFF60A5FA),
+    masteryMastered: Color(0xFF34D399),
     cardPalettes: [
-      [Color(0xFF000000), Color(0xFF000000)],
-      [Color(0xFF000000), Color(0xFF000000)],
-      [Color(0xFF000000), Color(0xFF000000)],
+      [Color(0xFF052E23), Color(0xFF064E3B)],
+      [Color(0xFF3B1D07), Color(0xFF5A2E0B)],
+      [Color(0xFF0B1F3A), Color(0xFF122E52)],
     ],
-    reviewBannerDue: [Color(0xFF000000), Color(0xFF000000)],
-    reviewBannerDone: [Color(0xFF000000), Color(0xFF000000)],
-    reviewBannerGrammar: [Color(0xFF000000), Color(0xFF000000)],
-    navActiveBg: Color(0xFFFFFFFF),
-    navActiveContent: Color(0xFF000000),
-    navInactiveContent: Color(0xFFB3B3B3),
-    streakFire: Color(0xFFFFFFFF),
-    confettiGold: Color(0xFFFFFFFF),
+    reviewBannerDue: [Color(0xFF047857), Color(0xFF065F46)],
+    reviewBannerDone: [Color(0xFF064E3B), Color(0xFF065F46)],
+    reviewBannerGrammar: [Color(0xFFB45309), Color(0xFFF59E0B)],
+    navActiveBg: Color(0xFF34D399),
+    navActiveContent: Color(0xFF04261A),
+    navInactiveContent: Color(0xFF93A39A),
+    streakFire: Color(0xFFFB923C),
+    confettiGold: Color(0xFFFBBF24),
     wordTypeColors: _wordTypeColorsDark,
   );
 
@@ -184,79 +184,79 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
 // ============================================================
 
 // ============================================================
-// Monochrome (Black & White) palette
+// Emerald + warm cream palette
+// Accent: emerald. Neutrals are tinted warm (cream/sand) so no
+// surface reads as neutral gray.
 // ============================================================
-
-const _primaryLight = Color(0xFF000000);   // Pure black
-const _secondaryLight = Color(0xFF000000); // Pure black
-const _tertiaryLight = Color(0xFF666666);  // Neutral
-
-const _primaryDark = Color(0xFFFFFFFF);    // Pure white
-const _secondaryDark = Color(0xFFFFFFFF);  // Pure white
-const _tertiaryDark = Color(0xFFB3B3B3);   // Neutral
 
 final _lightScheme = ColorScheme(
   brightness: Brightness.light,
-  primary: _primaryLight,
-  onPrimary: Colors.white,
-  primaryContainer: const Color(0xFFFFFFFF),   // Pure white
-  onPrimaryContainer: const Color(0xFF000000), // Pure black
-  secondary: _secondaryLight,
-  onSecondary: Colors.white,
-  secondaryContainer: const Color(0xFFF2F2F2),
-  onSecondaryContainer: const Color(0xFF000000),
-  tertiary: _tertiaryLight,
-  onTertiary: Colors.white,
-  tertiaryContainer: const Color(0xFFF4F4F5),
-  onTertiaryContainer: const Color(0xFF18181B),
+  primary: const Color(0xFF047857), // emerald 700
+  onPrimary: const Color(0xFFFFFFFF),
+  primaryContainer: const Color(0xFFD1FAE5), // emerald 100
+  onPrimaryContainer: const Color(0xFF064E3B),
+  secondary: const Color(0xFFB45309), // amber 700
+  onSecondary: const Color(0xFFFFFFFF),
+  secondaryContainer: const Color(0xFFFEF3C7), // amber 100
+  onSecondaryContainer: const Color(0xFF78350F),
+  tertiary: const Color(0xFF0F766E), // teal 700
+  onTertiary: const Color(0xFFFFFFFF),
+  tertiaryContainer: const Color(0xFFCCFBF1),
+  onTertiaryContainer: const Color(0xFF134E4A),
   error: const Color(0xFFDC2626),
-  onError: Colors.white,
-  surface: const Color(0xFFFFFFFF),            // Clean white
-  onSurface: const Color(0xFF000000),          // Pure black
-  surfaceContainerLowest: Colors.white,
-  surfaceContainerLow: const Color(0xFFFAFAFA),
-  surfaceContainer: const Color(0xFFF7F7F7),
-  surfaceContainerHigh: const Color(0xFFEDEDED),
-  onSurfaceVariant: const Color(0xFF666666),   // Neutral text gray
-  outline: const Color(0xFFD4D4D8),            // Hairline 1px border
-  outlineVariant: const Color(0xFFE7E7E7),     // Hairline 1px border
-  shadow: Colors.black,
-  scrim: Colors.black26,
-  inverseSurface: const Color(0xFF000000),
-  onInverseSurface: const Color(0xFFFFFFFF),
-  inversePrimary: const Color(0xFF000000),
+  onError: const Color(0xFFFFFFFF),
+  errorContainer: const Color(0xFFFEE2E2),
+  onErrorContainer: const Color(0xFF7F1D1D),
+  surface: const Color(0xFFFFFCF6), // warm ivory
+  onSurface: const Color(0xFF1B1A17),
+  surfaceContainerLowest: const Color(0xFFFFFFFF),
+  surfaceContainerLow: const Color(0xFFFAF5EC),
+  surfaceContainer: const Color(0xFFF4EDE0),
+  surfaceContainerHigh: const Color(0xFFEDE4D4),
+  surfaceContainerHighest: const Color(0xFFE5DAC6),
+  onSurfaceVariant: const Color(0xFF6B6357), // warm taupe
+  outline: const Color(0xFFD5C9B6),
+  outlineVariant: const Color(0xFFE8DFCF),
+  shadow: const Color(0xFF3B2F1F),
+  scrim: const Color(0x661B1A17),
+  inverseSurface: const Color(0xFF1B1A17),
+  onInverseSurface: const Color(0xFFFAF5EC),
+  inversePrimary: const Color(0xFF6EE7B7),
 );
 
 final _darkScheme = ColorScheme(
   brightness: Brightness.dark,
-  primary: _primaryDark,
-  onPrimary: const Color(0xFF000000),
-  primaryContainer: const Color(0xFF000000),   // Pure black card
-  onPrimaryContainer: const Color(0xFFFFFFFF),
-  secondary: _secondaryDark,
-  onSecondary: const Color(0xFF000000),
-  secondaryContainer: const Color(0xFF0D0D0D),
-  onSecondaryContainer: const Color(0xFFFFFFFF),
-  tertiary: _tertiaryDark,
-  onTertiary: Colors.white,
-  tertiaryContainer: const Color(0xFF000000),
-  onTertiaryContainer: const Color(0xFFFFFFFF),
-  error: const Color(0xFFEF4444),
-  onError: Colors.black,
-  surface: const Color(0xFF000000),            // Pure obsidian black
-  onSurface: const Color(0xFFFFFFFF),          // Pure white
-  surfaceContainerLowest: const Color(0xFF000000),
-  surfaceContainerLow: const Color(0xFF000000),
-  surfaceContainer: const Color(0xFF000000),
-  surfaceContainerHigh: const Color(0xFF0D0D0D),
-  onSurfaceVariant: const Color(0xFFB3B3B3),   // Neutral text on black
-  outline: const Color(0xFF666666),
-  outlineVariant: const Color(0xFF3D3D3D),     // Hairline 1px border dark
-  shadow: Colors.black,
-  scrim: Colors.black54,
-  inverseSurface: const Color(0xFFFFFFFF),
-  onInverseSurface: const Color(0xFF000000),
-  inversePrimary: const Color(0xFF000000),
+  primary: const Color(0xFF34D399), // emerald 400
+  onPrimary: const Color(0xFF04261A),
+  primaryContainer: const Color(0xFF065F46),
+  onPrimaryContainer: const Color(0xFFD1FAE5),
+  secondary: const Color(0xFFFBBF24), // amber 400
+  onSecondary: const Color(0xFF3B2606),
+  secondaryContainer: const Color(0xFF78350F),
+  onSecondaryContainer: const Color(0xFFFEF3C7),
+  tertiary: const Color(0xFF2DD4BF), // teal 400
+  onTertiary: const Color(0xFF04201C),
+  tertiaryContainer: const Color(0xFF134E4A),
+  onTertiaryContainer: const Color(0xFFCCFBF1),
+  error: const Color(0xFFF87171),
+  onError: const Color(0xFF450A0A),
+  errorContainer: const Color(0xFF7F1D1D),
+  onErrorContainer: const Color(0xFFFEE2E2),
+  surface: const Color(0xFF0C1210), // deep green-black, not pure black
+  onSurface: const Color(0xFFF4F1E9),
+  surfaceContainerLowest: const Color(0xFF080C0A),
+  surfaceContainerLow: const Color(0xFF111815),
+  surfaceContainer: const Color(0xFF16201B),
+  surfaceContainerHigh: const Color(0xFF1D2923),
+  surfaceContainerHighest: const Color(0xFF24332B),
+  onSurfaceVariant: const Color(0xFFA7B3AB),
+  outline: const Color(0xFF46554C),
+  outlineVariant: const Color(0xFF26332C),
+  shadow: const Color(0xFF000000),
+  scrim: const Color(0xCC000000),
+  inverseSurface: const Color(0xFFF4F1E9),
+  onInverseSurface: const Color(0xFF14100C),
+  inversePrimary: const Color(0xFF047857),
 );
 
 // ============================================================
@@ -525,7 +525,9 @@ ThemeData _buildTheme({
           borderRadius: BorderRadius.circular(14)),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor: isDark
+          ? colorScheme.surfaceContainerHigh
+          : colorScheme.primaryContainer.withAlpha(140),
       labelStyle: TextStyle(
         fontFamily: 'Be Vietnam Pro',
         fontWeight: FontWeight.w600,
@@ -534,6 +536,7 @@ ThemeData _buildTheme({
       ),
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10)),
+      side: BorderSide(color: isDark ? colorScheme.outline : colorScheme.outlineVariant, width: 1),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(

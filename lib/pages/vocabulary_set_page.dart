@@ -977,12 +977,12 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildFilterOption(-1, 'Tat ca', Icons.list_rounded, Colors.grey, _words.length),
-              _buildFilterOption(0, 'Moi', Icons.fiber_new_rounded, Colors.blueGrey, _masteryBreakdown[0] ?? 0),
+              _buildFilterOption(-1, 'Tat ca', Icons.list_rounded, theme.colorScheme.onSurfaceVariant, _words.length),
+              _buildFilterOption(0, 'Moi', Icons.fiber_new_rounded, colors.masteryNew, _masteryBreakdown[0] ?? 0),
               _buildFilterOption(1, 'Dang hoc', Icons.menu_book_rounded, colors.masteryLearning, _masteryBreakdown[1] ?? 0),
               _buildFilterOption(2, 'Dang on', Icons.refresh_rounded, colors.masteryReviewing, _masteryBreakdown[2] ?? 0),
               _buildFilterOption(3, 'Thuan thuc', Icons.star_rounded, colors.masteryMastered, _masteryBreakdown[3] ?? 0),
-              _buildFilterOption(-2, 'Kho nho', Icons.warning_amber_rounded, Colors.orange, _words.where((w) => SrsService.isLeech(w['lapse_count'] as int? ?? 0)).length),
+              _buildFilterOption(-2, 'Kho nho', Icons.warning_amber_rounded, colors.streakFire, _words.where((w) => SrsService.isLeech(w['lapse_count'] as int? ?? 0)).length),
               const SizedBox(height: 18),
               Divider(color: theme.colorScheme.outlineVariant),
               const SizedBox(height: 12),
@@ -1000,7 +1000,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 null,
                 'Tat ca',
                 Icons.all_inclusive_rounded,
-                Colors.grey,
+                theme.colorScheme.onSurfaceVariant,
                 _words.length,
                 sheetContext,
                 setSheetState,
@@ -1263,10 +1263,10 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 onTap: () => Navigator.pop(context),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(40),
+                    color: theme.colorScheme.onPrimary.withAlpha(40),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                  child: Icon(Icons.arrow_back_rounded, color: theme.colorScheme.onPrimary, size: 22),
                 ),
               ),
             ),
@@ -1277,12 +1277,12 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   margin: const EdgeInsets.fromLTRB(0, 8, 12, 8),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(40),
+                    color: theme.colorScheme.onPrimary.withAlpha(40),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     _isSelectionMode ? Icons.close_rounded : Icons.checklist_rounded,
-                    color: Colors.white,
+                    color: theme.colorScheme.onPrimary,
                     size: 20,
                   ),
                 ),
@@ -1291,12 +1291,12 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
-                  // Header den thuan chu trang, cung tom ca 2 che do (chu da hardcode trang).
-                  color: const Color(0xFF000000),
+                  // Header emerald theo theme, chu lay tu onPrimary.
+                  color: theme.colorScheme.primary,
                   border: Border.all(
                     color: theme.brightness == Brightness.dark
                         ? theme.colorScheme.outlineVariant
-                        : const Color(0xFF000000),
+                        : theme.colorScheme.primary,
                     width: 1,
                   ),
                 ),
@@ -1310,16 +1310,16 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(30),
+                            color: theme.colorScheme.onPrimary.withAlpha(30),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Danh sach',
                             style: TextStyle(
                               fontFamily: 'Be Vietnam Pro',
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white70,
+                              color: theme.colorScheme.onPrimary.withAlpha(190),
                             ),
                           ),
                         ),
@@ -1328,11 +1328,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           widget.listName,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Plus Jakarta Sans',
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: theme.colorScheme.onPrimary,
                             letterSpacing: -0.4,
                             height: 1.2,
                           ),
@@ -1462,18 +1462,18 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.red,
+                              color: theme.colorScheme.error,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.delete_rounded, color: Colors.white, size: 16),
+                                Icon(Icons.delete_rounded, color: theme.colorScheme.onError, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${_selectedWords.length}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
-                                    color: Colors.white,
+                                    color: theme.colorScheme.onError,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 13,
                                   ),
@@ -1531,11 +1531,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       floatingActionButton: _isSelectionMode && _selectedWords.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _deleteSelectedWords,
-              backgroundColor: Colors.red,
-              icon: const Icon(Icons.delete_rounded, color: Colors.white),
+              backgroundColor: theme.colorScheme.error,
+              icon: Icon(Icons.delete_rounded, color: theme.colorScheme.onError),
               label: Text(
                 'Xoa ${_selectedWords.length} tu',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(color: theme.colorScheme.onError, fontWeight: FontWeight.bold),
               ),
             )
           : Container(
@@ -1585,6 +1585,17 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   // -------------------------------------------------------
 
   Widget _buildProgressSection(ThemeData theme, LingoFlowColors colors) {
+    final onHeader = theme.colorScheme.onPrimary;
+    final track = onHeader.withAlpha(30);
+    // Lift mastery hues toward the header foreground so every segment stays
+    // visible on both the deep-emerald (light) and mint (dark) header.
+    Color lift(Color c) => Color.lerp(c, onHeader, 0.45)!;
+    final segMastered = lift(colors.masteryMastered);
+    final segReviewing = lift(colors.masteryReviewing);
+    final segLearning = lift(colors.masteryLearning);
+    final segNew = onHeader.withAlpha(60);
+    final legendText = onHeader.withAlpha(200);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1598,31 +1609,31 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         height: 8,
                         child: Row(
                           children: [
-                            _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, colors.masteryMastered),
-                            _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, colors.masteryReviewing),
-                            _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, colors.masteryLearning),
+                            _buildBarSegment(_masteryBreakdown[3] ?? 0, _totalWords, segMastered),
+                            _buildBarSegment(_masteryBreakdown[2] ?? 0, _totalWords, segReviewing),
+                            _buildBarSegment(_masteryBreakdown[1] ?? 0, _totalWords, segLearning),
                             _buildBarSegment(
                               _masteryBreakdown[0] ?? 0,
                               _totalWords,
-                              Colors.white.withAlpha(50),
+                              segNew,
                             ),
                           ],
                         ),
                       )
                     : Container(
                         height: 8,
-                        color: Colors.white.withAlpha(30),
+                        color: track,
                       ),
               ),
             ),
             const SizedBox(width: 12),
             Text(
               '$_progress%',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Plus Jakarta Sans',
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
-                color: Colors.white,
+                color: onHeader,
               ),
             ),
           ],
@@ -1630,13 +1641,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         const SizedBox(height: 8),
         Row(
           children: [
-            _buildLegend('Moi', Colors.white.withAlpha(120), _masteryBreakdown[0] ?? 0),
+            _buildLegend('Moi', segNew, _masteryBreakdown[0] ?? 0, legendText),
             const SizedBox(width: 12),
-            _buildLegend('Hoc', colors.masteryLearning, _masteryBreakdown[1] ?? 0),
+            _buildLegend('Hoc', segLearning, _masteryBreakdown[1] ?? 0, legendText),
             const SizedBox(width: 12),
-            _buildLegend('On', colors.masteryReviewing, _masteryBreakdown[2] ?? 0),
+            _buildLegend('On', segReviewing, _masteryBreakdown[2] ?? 0, legendText),
             const SizedBox(width: 12),
-            _buildLegend('Gioi', colors.masteryMastered, _masteryBreakdown[3] ?? 0),
+            _buildLegend('Gioi', segMastered, _masteryBreakdown[3] ?? 0, legendText),
           ],
         ),
       ],
@@ -1648,7 +1659,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     return Expanded(flex: count, child: Container(color: color));
   }
 
-  Widget _buildLegend(String label, Color color, int count) {
+  Widget _buildLegend(String label, Color color, int count, Color textColor) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1664,7 +1675,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             fontFamily: 'Be Vietnam Pro',
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withAlpha(200),
+            color: textColor,
           ),
         ),
       ],
@@ -1950,7 +1961,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withAlpha(6),
+                    color: theme.colorScheme.shadow.withAlpha(18),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -1977,7 +1988,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                     ),
                   ),
                   child: isSelected
-                      ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                      ? Icon(Icons.check_rounded, size: 14, color: theme.colorScheme.onPrimary)
                       : null,
                 ),
               ),

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
-import '../theme/app_theme.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/flip_word_card.dart';
@@ -195,7 +194,6 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = context.lingoColors;
     final config = wordTypeConfig(widget.category, context);
     final catColor = config['color'] as Color;
     final filtered = _filteredWords;
@@ -208,26 +206,26 @@ class _CategoryPageState extends State<CategoryPage> {
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
-            backgroundColor: const Color(0xFF000000),
+            backgroundColor: theme.colorScheme.primary,
             leading: Padding(
               padding: const EdgeInsets.all(8),
               child: GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
-                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                  decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(40), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.arrow_back_rounded, color: theme.colorScheme.onPrimary, size: 22),
                 ),
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
-                  // Header den thuan chu trang thay gradient xam catColor.
-                  color: const Color(0xFF000000),
+                  // Header emerald chu trang: an mau theo theme, khong con den/xam.
+                  color: theme.colorScheme.primary,
                   border: Border.all(
                     color: theme.brightness == Brightness.dark
                         ? theme.colorScheme.outlineVariant
-                        : const Color(0xFF000000),
+                        : theme.colorScheme.primary,
                     width: 1,
                   ),
                 ),
@@ -240,17 +238,17 @@ class _CategoryPageState extends State<CategoryPage> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.white.withAlpha(30), borderRadius: BorderRadius.circular(8)),
-                          child: const Text('Chu de tu vung', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70)),
+                          decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(30), borderRadius: BorderRadius.circular(8)),
+                          child: Text('Chu de tu vung', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary.withAlpha(190))),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Icon(config['icon'] as IconData, color: Colors.white, size: 28),
+                            Icon(config['icon'] as IconData, color: theme.colorScheme.onPrimary, size: 28),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(_categoryLabel, maxLines: 2, overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4, height: 1.2)),
+                                style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 26, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary, letterSpacing: -0.4, height: 1.2)),
                             ),
                           ],
                         ),
@@ -276,13 +274,13 @@ class _CategoryPageState extends State<CategoryPage> {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(color: colors.reviewBannerDue[0].withAlpha(180), borderRadius: BorderRadius.circular(20)),
+                                  decoration: BoxDecoration(color: theme.colorScheme.secondary, borderRadius: BorderRadius.circular(20)),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.bolt_rounded, color: Colors.white, size: 14),
+                                      Icon(Icons.bolt_rounded, color: theme.colorScheme.onSecondary, size: 14),
                                       const SizedBox(width: 4),
-                                      Text('$_dueCount can on tap', style: const TextStyle(fontFamily: 'Be Vietnam Pro', color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                                      Text('$_dueCount can on tap', style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onSecondary, fontSize: 12, fontWeight: FontWeight.w700)),
                                     ],
                                   ),
                                 ),
@@ -305,13 +303,13 @@ class _CategoryPageState extends State<CategoryPage> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(20)),
-                                child: const Row(
+                                decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(40), borderRadius: BorderRadius.circular(20)),
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
-                                    SizedBox(width: 4),
-                                    Text('Luyen tap', style: TextStyle(fontFamily: 'Be Vietnam Pro', color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                                    Icon(Icons.play_arrow_rounded, color: theme.colorScheme.onPrimary, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text('Luyen tap', style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onPrimary, fontSize: 12, fontWeight: FontWeight.w700)),
                                   ],
                                 ),
                               ),
@@ -410,15 +408,16 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   Widget _buildStatChip(String value, String label) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white.withAlpha(30), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withAlpha(30), borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value, style: const TextStyle(fontFamily: 'Plus Jakarta Sans', color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+          Text(value, style: TextStyle(fontFamily: 'Plus Jakarta Sans', color: theme.colorScheme.onPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontFamily: 'Be Vietnam Pro', color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onPrimary.withAlpha(180), fontSize: 12, fontWeight: FontWeight.w500)),
         ],
       ),
     );

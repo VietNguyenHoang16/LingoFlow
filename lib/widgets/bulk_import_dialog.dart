@@ -285,10 +285,10 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           ),
           decoration: InputDecoration(
             hintText: _example,
-            hintStyle: const TextStyle(
+            hintStyle: TextStyle(
               fontFamily: 'monospace',
               fontSize: 12,
-              color: Color(0xFF9E9E9E),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             border: const OutlineInputBorder(),
             isDense: true,
@@ -317,7 +317,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           runSpacing: 4,
           children: [
             _stat('Hợp lệ', _validCount, theme.colorScheme.primary),
-            _stat('Lỗi định dạng', _errorCount, theme.colorScheme.error),              _stat('Trùng từ', _duplicateCount, Colors.grey),
+            _stat('Lỗi định dạng', _errorCount, theme.colorScheme.error),              _stat('Trùng từ', _duplicateCount, theme.colorScheme.onSurfaceVariant),
             _stat('Tổng dòng', _lines.length, theme.colorScheme.onSurface),
           ],
         ),

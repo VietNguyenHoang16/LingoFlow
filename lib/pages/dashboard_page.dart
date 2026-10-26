@@ -1,21 +1,15 @@
+export '../widgets/search_bottom_sheet.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/word_change_bus.dart';
-import '../theme/app_theme.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../widgets/animated_pressable.dart';
-import '../widgets/word_type_utils.dart';
-import '../widgets/word_type_badge.dart';
-import '../widgets/bulk_import_dialog.dart';
-import '../widgets/edit_word_sheet.dart';
 import '../widgets/pwa_install_banner.dart';
 import '../widgets/review_banner_buttons.dart';
 
 import 'review_page.dart';
 import 'profile_page.dart';
-import 'category_page.dart';
 import 'recent_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -29,7 +23,6 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final DatabaseService _db = DatabaseService();
-  Map<String, dynamic> _categoryStats = {};
   Map<String, dynamic> _reviewStats = {};
   bool _isLoading = true;
   String? _loadError;
@@ -38,25 +31,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
-    if (index == 2) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProfilePage(userId: widget.userId),
-        ),
-      );
-      return;
-    }
     setState(() => _currentIndex = index);
-  }
-
-  void _showSearchDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => SearchBottomSheet(userId: widget.userId),
-    );
   }
 
   @override
@@ -82,11 +57,8 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     try {
       final data = await _db.getDashboardStats(widget.userId);
-      // Prefetch index de search loc ngay tai may, khong chan UI.
-      _db.wordIndex(widget.userId).ignore();
       if (!mounted) return;
       setState(() {
-        _categoryStats = data.categoryStats;
         _reviewStats = data.reviewStats;
         _isLoading = false;
         _loadError = null;
@@ -120,51 +92,21 @@ class _DashboardPageState extends State<DashboardPage> {
     if (result == true) await _loadData();
   }
 
-  Future<void> _bulkImport() async {
-    final inserted = await BulkImportDialog.show(
-      context,
-      userId: widget.userId,
-    );
-    if (inserted > 0 && mounted) {
-      await _loadData();
-      WordChangeBus().notifyChanged('bulk-import');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Đã thêm $inserted từ')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _bulkImport,
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        icon: const Icon(Icons.playlist_add_rounded),
-        label: const Text(
-          'Import',
-          style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: _currentIndex == 1
-          ? RecentPage(userId: widget.userId)
-          : SafeArea(
-              child: _buildHomeBody(theme),
-            ),
+      body: _buildCurrentTab(theme),
       bottomNavigationBar: SafeArea(
         bottom: true,
         child: LingoBottomNavBar(
           currentIndex: _currentIndex,
           items: const [
-            NavItem(icon: Icons.home_rounded, label: 'Home'),
             NavItem(icon: Icons.history_rounded, label: 'Recent'),
-            NavItem(icon: Icons.person_rounded, label: 'Profile'),
+            NavItem(icon: Icons.repeat_rounded, label: 'Review'),
+            NavItem(icon: Icons.settings_outlined, label: 'Settings'),
           ],
           onTap: _onTabTapped,
         ),
@@ -172,10 +114,51 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildHomeBody(ThemeData theme) {
+  Widget _buildCurrentTab(ThemeData theme) {
+    switch (_currentIndex) {
+      case 0:
+        return RecentPage(userId: widget.userId);
+      case 1:
+        return SafeArea(child: _buildReviewTab(theme));
+      case 2:
+        return ProfilePage(userId: widget.userId);
+      default:
+        return RecentPage(userId: widget.userId);
+    }
+  }
+
+  Widget _buildReviewTab(ThemeData theme) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(theme),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Review & SRS',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.6,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Ôn tập ngắt quãng hàng ngày',
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: _isLoading
               ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
@@ -184,60 +167,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   : RefreshIndicator(
                       color: theme.colorScheme.primary,
                       onRefresh: _loadData,
-                      child: CustomScrollView(
+                      child: ListView(
                         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                        slivers: [
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                            sliver: SliverToBoxAdapter(child: _buildDailyReviewBanner()),
-                          ),
-                          const SliverPadding(
-                            padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
-                            sliver: SliverToBoxAdapter(child: PwaInstallBanner()),
-                          ),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                            sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
-                          ),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                            sliver: SliverGrid(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final key = kWordTypeKeys[index];
-                                  final config = wordTypeConfig(key, context);
-                                  final stats = _categoryStats[key] as Map<String, dynamic>? ?? {};
-                                  return AnimatedPressable(
-                                    onTap: () async {
-                                      await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => CategoryPage(
-                                            userId: widget.userId,
-                                            category: key,
-                                          ),
-                                        ),
-                                      );
-                                      _loadData();
-                                    },
-                                    child: _buildCategoryCard(
-                                      key_: key,
-                                      config: config,
-                                      stats: stats,
-                                      index: index,
-                                    ),
-                                  );
-                                },
-                                childCount: kWordTypeKeys.length,
-                              ),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 14,
-                                mainAxisSpacing: 14,
-                                childAspectRatio: 0.88,
-                              ),
-                            ),
-                          ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        children: [
+                          _buildDailyReviewBanner(),
+                          const SizedBox(height: 16),
+                          const PwaInstallBanner(),
                         ],
                       ),
                     ),
@@ -246,75 +182,15 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ProfilePage(userId: widget.userId)),
-            ),
-            child: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: theme.colorScheme.primary.withAlpha(60), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Center(child: Icon(Icons.person_rounded, color: theme.colorScheme.onPrimary, size: 22)),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('LingoFlow', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5, color: theme.colorScheme.onSurface)),
-                Text('Vocabulary', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-          const PwaInstallIconButton(),
-          const SizedBox(width: 8),
-          _buildIconButton(icon: Icons.search_rounded, onTap: _showSearchDialog, theme: theme),
-        ],
-      ),
-    );
-  }
+  Widget _buildDailyReviewBanner() {
+    final dueToday = (_reviewStats['dueToday'] as int?) ?? 0;
+    final grammarDue = (_reviewStats['grammarDue'] as int?) ?? 0;
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onTap, required ThemeData theme}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44, height: 44,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-        ),
-        child: Icon(icon, color: theme.colorScheme.onSurface, size: 20),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(ThemeData theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text('Categories', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: theme.colorScheme.onSurface)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(color: theme.colorScheme.primaryContainer.withAlpha(80), borderRadius: BorderRadius.circular(20)),
-            child: Text('${kWordTypeKeys.length} topics', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontWeight: FontWeight.w700, color: theme.colorScheme.primary)),
-        ),
-      ],
+    return ReviewBannerButtons(
+      dueWords: dueToday,
+      dueGrammar: grammarDue,
+      onWordsReview: _navigateToReview,
+      onGrammarReview: _navigateToGrammarReview,
     );
   }
 
@@ -350,439 +226,6 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildDailyReviewBanner() {
-    final dueToday = (_reviewStats['dueToday'] as int?) ?? 0;
-    final grammarDue = (_reviewStats['grammarDue'] as int?) ?? 0; // Fallback 0 khi API chua co truong nay
-
-    return ReviewBannerButtons(
-      dueWords: dueToday,
-      dueGrammar: grammarDue,
-      onWordsReview: _navigateToReview,
-      onGrammarReview: _navigateToGrammarReview,
-    );
-  }
-
-  Widget _buildCategoryCard({
-    required String key_,
-    required Map<String, dynamic> config,
-    required Map<String, dynamic> stats,
-    required int index,
-  }) {
-    final theme = Theme.of(context);
-    final colors = context.lingoColors;
-    final palette = colors.cardPalettes[index % colors.cardPalettes.length];
-    final isDark = theme.brightness == Brightness.dark;
-    final wordCount = (stats['wordCount'] as int?) ?? 0;
-    final dueCount = (stats['dueCount'] as int?) ?? 0;
-    final progress = ((stats['progress'] as int?) ?? 0) / 100;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? theme.colorScheme.surfaceContainerLow : theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: palette[0].withAlpha(isDark ? 40 : 30), width: 1.5),
-        boxShadow: isDark ? null : [
-          BoxShadow(color: palette[0].withAlpha(22), blurRadius: 20, offset: const Offset(0, 8)),
-          BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 4, offset: const Offset(0, 2)),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(right: -24, top: -24,
-            child: Container(width: 100, height: 100,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(colors: [palette[0].withAlpha(isDark ? 25 : 18), palette[0].withAlpha(0)]),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 46, height: 46,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: palette, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: palette[0].withAlpha(60), blurRadius: 10, offset: const Offset(0, 4))],
-                      ),
-                      child: Icon(config['icon'] as IconData, color: Colors.white, size: 22),
-                    ),
-                    if (dueCount > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: colors.reviewBannerDue[0],
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [BoxShadow(color: colors.reviewBannerDue[0].withAlpha(60), blurRadius: 6, offset: const Offset(0, 2))],
-                        ),
-                        child: Text('$dueCount', style: const TextStyle(fontFamily: 'Plus Jakarta Sans', color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
-                      ),
-                  ],
-                ),
-                const Spacer(),
-                Text(config['label'] as String, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.2, color: theme.colorScheme.onSurface, height: 1.3)),
-                const SizedBox(height: 6),
-                Text('$wordCount words', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Progress', style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 10, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurfaceVariant.withAlpha(160))),
-                        Text('${(progress * 100).round()}%', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 10, fontWeight: FontWeight.w800, color: palette[0])),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Stack(
-                        children: [
-                          Container(height: 5, width: double.infinity, color: palette[0].withAlpha(isDark ? 40 : 25)),
-                          FractionallySizedBox(
-                            widthFactor: progress.clamp(0.0, 1.0) == 0 ? 0.04 : progress.clamp(0.0, 1.0),
-                            child: Container(height: 5, decoration: BoxDecoration(gradient: LinearGradient(colors: palette))),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// Search Bottom Sheet
-// ============================================================
-
-class SearchBottomSheet extends StatefulWidget {
-  final int userId;
-
-  const SearchBottomSheet({super.key, required this.userId});
-
-  @override
-  State<SearchBottomSheet> createState() => _SearchBottomSheetState();
-}
-
-class _SearchBottomSheetState extends State<SearchBottomSheet> {
-  final TextEditingController _searchController = TextEditingController();
-  final DatabaseService _db = DatabaseService();
-  List<Map<String, dynamic>> _allWords = [];
-  List<Map<String, dynamic>> _searchResults = [];
-  bool _isLoadingIndex = false;
-  bool _indexFailed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadIndex();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  /// Tai danh sach tu nhe 1 lan, sau do loc ngay tai may (khong goi mang khi go).
-  Future<void> _loadIndex() async {
-    setState(() {
-      _isLoadingIndex = true;
-      _indexFailed = false;
-    });
-    try {
-      final words = await _db.wordIndex(widget.userId);
-      if (!mounted) return;
-      setState(() {
-        _allWords = words;
-        _isLoadingIndex = false;
-      });
-      _applyFilter(_searchController.text);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingIndex = false;
-        _indexFailed = true;
-      });
-    }
-  }
-
-  void _onQueryChanged(String query) {
-    setState(() {}); // refresh suffix clear button
-    _applyFilter(query);
-  }
-
-  /// Cung ngu nghia voi action searchWord tren server: khop word HOAC topic_tag.
-  void _applyFilter(String query) {
-    final q = query.trim().toLowerCase();
-    setState(() {
-      if (q.isEmpty) {
-        _searchResults = [];
-        return;
-      }
-      _searchResults = _allWords
-          .where((w) =>
-              (w['word'] as String? ?? '').toLowerCase().contains(q) ||
-              (w['topic_tag'] as String? ?? '').toLowerCase().contains(q))
-          .toList();
-    });
-  }
-
-  /// Chỉnh sửa từ trong kết quả tìm kiếm
-  Future<void> _editSearchResult(Map<String, dynamic> word) async {
-    // getWordIndex khong chua full_details/common_synonyms -> phai lay truoc
-    // neu khong se ghi de bang chuoi rong.
-    Map<String, dynamic>? details;
-    try {
-      details = await _db.getWordDetails(word['id'] as int);
-    } catch (_) {
-      details = null;
-    }
-    if (!mounted) return;
-    if (details == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không tải được chi tiết từ, thử lại sau')),
-      );
-      return;
-    }
-
-    final result = await showEditWordSheet(
-      context: context,
-      word: (word['word'] as String?)?.trim() ?? '',
-      meaning: (word['meaning'] as String?)?.trim() ?? '',
-      pronunciation: (word['pronunciation'] as String?)?.trim() ?? '',
-      fullDetails: (details['full_details'] as String?)?.trim() ?? '',
-      wordType: (word['word_type'] as String?)?.trim() ?? '',
-      topicTag: (word['topic_tag'] as String?)?.trim() ?? '',
-      commonSynonyms: (details['common_synonyms'] as String?)?.trim() ?? '',
-    );
-    if (result == null || !mounted) return;
-
-    try {
-      await _db.updateVocabularyWord(
-        wordId: word['id'] as int,
-        word: result.word,
-        meaning: result.meaning,
-        pronunciation: result.pronunciation,
-        fullDetails: result.fullDetails,
-        wordType: result.wordType,
-        topicTag: result.topicTag,
-        commonSynonyms: result.commonSynonyms,
-      );
-
-      // Sua tai cho de _allWords cung doi theo, roi loc lai theo query hien tai
-      word['word'] = result.word;
-      word['meaning'] = result.meaning;
-      word['word_type'] = result.wordType;
-      word['topic_tag'] = result.topicTag;
-      _applyFilter(_searchController.text);
-      WordChangeBus().notifyChanged('edit-word');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã chỉnh sửa từ')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
-        );
-      }
-    }
-  }
-
-  /// Xóa từ khỏi kết quả tìm kiếm
-  Future<void> _deleteSearchResult(Map<String, dynamic> word) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xóa từ?'),
-        content: Text('Bạn có chắc chắn muốn xóa "${word['word']}" không?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-
-    try {
-      await _db.deleteVocabularyWord(word['id'] as int);
-
-      // Xóa khỏi danh sách hiển thị + index local
-      setState(() {
-        _searchResults.removeWhere((w) => w['id'] == word['id']);
-        _allWords.removeWhere((w) => w['id'] == word['id']);
-      });
-      WordChangeBus().notifyChanged('delete-word');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xóa từ')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: theme.colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    onChanged: _onQueryChanged,
-                    style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 16, color: theme.colorScheme.onSurface),
-                    decoration: InputDecoration(
-                      hintText: 'Search words...',
-                      prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.primary, size: 22),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurfaceVariant),
-                              onPressed: () { _searchController.clear(); _onQueryChanged(''); },
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoadingIndex
-                ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                : _indexFailed
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Không tải được danh sách từ',
-                                style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onSurfaceVariant, fontSize: 15)),
-                            const SizedBox(height: 8),
-                            TextButton(onPressed: _loadIndex, child: const Text('Thử lại')),
-                          ],
-                        ),
-                      )
-                    : _searchResults.isEmpty && _searchController.text.isNotEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('\u{1F50D}', style: const TextStyle(fontSize: 48)),
-                            const SizedBox(height: 12),
-                            Text('No word found', style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onSurfaceVariant, fontSize: 16)),
-                          ],
-                        ),
-                      )
-                    : _searchResults.isEmpty
-                        ? Center(
-                            child: Text('Type to search', style: TextStyle(fontFamily: 'Be Vietnam Pro', color: theme.colorScheme.onSurfaceVariant, fontSize: 15)),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                            itemCount: _searchResults.length,
-                            itemBuilder: (context, index) {
-                              final word = _searchResults[index];
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerLowest,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(word['word'] as String, style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 17, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface)),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_rounded, size: 20, color: Colors.blue),
-                                          onPressed: () => _editSearchResult(word),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_rounded, size: 20, color: Colors.red),
-                                          onPressed: () => _deleteSearchResult(word),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(word['meaning'] as String, style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 14, color: theme.colorScheme.onSurfaceVariant)),
-                                    if ((word['word_type'] as String? ?? '').trim().isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Builder(builder: (context) {
-                                        final tokens = (word['word_type'] as String).split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
-                                        return Wrap(spacing: 4, runSpacing: 4, children: tokens.map((t) => WordTypeBadge(typeKey: t, compact: true)).toList());
-                                      }),
-                                    ],
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.folder_outlined, size: 13, color: theme.colorScheme.primary),
-                                        const SizedBox(width: 5),
-                                        Icon(Icons.label_outline, size: 13, color: theme.colorScheme.primary),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text('${word['category'] ?? ''} / ${word['list_name'] ?? ''}',
-                                            style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
-                                            overflow: TextOverflow.ellipsis),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-          ),
-        ],
       ),
     );
   }

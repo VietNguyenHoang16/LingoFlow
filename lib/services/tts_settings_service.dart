@@ -358,11 +358,11 @@ class TtsSettingsService {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Choose one voice for the whole app.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey,
+                  color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 16),
@@ -379,7 +379,7 @@ class TtsSettingsService {
                         Icons.record_voice_over,
                         color: isSelected
                             ? Theme.of(sheetContext).colorScheme.primary
-                            : Colors.grey,
+                            : Theme.of(sheetContext).colorScheme.onSurfaceVariant,
                       ),
                       title: Text(
                         voice.name,

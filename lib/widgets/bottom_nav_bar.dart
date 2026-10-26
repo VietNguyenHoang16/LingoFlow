@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class LingoBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final List<NavItem> items;
@@ -15,13 +17,11 @@ class LingoBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.lingoColors;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? theme.colorScheme.surface
-            : theme.colorScheme.surface,
+        color: theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
             color: theme.colorScheme.outlineVariant,
@@ -45,9 +45,7 @@ class LingoBottomNavBar extends StatelessWidget {
                 vertical: 8,
               ),
               decoration: BoxDecoration(
-                color: isActive
-                    ? (isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000))
-                    : Colors.transparent,
+                color: isActive ? colors.navActiveBg : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -56,7 +54,7 @@ class LingoBottomNavBar extends StatelessWidget {
                   Icon(
                     items[i].icon,
                     color: isActive
-                        ? (isDark ? const Color(0xFF000000) : Colors.white)
+                        ? colors.navActiveContent
                         : theme.colorScheme.onSurfaceVariant,
                     size: 20,
                   ),
@@ -69,7 +67,7 @@ class LingoBottomNavBar extends StatelessWidget {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.2,
-                        color: isDark ? const Color(0xFF000000) : Colors.white,
+                        color: colors.navActiveContent,
                       ),
                     ),
                   ],

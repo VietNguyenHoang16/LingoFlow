@@ -6,18 +6,22 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.4 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **18.9 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,345,204 bytes` (20.4 MB)
-- SHA256: `0CE6566089A2DB07E6080AC76400453ACE717DD2B08689696BEA7FD8CF8C1E59`
-- Ngày build: `26/10/2026` — tông đen thuần #000000 / trắng #FFFFFF toàn app; banner Daily nền đen chữ trắng; giữ xanh/đỏ chỉ cho phản hồi đúng–sai; bỏ gradient đen→trắng tạo vùng xám loang ở thẻ hoàn thành, header danh sách/chủ đề và banner cài PWA; thang màu loại từ + mastery đổi sang thang xám trung tính không ánh xanh
+- Kích thước: `19,762,740 bytes` (18.9 MB)
+- SHA256: `0BEFAF9E5B38697F89292070982E1A2175331F56BB8A051BB75986B10C070879`
+- Ngày build: `26/10/2026` — bỏ toàn bộ tông xám/đen–trắng, chuyển sang **emerald + kem ấm**:
+  màu nhấn `#047857` (light) / `#34D399` (dark), nền kem `#FFFCF6` và đen ngả lục `#0C1210`,
+  header/banner/nav dùng emerald, badge loại từ 12 huế riêng, mastery New→Learning→Reviewing→Mastered
+  theo amber → orange → blue → emerald, splash web + native đổi theo bảng màu mới.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
+- Chữ ký: debug keystore (cùng khoá với các bản trước) nên cài đè trực tiếp, không cần gỡ app cũ
 
 ## Cách cài
 

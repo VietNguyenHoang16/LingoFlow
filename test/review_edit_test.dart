@@ -88,6 +88,22 @@ void main() {
               body['action'] == 'updateVocabularyWordDetails')) {
         return http.Response(jsonEncode({'error': 'Offline'}), 500);
       }
+      if (body['action'] == 'updateVocabularyWord' ||
+          body['action'] == 'updateVocabularyWordDetails') {
+        final data = body['data'] as Map<String, dynamic>;
+        final target = (data['word'] ?? 'apple').toString();
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'sentence': 'I practice $target today.',
+              'translation': 'Tôi luyện tập $target hôm nay.',
+              'target': target,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
       return http.Response('{"data":null}', 200);
     });
     await http.runWithClient(() async {
@@ -183,6 +199,7 @@ void main() {
       final detail = actions(requests, 'updateVocabularyWordDetails').single;
       expect((detail['data'] as Map)['wordId'], 11);
       expect((detail['data'] as Map)['meaning'], 'quả táo đỏ');
+      expect((detail['data'] as Map)['refreshExample'], isTrue);
       expect(actions(requests, 'updateVocabularyWord'), isEmpty);
       expect(actions(requests, 'dictionary'), isEmpty);
       expect(actions(requests, 'deleteVocabularyWord'), isEmpty);
@@ -242,6 +259,10 @@ void main() {
       expect(find.byType(AnswerDiffText), findsNothing);
       expect(find.text('aple'), findsNothing);
       expect(find.text('Check answer'), findsOneWidget);
+
+      await answerWrong(tester);
+      expect(find.text('I practice apples today.'), findsOneWidget);
+      expect(find.textContaining('Tôi luyện tập apples hôm nay.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

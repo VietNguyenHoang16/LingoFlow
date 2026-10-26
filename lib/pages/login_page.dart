@@ -117,39 +117,12 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Stack(
         children: [
-          // Background decorative blobs
-          Positioned(
-            top: -size.height * 0.08,
-            right: -size.width * 0.2,
-            child: Container(
-              width: size.width * 0.7,
-              height: size.width * 0.7,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: theme.colorScheme.primary.withAlpha(isDark ? 20 : 25),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -size.height * 0.05,
-            left: -size.width * 0.15,
-            child: Container(
-              width: size.width * 0.55,
-              height: size.width * 0.55,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color:
-                    theme.colorScheme.secondary.withAlpha(isDark ? 20 : 30),
-              ),
-            ),
-          ),
+          // Clean minimal background
 
           // Main content
           SafeArea(
@@ -195,23 +168,17 @@ class _LoginPageState extends State<LoginPage>
       children: [
         // App icon
         Container(
-          width: 88,
-          height: 88,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
             color: theme.colorScheme.primary,
-            borderRadius: BorderRadius.circular(26),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.primary.withAlpha(80),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: const Center(
-            child: Text(
-              '🦉',
-              style: TextStyle(fontSize: 44),
+          child: Center(
+            child: Icon(
+              Icons.auto_stories_rounded,
+              color: theme.colorScheme.onPrimary,
+              size: 34,
             ),
           ),
         ),
@@ -249,30 +216,16 @@ class _LoginPageState extends State<LoginPage>
   Widget _buildFormCard(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: isDark
             ? theme.colorScheme.surfaceContainerLow
             : theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: theme.colorScheme.outlineVariant,
-          width: 1.5,
+          width: 1,
         ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: theme.colorScheme.primary.withAlpha(12),
-                  blurRadius: 40,
-                  offset: const Offset(0, 16),
-                ),
-                BoxShadow(
-                  color: Colors.black.withAlpha(8),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

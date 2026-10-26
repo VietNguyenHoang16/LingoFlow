@@ -207,114 +207,81 @@ class _ProfilePageState extends State<ProfilePage> {
         slivers: [
           // Header
           SliverAppBar(
-            expandedHeight: 200,
             pinned: true,
-            backgroundColor: theme.colorScheme.primary,
-            leading: Padding(
-              padding: const EdgeInsets.all(8),
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(40),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-              ),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primary.withAlpha(200),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 40),
-                      // Avatar
-                      Container(
-                        width: 76,
-                        height: 76,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(40),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withAlpha(100),
-                            width: 3,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '👤',
-                            style: TextStyle(fontSize: 36),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _maskPhone(_phone),
-                        style: const TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ID: ${widget.userId}',
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontSize: 12,
-                          color: Colors.white.withAlpha(180),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            backgroundColor: theme.colorScheme.surface,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            leading: Navigator.canPop(context)
+                ? IconButton(
+                    icon: Icon(Icons.arrow_back_rounded, color: theme.colorScheme.onSurface),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                : null,
+            title: Text(
+              'Settings',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                letterSpacing: -0.5,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ),
 
           // Content
           SliverPadding(
-            padding:
-                const EdgeInsets.fromLTRB(20, 20, 20, 40),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // Personal info card
                 _buildCard(
                   theme: theme,
                   isDark: isDark,
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      _buildSectionTitle(
-                          'Thong tin ca nhan', Icons.badge_outlined,
-                          theme),
-                      const SizedBox(height: 16),
-                      _buildInfoRow('So DT',
-                          _maskPhone(_phone), theme),
-                      const Divider(height: 20),
-                      _buildInfoRow(
-                          'User ID',
-                          widget.userId.toString(),
-                          theme),
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerLow,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.person_outline_rounded,
+                            color: theme.colorScheme.onSurface,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _maskPhone(_phone),
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'User ID: ${widget.userId}',
+                              style: TextStyle(
+                                fontFamily: 'Be Vietnam Pro',
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -674,25 +641,16 @@ class _ProfilePageState extends State<ProfilePage> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: isDark
             ? theme.colorScheme.surfaceContainerLow
             : theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: theme.colorScheme.outlineVariant,
           width: 1,
         ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withAlpha(6),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
       ),
       child: child,
     );
@@ -706,18 +664,20 @@ class _ProfilePageState extends State<ProfilePage> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer.withAlpha(60),
-            borderRadius: BorderRadius.circular(10),
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
           ),
-          child: Icon(icon, size: 16, color: theme.colorScheme.primary),
+          child: Icon(icon, size: 16, color: theme.colorScheme.onSurface),
         ),
         const SizedBox(width: 10),
         Text(
           title,
           style: TextStyle(
             fontFamily: 'Plus Jakarta Sans',
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
             color: theme.colorScheme.onSurface,
           ),
         ),
@@ -725,34 +685,5 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildInfoRow(
-      String label, String value, ThemeData theme) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Be Vietnam Pro',
-              fontSize: 14,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Be Vietnam Pro',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+
 }

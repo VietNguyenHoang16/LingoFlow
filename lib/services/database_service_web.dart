@@ -127,6 +127,15 @@ class DatabaseService {
     return DateTime.tryParse(value.toString());
   }
 
+  Map<String, String>? _parseExample(dynamic value) {
+    if (value is! Map) return null;
+    return {
+      'sentence': (value['sentence'] ?? '').toString(),
+      'translation': (value['translation'] ?? '').toString(),
+      'target': (value['target'] ?? '').toString(),
+    };
+  }
+
   Map<String, dynamic> _mapDates(Map<String, dynamic> row) {
     final mapped = Map<String, dynamic>.from(row);
     for (final key in const [
@@ -400,7 +409,7 @@ class DatabaseService {
     await _request<void>('deleteVocabularyWord', data: {'wordId': wordId});
   }
 
-  Future<void> updateVocabularyWordDetails({
+  Future<Map<String, String>?> updateVocabularyWordDetails({
     required int wordId,
     required String meaning,
     String? pronunciation,
@@ -408,8 +417,9 @@ class DatabaseService {
     String? wordType,
     String? topicTag,
     String? commonSynonyms,
+    bool regenerateExample = false,
   }) async {
-    await _request<void>('updateVocabularyWordDetails', data: {
+    final result = await _request<dynamic>('updateVocabularyWordDetails', data: {
       'wordId': wordId,
       'meaning': meaning,
       'pronunciation': pronunciation ?? '',
@@ -417,10 +427,12 @@ class DatabaseService {
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
+      'refreshExample': regenerateExample,
     });
+    return _parseExample(result);
   }
 
-  Future<void> updateVocabularyWord({
+  Future<Map<String, String>?> updateVocabularyWord({
     required int wordId,
     required String word,
     required String meaning,
@@ -430,7 +442,7 @@ class DatabaseService {
     String? topicTag,
     String? commonSynonyms,
   }) async {
-    await _request<void>('updateVocabularyWord', data: {
+    final result = await _request<dynamic>('updateVocabularyWord', data: {
       'wordId': wordId,
       'word': word,
       'meaning': meaning,
@@ -440,6 +452,7 @@ class DatabaseService {
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
     });
+    return _parseExample(result);
   }
 
   Future<void> updateWordReview({

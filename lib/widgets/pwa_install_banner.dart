@@ -113,7 +113,7 @@ class _PwaInstallBannerState extends State<PwaInstallBanner> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? theme.colorScheme.surfaceContainerLow : Colors.white,
+        color: isDark ? theme.colorScheme.surfaceContainerLow : theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: theme.colorScheme.primary.withAlpha(isDark ? 40 : 30),
@@ -219,7 +219,7 @@ class _PwaInstallBannerState extends State<PwaInstallBanner> {
               color: theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.install_mobile_rounded, color: Colors.white, size: 18),
+            child: Icon(Icons.install_mobile_rounded, color: theme.colorScheme.onPrimary, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -472,7 +472,7 @@ class IOSInstallSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
-              child: Text(number, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontFamily: 'Plus Jakarta Sans')),
+              child: Text(number, style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.w800, fontFamily: 'Plus Jakarta Sans')),
             ),
           ),
           const SizedBox(width: 12),

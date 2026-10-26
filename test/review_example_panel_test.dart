@@ -72,7 +72,7 @@ void main() {
     final keyword = inner.children!
         .whereType<TextSpan>()
         .firstWhere((s) => (s.text ?? '').toLowerCase().contains('ephemeral'));
-    expect(keyword.style!.color, const Color(0xFF000000));
+    expect(keyword.style!.color, AppTheme.light.colorScheme.onSurface);
     expect(keyword.style!.fontWeight, FontWeight.w700);
   });
 }
