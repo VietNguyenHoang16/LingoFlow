@@ -14,8 +14,8 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,345,204 bytes` (20.4 MB)
-- SHA256: `65EC2582AD2BCE43AAC7FB837A6AC37290E50A14C9837B01CEF731B11A38E29D`
-- Ngày build: `26/10/2026` — cập nhật giao diện dashboard, luyện tập, ôn tập và trang hồ sơ
+- SHA256: `DE9C4CD8A81ECD66ED2DB74D2D31B2A0BDECE7BEBFE0A4EF2047EFF98EA83891`
+- Ngày build: `26/10/2026` — tông đen thuần #000000 / trắng #FFFFFF toàn app; banner Daily nền đen chữ trắng; giữ xanh/đỏ chỉ cho phản hồi đúng–sai
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 

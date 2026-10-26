@@ -19,9 +19,9 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/topic_tag_badge.dart';
 
-/// Màu tô ký tự gõ sai trên nền gradient của thẻ đáp án (indigo khi gần đúng,
-/// đỏ khi sai): amber sáng đủ tương phản cho cả hai nền.
-const Color _answerMismatchColor = Color(0xFFFFD54F);
+/// Màu tô ký tự gõ sai của người dùng: đỏ (feedback 'sai') đủ tương phản
+/// trên cả nền trắng lẫn đen thuần.
+const Color _answerMismatchColor = Color(0xFFDC2626);
 
 /// Hanh dong trong menu an cua the cau hoi (nhan giu the / Shift+F10).
 enum _WordMenuAction { edit, delete }
@@ -424,8 +424,9 @@ class _ReviewPageState extends State<ReviewPage>
         _replaceWordInSession(wordId, normalizeWord(updated));
       });
 
+      Map<String, String>? example;
       if (wordChanged) {
-        await _db.updateVocabularyWord(
+        example = await _db.updateVocabularyWord(
           wordId: wordId,
           word: result.word,
           meaning: result.meaning,
@@ -436,7 +437,7 @@ class _ReviewPageState extends State<ReviewPage>
           commonSynonyms: (updated['common_synonyms'] ?? '').toString(),
         );
       } else {
-        await _db.updateVocabularyWordDetails(
+        example = await _db.updateVocabularyWordDetails(
           wordId: wordId,
           meaning: result.meaning,
           pronunciation: (previous['pronunciation'] ?? '').toString(),
@@ -444,9 +445,16 @@ class _ReviewPageState extends State<ReviewPage>
           wordType: (previous['word_type'] ?? '').toString(),
           topicTag: (previous['topic_tag'] ?? '').toString(),
           commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
+          regenerateExample: true,
         );
       }
       if (!mounted) return;
+      if (example != null) {
+        updated['example_sentence'] = example['sentence'] ?? '';
+        updated['example_translation'] = example['translation'] ?? '';
+        updated['example_target'] = example['target'] ?? '';
+        setState(() => _replaceWordInSession(wordId, normalizeWord(updated)));
+      }
       setState(() {
         // Chi reset khi chu cua Tu doi: dap an da go va dau sai tinh theo tu cu
         // nen khong con dung nua.
@@ -457,6 +465,7 @@ class _ReviewPageState extends State<ReviewPage>
           content: Text(_editSavedMessage(result.word, wordChanged, enrichment)),
         ),
       );
+      WordChangeBus().notifyChanged('edit-word');
     } catch (e) {
       if (!mounted) return;
       // Rollback theo id (khong theo _currentIndex) de khong ghi nham tu khac.
@@ -663,7 +672,7 @@ class _ReviewPageState extends State<ReviewPage>
       _dueWords[_currentIndex] = {...w, 'meaning': next};
     });
     try {
-      await _db.updateVocabularyWordDetails(
+      final example = await _db.updateVocabularyWordDetails(
         wordId: w['id'] as int,
         meaning: next,
         pronunciation: (w['pronunciation'] ?? '').toString(),
@@ -671,7 +680,19 @@ class _ReviewPageState extends State<ReviewPage>
         wordType: (w['word_type'] ?? '').toString(),
         topicTag: (w['topic_tag'] ?? '').toString(),
         commonSynonyms: (w['common_synonyms'] ?? '').toString(),
+        regenerateExample: true,
       );
+      if (example != null && mounted) {
+        setState(() {
+          _dueWords[_currentIndex] = normalizeWord({
+            ..._dueWords[_currentIndex],
+            'example_sentence': example['sentence'],
+            'example_translation': example['translation'],
+            'example_target': example['target'],
+          });
+        });
+      }
+      WordChangeBus().notifyChanged('edit-word');
     } catch (e) {
       if (mounted) {
         setState(() => _dueWords[_currentIndex] = previous);
@@ -909,13 +930,12 @@ class _ReviewPageState extends State<ReviewPage>
                   child: AnimatedBuilder(
                   animation: _flipAnimation,
                   builder: (context, child) {
-                    // null (grammar tu cham) giu mau trung tinh nhu khi tra loi dung.
-                    final showColors = _showAnswer
-                        ? (_isAnswerCorrect != false
-                            ? [theme.colorScheme.primary, theme.colorScheme.primaryContainer]
-                            : [theme.colorScheme.error, theme.colorScheme.error.withAlpha(160)])
-                        : [theme.colorScheme.primary, theme.colorScheme.primaryContainer];
-
+                    // Border color changes based on answer state.
+                    final borderColor = _showAnswer
+                        ? (_isAnswerCorrect == false
+                            ? theme.colorScheme.error.withAlpha(120)
+                            : theme.colorScheme.onSurface.withAlpha(60))
+                        : theme.colorScheme.outlineVariant;
                     return Stack(
                       children: [
                         Container(
@@ -928,19 +948,9 @@ class _ReviewPageState extends State<ReviewPage>
                             compactMode ? 14 : 20,
                           ),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: showColors,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: showColors[0].withAlpha(70),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
+                            color: theme.colorScheme.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: borderColor, width: 1.5),
                           ),
                           child: !_showAnswer
                               ? _buildQuestionCardContent(currentWord, theme, compactMode)
@@ -955,11 +965,11 @@ class _ReviewPageState extends State<ReviewPage>
                             onPressed: _showWordOptions,
                             icon: Icon(
                               Icons.more_horiz_rounded,
-                              color: theme.colorScheme.onPrimary.withAlpha(220),
+                              color: theme.colorScheme.onSurfaceVariant,
                               size: 22,
                             ),
                             style: IconButton.styleFrom(
-                              backgroundColor: Colors.black.withAlpha(25),
+                              backgroundColor: theme.colorScheme.surfaceContainerLow,
                               minimumSize: const Size(36, 36),
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
@@ -1046,7 +1056,7 @@ class _ReviewPageState extends State<ReviewPage>
               Flexible(
                 child: TopicTagBadge(
                   tag: currentWord['topic_tag'] as String,
-                  onColoredSurface: true,
+                   onColoredSurface: false,
                 ),
               ),
             ],
@@ -1054,21 +1064,21 @@ class _ReviewPageState extends State<ReviewPage>
           const SizedBox(height: 8),
         ],
         if (!compact) ...[
-          const Icon(Icons.translate_rounded, color: Colors.white54, size: 28),
+          Icon(Icons.translate_rounded, color: theme.colorScheme.onSurfaceVariant, size: 28),
           const SizedBox(height: 10),
         ],
         if ((currentWord['word_type'] ?? '').isNotEmpty) ...[
           WordTypeBadge(
             typeKey: currentWord['word_type'] as String,
             showIcon: false,
-            onColoredSurface: true,
+            onColoredSurface: false,
           ),
           const SizedBox(height: 10),
         ],
         Text(
           widget.grammarReview ? 'Think of the English structure' : 'What is the English word?',
           style: TextStyle(
-            color: theme.colorScheme.onPrimary.withAlpha(170),
+            color: theme.colorScheme.onSurfaceVariant,
             fontSize: compact ? 12 : 13,
             fontFamily: 'Be Vietnam Pro',
           ),
@@ -1083,7 +1093,7 @@ class _ReviewPageState extends State<ReviewPage>
             fontFamily: 'Be Vietnam Pro',
             fontSize: compact ? 18 : 22,
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onPrimary,
+            color: theme.colorScheme.onSurface,
             height: 1.3,
           ),
         ),
@@ -1109,7 +1119,7 @@ class _ReviewPageState extends State<ReviewPage>
                 fontSize: compact ? 15 : 18,
                 letterSpacing: 2,
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onPrimary,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ),
@@ -1119,7 +1129,7 @@ class _ReviewPageState extends State<ReviewPage>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: theme.colorScheme.onPrimary.withAlpha(35),
+              color: theme.colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -1127,7 +1137,7 @@ class _ReviewPageState extends State<ReviewPage>
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: theme.colorScheme.onPrimary.withAlpha(150),
+                color: theme.colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontFamily: 'Be Vietnam Pro',
               ),
@@ -1150,7 +1160,7 @@ class _ReviewPageState extends State<ReviewPage>
       fontFamily: 'Plus Jakarta Sans',
       fontSize: compact ? 24 : 30,
       fontWeight: FontWeight.w800,
-      color: theme.colorScheme.onPrimary,
+      color: theme.colorScheme.onSurface,
       letterSpacing: -0.3,
     );
 
@@ -1180,7 +1190,7 @@ class _ReviewPageState extends State<ReviewPage>
     final typedText = _answerController.text;
     final baseStyle = TextStyle(
       fontSize: compact ? 11 : 13,
-      color: theme.colorScheme.onPrimary.withAlpha(170),
+      color: theme.colorScheme.onSurfaceVariant,
       fontStyle: FontStyle.italic,
       fontFamily: 'Be Vietnam Pro',
     );
@@ -1235,7 +1245,7 @@ class _ReviewPageState extends State<ReviewPage>
             '/${currentWord['pronunciation']}/',
             style: TextStyle(
               fontSize: compact ? 12 : 14,
-              color: theme.colorScheme.onPrimary.withAlpha(170),
+              color: theme.colorScheme.onSurfaceVariant,
               fontStyle: FontStyle.italic,
               fontFamily: 'Be Vietnam Pro',
             ),
@@ -1246,11 +1256,11 @@ class _ReviewPageState extends State<ReviewPage>
           WordTypeBadge(
             typeKey: currentWord['word_type'] as String,
             showIcon: false,
-            onColoredSurface: true,
+            onColoredSurface: false,
           ),
         ],
         SizedBox(height: compact ? 8 : 12),
-        Container(width: 48, height: 2, color: theme.colorScheme.onPrimary.withAlpha(60)),
+        Container(width: 48, height: 2, color: theme.colorScheme.outlineVariant),
         SizedBox(height: compact ? 8 : 12),
         GestureDetector(
           onTap: _quickEditMeaning,
@@ -1268,7 +1278,7 @@ class _ReviewPageState extends State<ReviewPage>
                     fontFamily: 'Be Vietnam Pro',
                     fontSize: compact ? 16 : 18,
                     fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onPrimary,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -1276,7 +1286,7 @@ class _ReviewPageState extends State<ReviewPage>
               Icon(
                 Icons.edit_rounded,
                 size: 14,
-                color: theme.colorScheme.onPrimary.withAlpha(170),
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -1290,7 +1300,7 @@ class _ReviewPageState extends State<ReviewPage>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: theme.colorScheme.onPrimary.withAlpha(30),
+              color: theme.colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -1300,7 +1310,7 @@ class _ReviewPageState extends State<ReviewPage>
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
-                color: theme.colorScheme.onPrimary.withAlpha(170),
+                color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,
                 fontFamily: 'Be Vietnam Pro',
               ),
@@ -1452,18 +1462,18 @@ class _ReviewPageState extends State<ReviewPage>
                         fontSize: compact ? 14 : 16,
                         fontFamily: 'Plus Jakarta Sans',
                         color: _hintLevel < maxHints
-                            ? const Color(0xFFE6A800)
+                            ? theme.colorScheme.primary
                             : theme.colorScheme.onSurfaceVariant.withAlpha(100),
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFE6A800),
+                      foregroundColor: theme.colorScheme.primary,
                       backgroundColor: _hintLevel < maxHints
-                          ? const Color(0xFFE6A800).withAlpha(20)
+                          ? theme.colorScheme.primary.withAlpha(15)
                           : Colors.transparent,
                       side: BorderSide(
                         color: _hintLevel < maxHints
-                            ? const Color(0xFFE6A800).withAlpha(120)
+                            ? theme.colorScheme.primary.withAlpha(100)
                             : theme.colorScheme.onSurfaceVariant.withAlpha(50),
                         width: 2,
                       ),

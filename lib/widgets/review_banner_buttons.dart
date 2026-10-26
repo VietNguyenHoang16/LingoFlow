@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
-/// Hai nut on tap tren Dashboard: tu vung den han + cau truc (grammar) den han.
-///
-/// Luu y layout: widget nay nam trong SliverToBoxAdapter cua CustomScrollView
-/// -> nhan chieu cao unbounded. KHONG duoc dung Flex children (Spacer/
-/// Expanded trong Column doc lap) o day; chieu cao nut la co dinh.
+/// Hai nut on tap tren Dashboard / Review tab: tu vung den han + cau truc (grammar) den han.
 class ReviewBannerButtons extends StatelessWidget {
   final int dueWords;
   final int dueGrammar;
@@ -22,8 +17,6 @@ class ReviewBannerButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.lingoColors;
-
     return Row(
       children: [
         Expanded(
@@ -32,7 +25,7 @@ class ReviewBannerButtons extends StatelessWidget {
             dueLabel: 'words due',
             dueTitle: 'Time to review!',
             doneSubtitle: 'Keep your streak going!',
-            gradient: dueWords > 0 ? colors.reviewBannerDue : colors.reviewBannerDone,
+            icon: Icons.style_outlined,
             onTap: onWordsReview,
           ),
         ),
@@ -43,7 +36,7 @@ class ReviewBannerButtons extends StatelessWidget {
             dueLabel: 'structures due',
             dueTitle: 'Grammar time!',
             doneSubtitle: 'No structures due!',
-            gradient: dueGrammar > 0 ? colors.reviewBannerGrammar : colors.reviewBannerDone,
+            icon: Icons.menu_book_outlined,
             onTap: onGrammarReview,
           ),
         ),
@@ -57,7 +50,7 @@ class _ReviewButton extends StatelessWidget {
   final String dueLabel;
   final String dueTitle;
   final String doneSubtitle;
-  final List<Color> gradient;
+  final IconData icon;
   final VoidCallback onTap;
 
   const _ReviewButton({
@@ -65,43 +58,66 @@ class _ReviewButton extends StatelessWidget {
     required this.dueLabel,
     required this.dueTitle,
     required this.doneSubtitle,
-    required this.gradient,
+    required this.icon,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final hasDue = dueCount > 0;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        // Chieu cao co dinh: an toan trong moi context (ke ca unbounded sliver).
-        height: 128,
-        padding: const EdgeInsets.all(14),
+        height: 124,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: gradient[0].withAlpha(70), blurRadius: 14, offset: const Offset(0, 6))],
+          // Den thuần chữ trắng khi còn bài cần ôn; trắng khi đã xong.
+          color: hasDue
+              ? theme.colorScheme.primary
+              : theme.colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasDue
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
+            width: 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          // spaceBetween thay cho Spacer: khong can constraint co dinh tu cha.
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(12)),
-                  child: Center(child: Text(hasDue ? '\u{1F4DA}' : '\u{2705}', style: const TextStyle(fontSize: 20))),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: hasDue
+                        ? theme.colorScheme.onPrimary.withAlpha(40)
+                        : theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      hasDue ? icon : Icons.check_rounded,
+                      size: 18,
+                      color: hasDue
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: Colors.white.withAlpha(30), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 15),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: hasDue
+                      ? theme.colorScheme.onPrimary.withAlpha(200)
+                      : theme.colorScheme.onSurfaceVariant,
+                  size: 16,
                 ),
               ],
             ),
@@ -113,14 +129,29 @@ class _ReviewButton extends StatelessWidget {
                   hasDue ? dueTitle : 'All done!',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Plus Jakarta Sans', fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.2),
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: hasDue
+                        ? theme.colorScheme.onPrimary
+                        : theme.colorScheme.onSurface,
+                    letterSpacing: -0.2,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   hasDue ? '$dueCount $dueLabel' : doneSubtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro',
+                    fontSize: 12,
+                    color: hasDue
+                        ? theme.colorScheme.onPrimary.withAlpha(220)
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),

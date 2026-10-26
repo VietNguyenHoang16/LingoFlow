@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 class LingoBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -16,49 +15,40 @@ class LingoBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = context.lingoColors;
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? theme.colorScheme.surfaceContainerLow
-            : theme.colorScheme.surfaceContainerLowest,
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(24)),
+            ? theme.colorScheme.surface
+            : theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
             color: theme.colorScheme.outlineVariant,
             width: 1,
           ),
         ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withAlpha(12),
-                  blurRadius: 24,
-                  offset: const Offset(0, -4),
-                ),
-              ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(items.length, (i) {
           final isActive = i == currentIndex;
           return GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => onTap?.call(i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
               padding: EdgeInsets.symmetric(
-                horizontal: isActive ? 20 : 14,
+                horizontal: isActive ? 18 : 14,
                 vertical: 8,
               ),
               decoration: BoxDecoration(
-                color: isActive ? colors.navActiveBg : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
+                color: isActive
+                    ? (isDark ? const Color(0xFFFFFFFF) : const Color(0xFF000000))
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -66,19 +56,20 @@ class LingoBottomNavBar extends StatelessWidget {
                   Icon(
                     items[i].icon,
                     color: isActive
-                        ? colors.navActiveContent
-                        : colors.navInactiveContent,
-                    size: 22,
+                        ? (isDark ? const Color(0xFF000000) : Colors.white)
+                        : theme.colorScheme.onSurfaceVariant,
+                    size: 20,
                   ),
                   if (isActive) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
                       items[i].label,
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.navActiveContent,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: isDark ? const Color(0xFF000000) : Colors.white,
                       ),
                     ),
                   ],

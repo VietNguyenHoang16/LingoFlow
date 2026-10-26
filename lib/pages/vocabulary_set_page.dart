@@ -781,7 +781,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       _words[idx] = {..._words[idx], 'meaning': next};
     });
     try {
-      await _db.updateVocabularyWordDetails(
+      final example = await _db.updateVocabularyWordDetails(
         wordId: id,
         meaning: next,
         pronunciation: (previous['pronunciation'] ?? '').toString(),
@@ -789,7 +789,18 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         wordType: (previous['word_type'] ?? '').toString(),
         topicTag: (previous['topic_tag'] ?? '').toString(),
         commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
+        regenerateExample: true,
       );
+      if (example != null && mounted) {
+        setState(() {
+          _words[idx] = {
+            ..._words[idx],
+            'example_sentence': example['sentence'],
+            'example_translation': example['translation'],
+            'example_target': example['target'],
+          };
+        });
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã sửa nghĩa!')),
@@ -1680,6 +1691,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: colors.reviewBannerDue),
           borderRadius: BorderRadius.circular(16),
+          // Viền hairline de banner den thuan tach khoi nen den dark mode.
+          border: Border.all(
+            color: theme.brightness == Brightness.dark
+                ? theme.colorScheme.outlineVariant
+                : colors.reviewBannerDue[0],
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: colors.reviewBannerDue[0].withAlpha(60),
@@ -2525,4 +2543,3 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     );
   }
 }
-

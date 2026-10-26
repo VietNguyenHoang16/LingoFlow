@@ -10,7 +10,7 @@ import 'package:lingoflow/theme/app_theme.dart';
 import 'package:lingoflow/widgets/answer_diff_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const Color _mismatch = Color(0xFFFFD54F);
+const Color _mismatch = Color(0xFFDC2626);
 
 /// Flatten toàn bộ span (kể cả span lồng nhau) để kiểm tra style từng ký tự.
 List<TextSpan> _allSpans(WidgetTester tester, {required String plainText}) {

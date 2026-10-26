@@ -36,10 +36,10 @@ class ReviewExamplePanel extends StatelessWidget {
       color: theme.colorScheme.onSurface,
       height: 1.5,
     );
-    // Light mode: accent tren nen nhat tuong phan thap -> dung cham dam.
+    // Light mode: nen trang sach -> nhu cao tu can hoc bang den dam.
     final highlight = theme.brightness == Brightness.dark
         ? accent
-        : const Color(0xFF3730A3);
+        : theme.colorScheme.onSurface;
     final t = (target ?? '').trim();
     if (t.isEmpty || !example.toLowerCase().contains(t.toLowerCase())) {
       return Text(example, maxLines: 3, overflow: TextOverflow.ellipsis, style: baseStyle);

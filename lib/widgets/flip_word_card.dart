@@ -173,15 +173,8 @@ class _CardFront extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withAlpha(18),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -360,10 +353,10 @@ class _CardBack extends StatelessWidget {
       color: theme.colorScheme.onSurface,
       height: 1.5,
     );
-    // Light mode: accent tren nen nhat tuong phan thap -> dung cham dam.
+    // Light mode: nen trang sach -> nhu cao tu can hoc bang den dam.
     final highlight = theme.brightness == Brightness.dark
         ? accent
-        : const Color(0xFF3730A3);
+        : theme.colorScheme.onSurface;
     final target = (exampleTarget ?? '').trim();
     if (target.isEmpty || !example.toLowerCase().contains(target.toLowerCase())) {
       return Text(example, maxLines: 3, overflow: TextOverflow.ellipsis, style: baseStyle);
@@ -395,24 +388,9 @@ class _CardBack extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            accent.withAlpha(22),
-            theme.colorScheme.surfaceContainerLowest,
-            theme.colorScheme.surfaceContainerLow,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withAlpha(60)),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withAlpha(25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -438,7 +416,7 @@ class _CardBack extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: accent.withAlpha(25),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   'Định nghĩa & Ví dụ',

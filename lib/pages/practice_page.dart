@@ -411,7 +411,7 @@ class _PracticePageState extends State<PracticePage> {
       _words[_currentIndex] = {..._words[_currentIndex], 'meaning': next};
     });
     try {
-      await _db.updateVocabularyWordDetails(
+      final example = await _db.updateVocabularyWordDetails(
         wordId: previous['id'] as int,
         meaning: next,
         pronunciation: (previous['pronunciation'] ?? '').toString(),
@@ -419,7 +419,21 @@ class _PracticePageState extends State<PracticePage> {
         wordType: (previous['word_type'] ?? '').toString(),
         topicTag: (previous['topic_tag'] ?? '').toString(),
         commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
+        regenerateExample: true,
       );
+      if (example != null && mounted) {
+        setState(() {
+          if (_currentIndex < _words.length) {
+            _words[_currentIndex] = {
+              ..._words[_currentIndex],
+              'example_sentence': example['sentence'],
+              'example_translation': example['translation'],
+              'example_target': example['target'],
+            };
+          }
+        });
+      }
+      WordChangeBus().notifyChanged('edit-word');
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -1175,13 +1189,13 @@ class _PracticePageState extends State<PracticePage> {
             ),
           ),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFFE6A800),
+            foregroundColor: theme.colorScheme.primary,
             backgroundColor: canHint
-                ? const Color(0xFFE6A800).withAlpha(20)
+                ? theme.colorScheme.primary.withAlpha(15)
                 : Colors.transparent,
             side: BorderSide(
               color: canHint
-                  ? const Color(0xFFE6A800).withAlpha(120)
+                  ? theme.colorScheme.primary.withAlpha(100)
                   : theme.colorScheme.onSurfaceVariant.withAlpha(50),
               width: 2,
             ),
@@ -1278,6 +1292,5 @@ class _PracticePageState extends State<PracticePage> {
     );
   }
 }
-
 
 

@@ -317,8 +317,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           runSpacing: 4,
           children: [
             _stat('Hợp lệ', _validCount, theme.colorScheme.primary),
-            _stat('Lỗi định dạng', _errorCount, theme.colorScheme.error),
-            _stat('Trùng từ', _duplicateCount, Colors.orange),
+            _stat('Lỗi định dạng', _errorCount, theme.colorScheme.error),              _stat('Trùng từ', _duplicateCount, Colors.grey),
             _stat('Tổng dòng', _lines.length, theme.colorScheme.onSurface),
           ],
         ),

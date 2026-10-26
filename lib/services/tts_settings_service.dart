@@ -377,12 +377,16 @@ class TtsSettingsService {
                     return ListTile(
                       leading: Icon(
                         Icons.record_voice_over,
-                        color: isSelected ? const Color(0xFF4a40e0) : Colors.grey,
+                        color: isSelected
+                            ? Theme.of(sheetContext).colorScheme.primary
+                            : Colors.grey,
                       ),
                       title: Text(
                         voice.name,
                         style: TextStyle(
-                          color: isSelected ? const Color(0xFF4a40e0) : Colors.black,
+                          color: isSelected
+                              ? Theme.of(sheetContext).colorScheme.primary
+                              : Theme.of(sheetContext).colorScheme.onSurface,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),

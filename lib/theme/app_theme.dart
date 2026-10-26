@@ -4,37 +4,36 @@ import 'package:flutter/material.dart';
 // LingoFlowColors — ThemeExtension for app-specific colors
 // ============================================================
 
-// Word type color palette (12 parts of speech).
-// Light = mid-saturation 500-600, Dark = lighter 400 for legibility on dark bg.
-// Distinct from mastery colors and cardPalettes.
+// Word type color palette (Monochrome & Muted Slate).
+// Subtle, elegant tones suitable for modern editorial learning apps.
 const Map<String, Color> _wordTypeColorsLight = {
-  'noun': Color(0xFF0EA5E9),         // Sky 500
-  'verb': Color(0xFF16A34A),         // Green 600
-  'adjective': Color(0xFFD97706),    // Amber 600
-  'adverb': Color(0xFF7C3AED),       // Violet 600
-  'preposition': Color(0xFF64748B),  // Slate 500
-  'conjunction': Color(0xFF475569),  // Slate 600
-  'pronoun': Color(0xFF0891B2),      // Cyan 600
-  'interjection': Color(0xFFDB2777), // Pink 600
-  'phrasal_verb': Color(0xFFEA580C), // Orange 600
-  'idiom': Color(0xFF9333EA),        // Purple 600
-  'collocation': Color(0xFF0D9488),  // Teal 600
-  'grammar': Color(0xFF1E40AF),      // Blue 800
+  'noun': Color(0xFF27272A),         // Zinc 800
+  'verb': Color(0xFF3F3F46),         // Zinc 700
+  'adjective': Color(0xFF52525B),    // Zinc 600
+  'adverb': Color(0xFF52525B),       // Zinc 600
+  'preposition': Color(0xFF71717A),  // Zinc 500
+  'conjunction': Color(0xFF71717A),  // Zinc 500
+  'pronoun': Color(0xFF3F3F46),      // Zinc 700
+  'interjection': Color(0xFF52525B), // Zinc 600
+  'phrasal_verb': Color(0xFF27272A), // Zinc 800
+  'idiom': Color(0xFF27272A),        // Zinc 800
+  'collocation': Color(0xFF3F3F46),  // Zinc 700
+  'grammar': Color(0xFF18181B),      // Zinc 900
 };
 
 const Map<String, Color> _wordTypeColorsDark = {
-  'noun': Color(0xFF38BDF8),         // Sky 400
-  'verb': Color(0xFF4ADE80),         // Green 400
-  'adjective': Color(0xFFFBBF24),    // Amber 400
-  'adverb': Color(0xFF8B5CF6),       // Violet 500 (avoid cardPalettes dark Violet 400)
-  'preposition': Color(0xFF94A3B8),  // Slate 400
-  'conjunction': Color(0xFF64748B),  // Slate 500
-  'pronoun': Color(0xFF22D3EE),      // Cyan 400
-  'interjection': Color(0xFFF472B6), // Pink 400
-  'phrasal_verb': Color(0xFFFB923C), // Orange 400
-  'idiom': Color(0xFFC084FC),        // Purple 400
-  'collocation': Color(0xFF2DD4BF),  // Teal 400
-  'grammar': Color(0xFF60A5FA),      // Blue 400
+  'noun': Color(0xFFE4E4E7),         // Zinc 200
+  'verb': Color(0xFFD4D4D8),         // Zinc 300
+  'adjective': Color(0xFFA1A1AA),    // Zinc 400
+  'adverb': Color(0xFFA1A1AA),       // Zinc 400
+  'preposition': Color(0xFF71717A),  // Zinc 500
+  'conjunction': Color(0xFF71717A),  // Zinc 500
+  'pronoun': Color(0xFFD4D4D8),      // Zinc 300
+  'interjection': Color(0xFFA1A1AA), // Zinc 400
+  'phrasal_verb': Color(0xFFE4E4E7), // Zinc 200
+  'idiom': Color(0xFFE4E4E7),        // Zinc 200
+  'collocation': Color(0xFFD4D4D8),  // Zinc 300
+  'grammar': Color(0xFFF4F4F5),      // Zinc 100
 };
 
 class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
@@ -71,48 +70,44 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
   });
 
   static const light = LingoFlowColors(
-    masteryNew: Color(0xFF9E9E9E),
-    masteryLearning: Color(0xFF3B82F6),    // Blue 500
-    masteryReviewing: Color(0xFFF59E0B),   // Amber 500
-    masteryMastered: Color(0xFF10B981),    // Emerald 500
+    masteryNew: Color(0xFF71717A),
+    masteryLearning: Color(0xFF52525B),
+    masteryReviewing: Color(0xFF27272A),
+    masteryMastered: Color(0xFF09090B),
     cardPalettes: [
-      [Color(0xFF6366F1), Color(0xFF818CF8)],  // Indigo
-      [Color(0xFFF43F5E), Color(0xFFFB7185)],  // Rose
-      [Color(0xFF10B981), Color(0xFF34D399)],  // Emerald
-      [Color(0xFFF59E0B), Color(0xFFFBBF24)],  // Amber
-      [Color(0xFF8B5CF6), Color(0xFFA78BFA)],  // Violet
+      [Color(0xFF000000), Color(0xFF000000)],
+      [Color(0xFF000000), Color(0xFF000000)],
+      [Color(0xFF000000), Color(0xFF000000)],
     ],
-    reviewBannerDue: [Color(0xFF6366F1), Color(0xFF818CF8)],
-    reviewBannerDone: [Color(0xFF10B981), Color(0xFF34D399)],
-    reviewBannerGrammar: [Color(0xFF8B5CF6), Color(0xFFA78BFA)],  // Violet
-    navActiveBg: Color(0xFF6366F1),
+    reviewBannerDue: [Color(0xFF000000), Color(0xFF000000)],
+    reviewBannerDone: [Color(0xFF000000), Color(0xFF000000)],
+    reviewBannerGrammar: [Color(0xFF000000), Color(0xFF000000)],
+    navActiveBg: Color(0xFF000000),
     navActiveContent: Colors.white,
-    navInactiveContent: Color(0xFF94A3B8),
-    streakFire: Color(0xFFF59E0B),
-    confettiGold: Color(0xFFFFD600),
+    navInactiveContent: Color(0xFF666666),
+    streakFire: Color(0xFF000000),
+    confettiGold: Color(0xFF000000),
     wordTypeColors: _wordTypeColorsLight,
   );
 
   static const dark = LingoFlowColors(
-    masteryNew: Color(0xFF757575),
-    masteryLearning: Color(0xFF60A5FA),    // Blue 400
-    masteryReviewing: Color(0xFFFBBF24),   // Amber 400
-    masteryMastered: Color(0xFF34D399),    // Emerald 400
+    masteryNew: Color(0xFF71717A),
+    masteryLearning: Color(0xFFA1A1AA),
+    masteryReviewing: Color(0xFFD4D4D8),
+    masteryMastered: Color(0xFFF4F4F5),
     cardPalettes: [
-      [Color(0xFF818CF8), Color(0xFFA5B4FC)],  // Indigo
-      [Color(0xFFFB7185), Color(0xFFFDA4AF)],  // Rose
-      [Color(0xFF34D399), Color(0xFF6EE7B7)],  // Emerald
-      [Color(0xFFFBBF24), Color(0xFFFCD34D)],  // Amber
-      [Color(0xFFA78BFA), Color(0xFFC4B5FD)],  // Violet
+      [Color(0xFF000000), Color(0xFF000000)],
+      [Color(0xFF000000), Color(0xFF000000)],
+      [Color(0xFF000000), Color(0xFF000000)],
     ],
-    reviewBannerDue: [Color(0xFF818CF8), Color(0xFFA5B4FC)],
-    reviewBannerDone: [Color(0xFF34D399), Color(0xFF6EE7B7)],
-    reviewBannerGrammar: [Color(0xFFA78BFA), Color(0xFFC4B5FD)],  // Violet
-    navActiveBg: Color(0xFF818CF8),
-    navActiveContent: Color(0xFF1E1B4B),
-    navInactiveContent: Color(0xFF64748B),
-    streakFire: Color(0xFFFBBF24),
-    confettiGold: Color(0xFFFFD600),
+    reviewBannerDue: [Color(0xFF000000), Color(0xFF000000)],
+    reviewBannerDone: [Color(0xFF000000), Color(0xFF000000)],
+    reviewBannerGrammar: [Color(0xFF000000), Color(0xFF000000)],
+    navActiveBg: Color(0xFFFFFFFF),
+    navActiveContent: Color(0xFF000000),
+    navInactiveContent: Color(0xFFB3B3B3),
+    streakFire: Color(0xFFFFFFFF),
+    confettiGold: Color(0xFFFFFFFF),
     wordTypeColors: _wordTypeColorsDark,
   );
 
@@ -189,79 +184,79 @@ class LingoFlowColors extends ThemeExtension<LingoFlowColors> {
 // ============================================================
 
 // ============================================================
-// Indigo color palette
+// Monochrome (Black & White) palette
 // ============================================================
 
-const _primaryLight = Color(0xFF6366F1);   // Indigo 500
-const _secondaryLight = Color(0xFFFFD600); // Yellow accent
-const _tertiaryLight = Color(0xFFF43F5E);  // Rose
+const _primaryLight = Color(0xFF000000);   // Pure black
+const _secondaryLight = Color(0xFF000000); // Pure black
+const _tertiaryLight = Color(0xFF666666);  // Neutral
 
-const _primaryDark = Color(0xFF818CF8);    // Indigo 400 (lighter for dark bg)
-const _secondaryDark = Color(0xFFFFEA00);
-const _tertiaryDark = Color(0xFFFB7185);
+const _primaryDark = Color(0xFFFFFFFF);    // Pure white
+const _secondaryDark = Color(0xFFFFFFFF);  // Pure white
+const _tertiaryDark = Color(0xFFB3B3B3);   // Neutral
 
 final _lightScheme = ColorScheme(
   brightness: Brightness.light,
   primary: _primaryLight,
   onPrimary: Colors.white,
-  primaryContainer: const Color(0xFFE0E7FF),   // Indigo 100
-  onPrimaryContainer: const Color(0xFF312E81), // Indigo 900
+  primaryContainer: const Color(0xFFFFFFFF),   // Pure white
+  onPrimaryContainer: const Color(0xFF000000), // Pure black
   secondary: _secondaryLight,
-  onSecondary: const Color(0xFF433500),
-  secondaryContainer: const Color(0xFFFFF9C4),
-  onSecondaryContainer: const Color(0xFF433500),
+  onSecondary: Colors.white,
+  secondaryContainer: const Color(0xFFF2F2F2),
+  onSecondaryContainer: const Color(0xFF000000),
   tertiary: _tertiaryLight,
   onTertiary: Colors.white,
-  tertiaryContainer: const Color(0xFFFFE4E8),
-  onTertiaryContainer: const Color(0xFF9F1239),
-  error: const Color(0xFFEF4444),
+  tertiaryContainer: const Color(0xFFF4F4F5),
+  onTertiaryContainer: const Color(0xFF18181B),
+  error: const Color(0xFFDC2626),
   onError: Colors.white,
-  surface: const Color(0xFFF8F8FF),            // Very light indigo tint
-  onSurface: const Color(0xFF1E1B4B),          // Indigo 950
+  surface: const Color(0xFFFFFFFF),            // Clean white
+  onSurface: const Color(0xFF000000),          // Pure black
   surfaceContainerLowest: Colors.white,
-  surfaceContainerLow: const Color(0xFFF0F0FB),
-  surfaceContainer: const Color(0xFFE8E8F6),
-  surfaceContainerHigh: const Color(0xFFDDDDF2),
-  onSurfaceVariant: const Color(0xFF6366A0),
-  outline: const Color(0xFFC7C7E8),
-  outlineVariant: const Color(0xFFDEDEF4),
-  shadow: const Color(0xFF1E1B4B),
+  surfaceContainerLow: const Color(0xFFFAFAFA),
+  surfaceContainer: const Color(0xFFF7F7F7),
+  surfaceContainerHigh: const Color(0xFFEDEDED),
+  onSurfaceVariant: const Color(0xFF666666),   // Neutral text gray
+  outline: const Color(0xFFD4D4D8),            // Hairline 1px border
+  outlineVariant: const Color(0xFFE7E7E7),     // Hairline 1px border
+  shadow: Colors.black,
   scrim: Colors.black26,
-  inverseSurface: const Color(0xFF312E81),
-  onInverseSurface: const Color(0xFFEEF2FF),
-  inversePrimary: const Color(0xFFA5B4FC),     // Indigo 300
+  inverseSurface: const Color(0xFF000000),
+  onInverseSurface: const Color(0xFFFFFFFF),
+  inversePrimary: const Color(0xFF000000),
 );
 
 final _darkScheme = ColorScheme(
   brightness: Brightness.dark,
   primary: _primaryDark,
-  onPrimary: const Color(0xFF1E1B4B),
-  primaryContainer: const Color(0xFF3730A3),   // Indigo 700
-  onPrimaryContainer: const Color(0xFFE0E7FF),
+  onPrimary: const Color(0xFF000000),
+  primaryContainer: const Color(0xFF000000),   // Pure black card
+  onPrimaryContainer: const Color(0xFFFFFFFF),
   secondary: _secondaryDark,
-  onSecondary: const Color(0xFF3A2D00),
-  secondaryContainer: const Color(0xFF4D3D00),
-  onSecondaryContainer: const Color(0xFFFFF9C4),
+  onSecondary: const Color(0xFF000000),
+  secondaryContainer: const Color(0xFF0D0D0D),
+  onSecondaryContainer: const Color(0xFFFFFFFF),
   tertiary: _tertiaryDark,
-  onTertiary: const Color(0xFF9F1239),
-  tertiaryContainer: const Color(0xFF881337),
-  onTertiaryContainer: const Color(0xFFFFE4E8),
-  error: const Color(0xFFF87171),
+  onTertiary: Colors.white,
+  tertiaryContainer: const Color(0xFF000000),
+  onTertiaryContainer: const Color(0xFFFFFFFF),
+  error: const Color(0xFFEF4444),
   onError: Colors.black,
-  surface: const Color(0xFF0F0E1A),            // Very dark indigo
-  onSurface: const Color(0xFFEEEFFF),
-  surfaceContainerLowest: const Color(0xFF09091A),
-  surfaceContainerLow: const Color(0xFF161528),
-  surfaceContainer: const Color(0xFF1E1D35),
-  surfaceContainerHigh: const Color(0xFF27264A),
-  onSurfaceVariant: const Color(0xFFA5B4FC),   // Indigo 300
-  outline: const Color(0xFF4A4880),
-  outlineVariant: const Color(0xFF2E2D5A),
+  surface: const Color(0xFF000000),            // Pure obsidian black
+  onSurface: const Color(0xFFFFFFFF),          // Pure white
+  surfaceContainerLowest: const Color(0xFF000000),
+  surfaceContainerLow: const Color(0xFF000000),
+  surfaceContainer: const Color(0xFF000000),
+  surfaceContainerHigh: const Color(0xFF0D0D0D),
+  onSurfaceVariant: const Color(0xFFB3B3B3),   // Neutral text on black
+  outline: const Color(0xFF666666),
+  outlineVariant: const Color(0xFF3D3D3D),     // Hairline 1px border dark
   shadow: Colors.black,
   scrim: Colors.black54,
-  inverseSurface: const Color(0xFFEEEFFF),
-  onInverseSurface: const Color(0xFF1E1D35),
-  inversePrimary: const Color(0xFF4338CA),     // Indigo 600
+  inverseSurface: const Color(0xFFFFFFFF),
+  onInverseSurface: const Color(0xFF000000),
+  inversePrimary: const Color(0xFF000000),
 );
 
 // ============================================================
@@ -425,15 +420,18 @@ ThemeData _buildTheme({
       elevation: 0,
       shadowColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20)),
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: colorScheme.outlineVariant, width: 1),
+      ),
       margin: EdgeInsets.zero,
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: colorScheme.primary,
       foregroundColor: colorScheme.onPrimary,
-      elevation: 6,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18)),
+        borderRadius: BorderRadius.circular(14),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -441,29 +439,29 @@ ThemeData _buildTheme({
           ? colorScheme.surfaceContainerLow
           : colorScheme.surfaceContainerLowest,
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outlineVariant, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-            color: colorScheme.outlineVariant, width: 1.5),
+            color: colorScheme.outlineVariant, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide:
-            BorderSide(color: colorScheme.primary, width: 2),
+            BorderSide(color: colorScheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide:
-            BorderSide(color: colorScheme.error, width: 1.5),
+            BorderSide(color: colorScheme.error, width: 1),
       ),
       hintStyle: TextStyle(
         fontFamily: 'Be Vietnam Pro',
-        color: colorScheme.onSurfaceVariant.withAlpha(140),
+        color: colorScheme.onSurfaceVariant.withAlpha(160),
         fontSize: 14,
       ),
     ),
@@ -474,24 +472,24 @@ ThemeData _buildTheme({
         elevation: 0,
         shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+            borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(
-            horizontal: 24, vertical: 16),
+            horizontal: 20, vertical: 14),
         textStyle: const TextStyle(
           fontFamily: 'Plus Jakarta Sans',
           fontWeight: FontWeight.w700,
-          fontSize: 16,
+          fontSize: 15,
           letterSpacing: 0,
         ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        side: BorderSide(color: colorScheme.outline, width: 1.5),
+        side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+            borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(
-            horizontal: 24, vertical: 16),
+            horizontal: 20, vertical: 14),
         textStyle: const TextStyle(
           fontFamily: 'Plus Jakarta Sans',
           fontWeight: FontWeight.w600,
