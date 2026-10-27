@@ -34,15 +34,17 @@ class ReviewExamplePanel extends StatelessWidget {
       fontSize: compact ? 14 : 15,
       fontWeight: FontWeight.w500,
       color: theme.colorScheme.onSurface,
-      height: 1.5,
+      height: 1.55,
     );
     // Light mode: nen trang sach -> nhu cao tu can hoc bang den dam.
     final highlight = theme.brightness == Brightness.dark
         ? accent
         : theme.colorScheme.onSurface;
     final t = (target ?? '').trim();
+    // Khong gioi han dong: cau vi du dai hien thi tron ven, ca trang cuon
+    // de doc tiep (truoc day bi cat o 3 dong + ellipsis).
     if (t.isEmpty || !example.toLowerCase().contains(t.toLowerCase())) {
-      return Text(example, maxLines: 3, overflow: TextOverflow.ellipsis, style: baseStyle);
+      return Text(example, style: baseStyle);
     }
     final idx = example.toLowerCase().indexOf(t.toLowerCase());
     return Text.rich(
@@ -57,8 +59,6 @@ class ReviewExamplePanel extends StatelessWidget {
           TextSpan(text: example.substring(idx + t.length)),
         ],
       ),
-      maxLines: 3,
-      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -135,17 +135,38 @@ class ReviewExamplePanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.format_quote_rounded,
+                        size: 14,
+                        color: accent.withAlpha(150),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Ví dụ',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: accent.withAlpha(190),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   _buildSentence(theme),
                   if (translation != null && translation!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       '→ ${translation!}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: compact ? 12 : 13,
                         fontStyle: FontStyle.italic,
+                        height: 1.5,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),

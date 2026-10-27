@@ -98,40 +98,47 @@ class _FlipWordCardState extends State<FlipWordCard>
         animation: _animation,
         builder: (context, _) {
           final showBack = _animation.value >= 0.5;
-          return Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.001)
-              ..rotateY(math.pi * _animation.value),
-            child: showBack
-                ? Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.rotationY(math.pi),
-                    child: _CardBack(
+          // Mat sau cao hon mat truoc khi vi du dai -> de chieu cao chay muot
+          // thay vi nhay giat luc lat the.
+          return AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateY(math.pi * _animation.value),
+              child: showBack
+                  ? Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.rotationY(math.pi),
+                      child: _CardBack(
+                        word: widget.word,
+                        pronunciation: widget.pronunciation,
+                        meaning: widget.meaning,
+                        example: widget.example,
+                        exampleTranslation: widget.exampleTranslation,
+                        exampleTarget: widget.exampleTarget,
+                        commonSynonyms: widget.commonSynonyms,
+                        accent: widget.accent,
+                        theme: theme,
+                        onSpeak: widget.onSpeak,
+                      ),
+                    )
+                  : _CardFront(
                       word: widget.word,
                       pronunciation: widget.pronunciation,
-                      meaning: widget.meaning,
-                      example: widget.example,
-                      exampleTranslation: widget.exampleTranslation,
-                      exampleTarget: widget.exampleTarget,
-                      commonSynonyms: widget.commonSynonyms,
+                      wordType: widget.wordType,
+                      topicTag: widget.topicTag,
+                      metaLabel: widget.metaLabel,
+                      createdLabel: widget.createdLabel,
+                      isDifficult: widget.isDifficult,
                       accent: widget.accent,
                       theme: theme,
                       onSpeak: widget.onSpeak,
                     ),
-                  )
-                : _CardFront(
-                    word: widget.word,
-                    pronunciation: widget.pronunciation,
-                    wordType: widget.wordType,
-                    topicTag: widget.topicTag,
-                    metaLabel: widget.metaLabel,
-                    createdLabel: widget.createdLabel,
-                    isDifficult: widget.isDifficult,
-                    accent: widget.accent,
-                    theme: theme,
-                    onSpeak: widget.onSpeak,
-                  ),
+            ),
           );
         },
       ),
@@ -351,15 +358,17 @@ class _CardBack extends StatelessWidget {
       fontSize: 15,
       fontWeight: FontWeight.w500,
       color: theme.colorScheme.onSurface,
-      height: 1.5,
+      height: 1.55,
     );
     // Light mode: nen trang sach -> nhu cao tu can hoc bang den dam.
     final highlight = theme.brightness == Brightness.dark
         ? accent
         : theme.colorScheme.onSurface;
     final target = (exampleTarget ?? '').trim();
+    // Khong gioi han dong: vi du dai hien thi tron ven, the tu cao len va
+    // danh sach cuon de doc tiep (truoc day bi cat o 3 dong + ellipsis).
     if (target.isEmpty || !example.toLowerCase().contains(target.toLowerCase())) {
-      return Text(example, maxLines: 3, overflow: TextOverflow.ellipsis, style: baseStyle);
+      return Text(example, style: baseStyle);
     }
     final lower = example.toLowerCase();
     final idx = lower.indexOf(target.toLowerCase());
@@ -375,8 +384,6 @@ class _CardBack extends StatelessWidget {
           TextSpan(text: example.substring(idx + target.length)),
         ],
       ),
-      maxLines: 3,
-      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -431,10 +438,9 @@ class _CardBack extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          // Nghia hien thi du (khong gioi han dong) - nghia dai van doc duoc het.
           Text(
             meaning,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Be Vietnam Pro',
               fontSize: 17,
@@ -461,26 +467,50 @@ class _CardBack extends StatelessWidget {
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLowest.withAlpha(160),
+                // Nen tint nhe + vien accent mo: cau vi du dai van tach khoi
+                // phan nghia thay vi thanh mot khoi chu lien mach.
+                color: theme.colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: accent.withAlpha(40)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.format_quote_rounded,
+                        size: 14,
+                        color: accent.withAlpha(150),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Ví dụ',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: accent.withAlpha(190),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   _buildExampleSentence(),
                   if (exampleTranslation != null && exampleTranslation!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       '→ ${exampleTranslation!}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: 13,
                         fontStyle: FontStyle.italic,
+                        height: 1.5,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),

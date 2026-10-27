@@ -68,29 +68,27 @@ class ExampleCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
+                  // Khong gioi han dong: vi du dai hien thi tron ven (truoc
+                  // day bi cat o 2 dong + ellipsis).
                   Text(
                     example,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'Be Vietnam Pro',
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                       color: accentColor.withAlpha(180),
-                      height: 1.4,
+                      height: 1.5,
                     ),
                   ),
                   if (translation != null && translation!.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       translation!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: 12,
                         color: accentColor.withAlpha(150),
-                        height: 1.4,
+                        height: 1.5,
                       ),
                     ),
                   ],
