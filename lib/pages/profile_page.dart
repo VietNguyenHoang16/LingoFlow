@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/pronunciation_service.dart';
+import '../services/ai_settings_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/ai_api_settings_sheet.dart';
+import '../widgets/ai_example_style_sheet.dart';
 import '../widgets/pwa_install_banner.dart';
 import 'login_page.dart';
 
@@ -25,6 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   double _speechRate = 0.85;
   String _phone = '';
   int _aiCount = 0;
+  String _styleSummary = AiExampleStyle.defaults.summary;
   bool _isLoading = true;
 
   bool _isBackfilling = false;
@@ -45,11 +48,16 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       aiCount = (await DatabaseService().getAiConfigs()).length;
     } catch (_) {}
+    var styleSummary = _styleSummary;
+    try {
+      styleSummary = (await DatabaseService().getAiExampleStyle()).summary;
+    } catch (_) {}
     setState(() {
       _selectedVoice = voice;
       _speechRate = rate;
       _phone = session?['phone'] ?? '';
       _aiCount = aiCount;
+      _styleSummary = styleSummary;
       _isLoading = false;
     });
   }
@@ -63,6 +71,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (_) {}
     if (!mounted) return;
     setState(() => _aiCount = aiCount);
+  }
+
+  Future<void> _openExampleStyle() async {
+    final saved = await AiExampleStyleSheet.show(context);
+    if (saved == null || !mounted) return;
+    setState(() => _styleSummary = saved.summary);
   }
 
   Future<void> _runPronunciationBackfill() async {
@@ -522,6 +536,43 @@ class _ProfilePageState extends State<ProfilePage> {
                           style: TextStyle(
                             fontFamily: 'Be Vietnam Pro',
                             fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _buildCard(
+                  theme: theme,
+                  isDark: isDark,
+                  child: InkWell(
+                    onTap: _openExampleStyle,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildSectionTitle('Cách AI sinh ví dụ',
+                                  Icons.auto_awesome_rounded, theme),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$_styleSummary.',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontSize: 12,
+                            height: 1.4,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),

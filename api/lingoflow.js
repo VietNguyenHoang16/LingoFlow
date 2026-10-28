@@ -1,6 +1,12 @@
 ﻿const { Pool } = require('pg');
 const crypto = require('crypto');
-const { createAiChain, generateExample, templateExample, testAiProvider } = require('./_lib/xai');
+const {
+  createAiChain,
+  generateExample,
+  normalizeExampleStyle,
+  templateExample,
+  testAiProvider,
+} = require('./_lib/xai');
 
 // Tong ngan sach sinh vi du AI cho 1 request bulk. Het budget -> cac tu con
 // lai duoc bao loi thay vi luu khong co vi du.
@@ -144,8 +150,28 @@ async function getUserAiConfigs(userId) {
   return rows.length > 0 ? parseStoredAiConfigs(rows[0].ai_configs) : [];
 }
 
+function parseStoredExampleStyle(raw) {
+  if (!raw) return normalizeExampleStyle(null);
+  try {
+    const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return normalizeExampleStyle(value);
+  } catch (_) {
+    return normalizeExampleStyle(null);
+  }
+}
+
+async function getUserAiExampleStyle(userId) {
+  const rows = await query(
+    'SELECT ai_example_style FROM users WHERE id = $1 LIMIT 1',
+    [userId],
+  );
+  return rows.length > 0
+    ? parseStoredExampleStyle(rows[0].ai_example_style)
+    : normalizeExampleStyle(null);
+}
+
 // Tang len moi khi them migration trong ensureSchema, neu khong se bi gate bo qua.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 async function ensureSchema() {
   if (!schemaReady) {
@@ -164,6 +190,7 @@ async function ensureSchema() {
         )
       `);
       await addColumnIfNotExists('users', 'ai_configs', 'TEXT');
+      await addColumnIfNotExists('users', 'ai_example_style', 'TEXT');
 
       await query(`
         CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -499,9 +526,10 @@ async function handleAction(action, data) {
       const wordType = (data.wordType || '').trim() || data.category || '';
       const topicTag = String(data.topicTag || '').trim().slice(0, 100);
       const aiConfigs = await getUserAiConfigs(data.userId);
+      const style = await getUserAiExampleStyle(data.userId);
       // Sinh vi du truoc khi insert: AI loi -> khong luu tu, bao loi ro rang.
       const example = await generateExample(
-        { word: data.word, meaning: data.meaning || '', wordType, topicTag },
+        { word: data.word, meaning: data.meaning || '', wordType, topicTag, style },
         { timeoutMs: 10000, aiConfigs },
       );
       const rows = await query(
@@ -532,6 +560,7 @@ async function handleAction(action, data) {
           meaning: row.meaning || '',
           wordType: row.word_type || '',
           topicTag: row.topic_tag || '',
+          style: await getUserAiExampleStyle(data.userId),
         },
         { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
       );
@@ -581,6 +610,20 @@ async function handleAction(action, data) {
       return configs;
     }
 
+    // Cach AI chon nghia va dat cau vi du (theo tai khoan).
+    case 'getAiExampleStyle': {
+      return getUserAiExampleStyle(data.userId);
+    }
+
+    case 'saveAiExampleStyle': {
+      const style = normalizeExampleStyle(data.style);
+      await query('UPDATE users SET ai_example_style = $1 WHERE id = $2', [
+        JSON.stringify(style),
+        data.userId,
+      ]);
+      return style;
+    }
+
     case 'filterExistingWords': {
       const words = Array.isArray(data.words) ? data.words.map((w) => String(w || '').toLowerCase()).filter(Boolean) : [];
       if (words.length === 0) return [];
@@ -612,6 +655,7 @@ async function handleAction(action, data) {
       if (words.length === 0) return [];
 
       const chain = createAiChain(await getUserAiConfigs(data.userId));
+      const style = await getUserAiExampleStyle(data.userId);
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
       const results = [];
       let cursor = 0;
@@ -624,7 +668,7 @@ async function handleAction(action, data) {
           try {
             const info = await chain.generateWordInfo(
               { word },
-              { timeoutMs: BULK_AI_TIMEOUT_MS, deadline },
+              { timeoutMs: BULK_AI_TIMEOUT_MS, deadline, style },
             );
             results[index] = { word, meaning: info.meaning, wordType: info.wordType };
           } catch (error) {
@@ -695,6 +739,7 @@ async function handleAction(action, data) {
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
       const usedSentences = new Set();
       const aiChain = createAiChain(await getUserAiConfigs(data.userId));
+      const style = await getUserAiExampleStyle(data.userId);
       const prepared = [];
       const failed = [];
       let cursor = 0;
@@ -713,7 +758,7 @@ async function handleAction(action, data) {
             continue;
           }
           try {
-            const example = await aiChain.generate(info, {
+            const example = await aiChain.generate({ ...info, style }, {
               timeoutMs: BULK_AI_TIMEOUT_MS,
               used: usedSentences,
               deadline,
@@ -904,7 +949,13 @@ async function handleAction(action, data) {
       const refreshExample = data.refreshExample === true;
       const example = refreshExample
         ? await generateExample(
-            { word: current[0].word, meaning, wordType, topicTag },
+            {
+              word: current[0].word,
+              meaning,
+              wordType,
+              topicTag,
+              style: await getUserAiExampleStyle(data.userId),
+            },
             { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
           )
         : null;
@@ -932,7 +983,7 @@ async function handleAction(action, data) {
       const topicTag = String(data.topicTag || '').trim().slice(0, 100);
       const commonSynonyms = (data.commonSynonyms || '').trim();
       const example = await generateExample(
-        { word, meaning, wordType, topicTag },
+        { word, meaning, wordType, topicTag, style: await getUserAiExampleStyle(data.userId) },
         { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
       );
 

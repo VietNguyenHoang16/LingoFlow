@@ -365,6 +365,19 @@ class DatabaseService {
     });
   }
 
+  Future<AiExampleStyle> getAiExampleStyle() async {
+    final result = await _request<Map<String, dynamic>>('getAiExampleStyle');
+    return AiExampleStyle.fromJson(result);
+  }
+
+  Future<AiExampleStyle> saveAiExampleStyle(AiExampleStyle style) async {
+    final result = await _request<Map<String, dynamic>>(
+      'saveAiExampleStyle',
+      data: {'style': style.toApiJson()},
+    );
+    return AiExampleStyle.fromJson(result);
+  }
+
   Future<Map<String, String>> generateWordExample(int wordId) async {
     final result = await _request<Map<String, dynamic>>(
       'generateWordExample',

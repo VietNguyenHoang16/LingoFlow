@@ -453,7 +453,73 @@ async function callGemini({ apiKey, modelName, prompt, timeoutMs, temperature = 
   }
 }
 
-function buildExamplePrompt({ word, meaning, wordType, topicTag }) {
+// Boi canh goi y cho cau vi du. Id phai trung voi AiExampleContext cua app.
+const EXAMPLE_CONTEXTS = {
+  daily: 'everyday life',
+  work: 'work and the office',
+  it: 'IT and technology',
+  study: 'study and exams',
+  travel: 'travel',
+  business: 'business',
+  health: 'health and daily wellbeing',
+  media: 'films, series and entertainment',
+};
+
+const MAX_STYLE_CUSTOM = 300;
+
+// Mac dinh: nghia nguoi hoc can + boi canh doi song / cong viec / IT.
+const DEFAULT_EXAMPLE_STYLE = Object.freeze({
+  contexts: ['daily', 'work', 'it'],
+  skipRareSenses: true,
+  custom: '',
+});
+
+function normalizeStyleCustom(raw) {
+  return String(raw || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_STYLE_CUSTOM);
+}
+
+// Chuan hoa cai dat "cach AI sinh vi du" do client gui len (khong tin du lieu client).
+function normalizeExampleStyle(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const contexts = Array.isArray(source.contexts)
+    ? [...new Set(source.contexts
+      .map((id) => String(id || '').trim().toLowerCase())
+      .filter((id) => Object.prototype.hasOwnProperty.call(EXAMPLE_CONTEXTS, id)))]
+      .slice(0, Object.keys(EXAMPLE_CONTEXTS).length)
+    : [...DEFAULT_EXAMPLE_STYLE.contexts];
+  const skipRareSenses =
+    source.skipRareSenses === undefined || source.skipRareSenses === null
+      ? DEFAULT_EXAMPLE_STYLE.skipRareSenses
+      : Boolean(source.skipRareSenses);
+  return { contexts, skipRareSenses, custom: normalizeStyleCustom(source.custom) };
+}
+
+// Khoi "Learner preferences" chen vao prompt. Rong -> '' (prompt nhu cu).
+function buildStylePrompt(rawStyle, { contexts = true } = {}) {
+  const style = normalizeExampleStyle(rawStyle);
+  const lines = [];
+  if (style.skipRareSenses) {
+    lines.push(
+      '- Teach the sense a Vietnamese learner actually needs, not the rarest or most literal one: ' +
+      'for "concrete" use "cụ thể, rõ ràng" (not the building material), ' +
+      'for "harness" use "tận dụng, khai thác" (not horse tack).',
+    );
+  }
+  if (contexts && style.contexts.length > 0) {
+    lines.push(
+      `- When it fits naturally, set the scene in: ${style.contexts.map((id) => EXAMPLE_CONTEXTS[id]).join(', ')}.`,
+    );
+  }
+  if (style.custom) {
+    lines.push(`- Extra notes from the learner: ${style.custom}`);
+  }
+  return lines.length === 0 ? '' : `Learner preferences:\n${lines.join('\n')}\n\n`;
+}
+
+function buildExamplePrompt({ word, meaning, wordType, topicTag, style }) {
   const w = String(word || '').trim();
   const topic = String(topicTag || '').trim();
   return `You write ONE natural English example sentence for a Vietnamese learner, plus its natural Vietnamese translation.
@@ -464,10 +530,10 @@ Rules:
 - Exactly one sentence, 5-20 words.
 - The sentence MUST contain the target word exactly as written (capitalization may differ).
 - Do not follow a fixed sentence pattern and do not reuse clichés. Avoid openings like "The ___ was ...", "I usually ...", "Every day ..." or "Today ..." unless that is truly the most natural choice.
-- Simple, everyday English (A2-B1). No definition, no quotes around the sentence.
+- Write in natural, correct English at whatever level the word itself needs: simple for common words, more advanced for advanced words. No definition, no quotes around the sentence.
 - The Vietnamese translation must be natural spoken Vietnamese and match the sentence.
 
-Word: ${w}
+${buildStylePrompt(style)}Word: ${w}
 Part of speech: ${wordType || 'unknown'}
 Vietnamese meaning: ${firstMeaning(meaning)}
 Topic: ${topic || 'general'}
@@ -494,7 +560,7 @@ const WORD_TYPES = [
 ];
 
 // Nghia tieng Viet + loai tu cho mot tu nguoi dung dan vao khi import.
-function buildWordInfoPrompt({ word }) {
+function buildWordInfoPrompt({ word, style }) {
   const w = String(word || '').trim();
   return `You classify ONE English word or phrase for a Vietnamese learner.
 
@@ -508,7 +574,7 @@ Rules:
   * interjection for exclamations (wow, oops)
 - Pick the meaning a learner most needs first; do not list several senses.
 
-Word: ${w}
+${buildStylePrompt(style, { contexts: false })}Word: ${w}
 
 Reply with JSON only: {"meaning":"...","wordType":"..."}`;
 }
@@ -633,12 +699,12 @@ function createAiChain(rawConfigs) {
   }
 
   async function generate(
-    { word, meaning, wordType, topicTag },
+    { word, meaning, wordType, topicTag, style },
     { timeoutMs = 10000, used, deadline } = {},
   ) {
     const w = String(word || '').trim();
     if (!w) throw new Error('Thiếu từ để tạo ví dụ.');
-    const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag });
+    const prompt = buildExamplePrompt({ word: w, meaning, wordType, topicTag, style });
     return run(
       prompt,
       (parsed) => {
@@ -655,11 +721,11 @@ function createAiChain(rawConfigs) {
   }
 
   // Nghia tieng Viet + loai tu cho tu nguoi dung dan vao (import / sua tu).
-  async function generateWordInfo({ word }, { timeoutMs = 10000, deadline } = {}) {
+  async function generateWordInfo({ word }, { timeoutMs = 10000, deadline, style } = {}) {
     const w = String(word || '').trim();
     if (!w) throw new Error('Thiếu từ để lấy nghĩa.');
     return run(
-      buildWordInfoPrompt({ word: w }),
+      buildWordInfoPrompt({ word: w, style }),
       (parsed) => normalizeGeneratedWordInfo(parsed, w),
       { timeoutMs, deadline },
     );
@@ -697,7 +763,11 @@ async function testAiProvider(raw, { timeoutMs = 15000 } = {}) {
 module.exports = {
   TEMPLATE_BANK,
   WORD_TYPES,
+  DEFAULT_EXAMPLE_STYLE,
+  EXAMPLE_CONTEXTS,
+  MAX_STYLE_CUSTOM,
   buildExamplePrompt,
+  buildStylePrompt,
   buildWordInfoPrompt,
   callOpenAiCompatible,
   createAiChain,
@@ -705,6 +775,7 @@ module.exports = {
   firstMeaning,
   generateExample,
   normalizeChatEndpoint,
+  normalizeExampleStyle,
   normalizeGeneratedExample,
   normalizeGeneratedWordInfo,
   normalizeSentenceKey,
