@@ -6,20 +6,25 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.0 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này cập nhật thêm: **chặn ôn tập khi mất mạng** (không còn làm xong rồi
-> mất tiến độ) và **lớp phủ "Đang lưu… → Đã lưu"** khi sửa từ, bỏ hiện tượng
-> màn hình giật sau khi lưu.
+> Bản này cập nhật thêm: **Cài đặt → Cách AI sinh ví dụ** (tự chọn nghĩa phổ
+> biến, bối cảnh đời sống/công việc/IT, yêu cầu riêng) và **bỏ khoá trình độ
+> A2–B1** khi AI viết câu ví dụ.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `20,968,734 bytes` (20.0 MB)
-- SHA256: `4D8D0BACEF958D6EB891F6F852FE42AF0C7A18DE31DA0ADC7B237154223A7CE1`
-- Ngày build: `28/10/2026` — bản mới nhất:
+- Kích thước: `21,165,474 bytes` (20.2 MB)
+- SHA256: `14625230902576F4DD00BB83FF58F1F5AD9423C8E0C1501F0B0C988927B856DF`
+- Ngày build: `29/10/2026` — bản mới nhất:
+  0. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
+     (`concrete` → “cụ thể, rõ ràng”, `harness` → “tận dụng, khai thác”), chọn
+     bối cảnh câu ví dụ (đời sống, công việc, IT, du lịch…), thêm yêu cầu riêng
+     và xem trước đúng chỉ dẫn gửi AI. Lưu theo tài khoản, dùng ngay cho lần tạo
+     nghĩa/ví dụ kế tiếp. Câu ví dụ không còn bị giới hạn trình độ A2–B1.
   1. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
      chuyển sang từ tiếp theo sau khi server đã ghi xong SRS. Nếu lưu thất bại,
      app chặn lại bằng hộp thoại **"Mất kết nối mạng"** với hai lựa chọn
