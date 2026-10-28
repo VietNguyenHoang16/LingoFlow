@@ -8,35 +8,34 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.0 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này cập nhật thêm: thẻ học hiển thị **trọn vẹn ví dụ dài** (không còn cắt "…"),
-> cùng các cải tiến AI ở bản trước (import dán từ, sửa từ ở màn Ôn tập, tìm kiếm toàn bộ).
+> Bản này cập nhật thêm: **chặn ôn tập khi mất mạng** (không còn làm xong rồi
+> mất tiến độ) và **lớp phủ "Đang lưu… → Đã lưu"** khi sửa từ, bỏ hiện tượng
+> màn hình giật sau khi lưu.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `20,968,594 bytes` (20.0 MB)
-- SHA256: `2E3C13641422BD3B6D16F1C4B24D7B640049A770DB9E7557612E408006D78179`
-- Ngày build: `27/10/2026` — bản mới nhất:
-  1. **Thẻ học hiển thị trọn vẹn ví dụ dài**: bỏ giới hạn 3 dòng + "…" ở mặt sau thẻ
-     (tab chính), ở panel ví dụ màn Ôn tập và ở thẻ ví dụ của màn Luyện tập / bộ từ;
-     bản dịch cũng hiển thị đủ thay vì cắt 2 dòng. Cỡ chữ giữ nguyên (câu ví dụ 15px,
-     bản dịch 13px) nên vẫn dễ đọc, chỉ tăng giãn dòng; thẻ tự cao lên và danh sách
-     cuộn để đọc tiếp. Khối ví dụ có thêm nhãn "Ví dụ" + nền tint nhẹ để câu dài vẫn
-     tách khỏi phần nghĩa; khi lật thẻ, chiều cao chạy mượt thay vì nhảy.
-  2. **Import từ hàng loạt chỉ cần dán từ ngăn cách dấu phẩy** (bỏ định dạng
-     `số_POS :: từ :: nghĩa`). Bấm "Phân tích bằng AI" để AI lấy **nghĩa tiếng Việt** +
-     **phân loại loại từ** cho từng từ, xem trước rồi mới Import; ví dụ câu vẫn tự sinh
-     khi lưu. Từ nào AI không lấy được nghĩa sẽ bị bỏ qua và báo rõ số lượng.
-  3. **Sửa từ trong màn Ôn tập (Review)**: khi đổi Từ, AI tự lấy **nghĩa mới** +
-     **phân loại lại loại từ** (nghĩa cũ bị thay), từ điển vẫn lấy phát âm/chi tiết;
-     ô Nghĩa được để trống (để trống = AI điền). AI lỗi thì không lưu, có báo.
-  4. **Ô tìm kiếm ở trang chính quét toàn bộ từ đã lưu** (khớp từ / nghĩa / nhãn chủ đề),
-     không chỉ lọc trong 20 từ gần nhất; sửa từ ngay trong kết quả tìm cũng áp dụng
-     AI lấy nghĩa + phân loại như trên. Tối đa 200 kết quả/lần.
-  5. API: action `enrichWords` (nghĩa + loại từ từ AI, tái dùng chuỗi provider AI
-     đã cấu hình trong Hồ sơ / `GEMINI_API_KEY`), mức chữ ký giữ nguyên 1.0.0.
+- Kích thước: `20,968,734 bytes` (20.0 MB)
+- SHA256: `4D8D0BACEF958D6EB891F6F852FE42AF0C7A18DE31DA0ADC7B237154223A7CE1`
+- Ngày build: `28/10/2026` — bản mới nhất:
+  1. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
+     chuyển sang từ tiếp theo sau khi server đã ghi xong SRS. Nếu lưu thất bại,
+     app chặn lại bằng hộp thoại **"Mất kết nối mạng"** với hai lựa chọn
+     **Thử lại** / **Thoát** — lượt ôn đó không bị đánh rơi âm thầm.
+  2. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
+     **"Cần kết nối mạng"** + nút **Thử lại**, không còn hiện nhầm
+     "All caught up!" / "No words to study".
+  3. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
+     kiếm) có lớp phủ mờ khoá thao tác **"Đang lưu…"**, xong đổi thành dấu tick
+     **"Đã lưu" + tên từ** rồi tan dần (blur nhẹ, spring, rung haptic). Không
+     còn bấm nhầm trong lúc chờ.
+  4. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
+     tải lại cả danh sách (nguyên nhân màn hình nhảy một cái).
+  5. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
+     nghĩa/phân loại, sửa từ trong Ôn tập, tìm kiếm toàn bộ từ, thẻ học hiển thị
+     trọn vẹn ví dụ dài.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
 - Version: `1.0.0` (versionCode 1)
 - Chữ ký: debug keystore (cùng khoá với các bản trước) nên cài đè trực tiếp, không cần gỡ app cũ
