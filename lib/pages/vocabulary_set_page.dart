@@ -15,6 +15,7 @@ import '../widgets/word_type_badge.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/example_manager_sheet.dart';
 import '../widgets/quick_meaning_edit.dart';
+import '../widgets/save_feedback.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'practice_page.dart';
@@ -734,23 +735,39 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     }
 
     try {
-      await _db.updateVocabularyWord(
-        wordId: wordId,
+      final example = await runWithSaveFeedback<Map<String, String>?>(
+        context: context,
         word: result.word,
-        meaning: result.meaning,
-        pronunciation: result.pronunciation,
-        fullDetails: result.fullDetails,
-        wordType: result.wordType,
-        topicTag: result.topicTag,
-        commonSynonyms: result.commonSynonyms,
+        action: () => _db.updateVocabularyWord(
+          wordId: wordId,
+          word: result.word,
+          meaning: result.meaning,
+          pronunciation: result.pronunciation,
+          fullDetails: result.fullDetails,
+          wordType: result.wordType,
+          topicTag: result.topicTag,
+          commonSynonyms: result.commonSynonyms,
+        ),
       );
-      await _loadWords(persistProgress: true);
-      WordChangeBus().notifyChanged('edit-word');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Da cap nhat "${result.word}"')),
-        );
+      if (!mounted) return;
+      if (example != null) {
+        // Vá tại chỗ thay vì reload cả danh sách (reload làm màn hình nhảy).
+        setState(() {
+          final i = _words.indexWhere((w) => w['id'] == wordId);
+          if (i != -1) {
+            _words[i] = {
+              ..._words[i],
+              'example_sentence': example['sentence'] ?? '',
+              'example_translation': example['translation'] ?? '',
+              'example_target': example['target'] ?? '',
+            };
+          }
+        });
       }
+      WordChangeBus().notifyChanged('edit-word');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Da cap nhat "${result.word}"')),
+      );
     } catch (e) {
       if (previous != null && mounted) {
         setState(() {
@@ -781,15 +798,19 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       _words[idx] = {..._words[idx], 'meaning': next};
     });
     try {
-      final example = await _db.updateVocabularyWordDetails(
-        wordId: id,
-        meaning: next,
-        pronunciation: (previous['pronunciation'] ?? '').toString(),
-        fullDetails: (previous['full_details'] ?? '').toString(),
-        wordType: (previous['word_type'] ?? '').toString(),
-        topicTag: (previous['topic_tag'] ?? '').toString(),
-        commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
-        regenerateExample: true,
+      final example = await runWithSaveFeedback<Map<String, String>?>(
+        context: context,
+        word: (current['word'] ?? '').toString(),
+        action: () => _db.updateVocabularyWordDetails(
+          wordId: id,
+          meaning: next,
+          pronunciation: (previous['pronunciation'] ?? '').toString(),
+          fullDetails: (previous['full_details'] ?? '').toString(),
+          wordType: (previous['word_type'] ?? '').toString(),
+          topicTag: (previous['topic_tag'] ?? '').toString(),
+          commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
+          regenerateExample: true,
+        ),
       );
       if (example != null && mounted) {
         setState(() {

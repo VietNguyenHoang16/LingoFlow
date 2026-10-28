@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/word_change_bus.dart';
 import 'edit_word_sheet.dart';
+import 'save_feedback.dart';
 import 'word_type_badge.dart';
 
 class SearchBottomSheet extends StatefulWidget {
@@ -103,15 +104,19 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     if (result == null || !mounted) return;
 
     try {
-      await _db.updateVocabularyWord(
-        wordId: word['id'] as int,
+      await runWithSaveFeedback<void>(
+        context: context,
         word: result.word,
-        meaning: result.meaning,
-        pronunciation: result.pronunciation,
-        fullDetails: result.fullDetails,
-        wordType: result.wordType,
-        topicTag: result.topicTag,
-        commonSynonyms: result.commonSynonyms,
+        action: () => _db.updateVocabularyWord(
+          wordId: word['id'] as int,
+          word: result.word,
+          meaning: result.meaning,
+          pronunciation: result.pronunciation,
+          fullDetails: result.fullDetails,
+          wordType: result.wordType,
+          topicTag: result.topicTag,
+          commonSynonyms: result.commonSynonyms,
+        ),
       );
 
       word['word'] = result.word;

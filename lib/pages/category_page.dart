@@ -7,6 +7,7 @@ import '../services/word_change_bus.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
@@ -145,18 +146,30 @@ class _CategoryPageState extends State<CategoryPage> {
       word['topic_tag'] = result.topicTag;
     });
     try {
-      await _db.updateVocabularyWord(
-        wordId: id,
+      final example = await runWithSaveFeedback<Map<String, String>?>(
+        context: context,
         word: result.word,
-        meaning: result.meaning,
-        pronunciation: result.pronunciation,
-        wordType: (previous['word_type'] as String?)?.trim() ?? widget.category,
-        topicTag: result.topicTag,
-        commonSynonyms: result.commonSynonyms,
+        action: () => _db.updateVocabularyWord(
+          wordId: id,
+          word: result.word,
+          meaning: result.meaning,
+          pronunciation: result.pronunciation,
+          wordType: (previous['word_type'] as String?)?.trim() ?? widget.category,
+          topicTag: result.topicTag,
+          commonSynonyms: result.commonSynonyms,
+        ),
       );
-      await _loadWords();
+      if (!mounted) return;
+      if (example != null) {
+        // Vá tại chỗ: không reload cả trang (reload làm màn hình nhảy).
+        setState(() {
+          word['example_sentence'] = example['sentence'] ?? '';
+          word['example_translation'] = example['translation'] ?? '';
+          word['example_target'] = example['target'] ?? '';
+        });
+      }
       WordChangeBus().notifyChanged('edit-word');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da sua!')));
     } catch (e) {
       if (mounted) {
         setState(() {

@@ -10,6 +10,9 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/example_card.dart';
+import '../widgets/load_error_view.dart';
+import '../widgets/save_blocked_dialog.dart';
+import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 
 class PracticePage extends StatefulWidget {
@@ -40,6 +43,12 @@ class _PracticePageState extends State<PracticePage> {
   List<Map<String, dynamic>> _words = [];
   bool _isLoading = true;
 
+  /// Loi tai danh sach tu (khac null = khong co de luyen).
+  Object? _loadError;
+
+  /// Dang ghi SRS cua cau vua tra loi -> khoa thao tac, khong danh roi tien do.
+  bool _isSavingGrade = false;
+
   int _currentIndex = 0;
   int _score = 0;
   int _totalAnswered = 0;
@@ -51,7 +60,6 @@ class _PracticePageState extends State<PracticePage> {
 
   int _masteryUps = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
-  final List<Future<void>> _pendingReviewUpdates = [];
   final List<Map<String, dynamic>> _retryWords = [];
   bool _isPopping = false;
 
@@ -120,13 +128,26 @@ class _PracticePageState extends State<PracticePage> {
       setState(() {
         _words = words;
         _isLoading = false;
+        _loadError = null;
         _questionStartTime = DateTime.now();
         _generateCurrentOptions();
       });
       _focusSpellInputIfNeeded();
     } catch (e) {
-      setState(() => _isLoading = false);
+      // Mat mang: bao ro thay vi hien "No words to study" gay hieu nham.
+      setState(() {
+        _isLoading = false;
+        _loadError = e;
+      });
     }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    _loadWords();
   }
 
   void _nextQuestion() {
@@ -154,8 +175,8 @@ class _PracticePageState extends State<PracticePage> {
         _showConfetti = true;
         if (!widget.studyMode) {
           unawaited(() async {
-            await _flushPendingUpdates();
             await _updateListProgress();
+            WordChangeBus().notifyChanged('practice-flush');
           }());
         }
       }
@@ -177,39 +198,49 @@ class _PracticePageState extends State<PracticePage> {
     }
   }
 
-  void _queueReviewUpdate({required int wordId, required SrsResult result}) {
-    final future = _db.updateWordReview(
-      wordId: wordId,
-      reviewCount: result.newReviewCount,
-      correctStreak: result.newCorrectStreak,
-      easeFactor: result.newEaseFactor,
-      intervalDays: result.newInterval,
-      nextReviewDate: result.nextReviewDate,
-      masteryLevel: result.newMasteryLevel,
-      lapseCount: result.newLapseCount,
-    ).catchError((e) {
+  /// Luu SRS cua cau vua tra loi, chi tra `true` khi server da ghi xong.
+  /// Mat mang -> hop thoai chan: khong tiep tuc de khong mat tien do am tham.
+  Future<bool> _saveReviewGrade(
+    Map<String, dynamic> word,
+    SrsResult result,
+  ) async {
+    Future<void> write() => _db.updateWordReview(
+          wordId: word['id'] as int,
+          reviewCount: result.newReviewCount,
+          correctStreak: result.newCorrectStreak,
+          easeFactor: result.newEaseFactor,
+          intervalDays: result.newInterval,
+          nextReviewDate: result.nextReviewDate,
+          masteryLevel: result.newMasteryLevel,
+          lapseCount: result.newLapseCount,
+        );
+
+    setState(() => _isSavingGrade = true);
+    try {
+      await write();
+      if (mounted) setState(() => _isSavingGrade = false);
+      return true;
+    } catch (e) {
       debugPrint('Failed to save review update: $e');
-    });
-
-    _pendingReviewUpdates.add(future);
-    future.whenComplete(() => _pendingReviewUpdates.remove(future));
+      if (!mounted) return false;
+      setState(() => _isSavingGrade = false);
+      return showSaveBlockedDialog(
+        context: context,
+        error: e,
+        message:
+            'Kết quả của "${(word['word'] ?? '').toString()}" chưa được lưu. '
+            'Kết nối lại rồi bấm "Thử lại" để không phải làm lại từ đầu.',
+        onRetry: write,
+        onExit: () => _popWithFlush(true),
+      );
+    }
   }
 
-  Future<void> _flushPendingUpdates() async {
-    if (_pendingReviewUpdates.isEmpty) return;
-    final pending = List<Future<void>>.from(_pendingReviewUpdates);
-    await Future.wait(pending);
-    WordChangeBus().notifyChanged('practice-flush');
-  }
-
-  /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh.
   /// Guard _isPopping: chan double-pop khi Navigator dang locked.
   Future<void> _popWithFlush([bool result = false]) async {
-    if (_isPopping) return;
+    if (_isPopping || _isSavingGrade) return;
     _isPopping = true;
-    try {
-      await _flushPendingUpdates();
-    } catch (_) {}
+    WordChangeBus().notifyChanged('practice-flush');
     if (!mounted) return;
     final navigator = Navigator.of(context);
     if (!navigator.canPop()) return;
@@ -217,7 +248,7 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   Future<void> _checkAnswer(String answer) async {
-    if (_words.isEmpty || _showResult) return;
+    if (_words.isEmpty || _showResult || _isSavingGrade) return;
     final word = _words[_currentIndex];
     final correct = word['word'];
     final isCorrect = answer.toLowerCase() == correct.toLowerCase();
@@ -252,7 +283,9 @@ class _PracticePageState extends State<PracticePage> {
       lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
-    _queueReviewUpdate(wordId: word['id'] as int, result: result);
+    // Luu xong moi hien ket qua: mat mang thi dung lai ngay, khong mat tien do.
+    final saved = await _saveReviewGrade(word, result);
+    if (!saved || !mounted) return;
 
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
 
@@ -274,7 +307,7 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   Future<void> _checkSpell() async {
-    if (_words.isEmpty || _showResult) return;
+    if (_words.isEmpty || _showResult || _isSavingGrade) return;
     final word = _words[_currentIndex];
     final correct = word['word'];
     final isCorrect = _spellController.text.trim().toLowerCase() == correct.toLowerCase();
@@ -309,7 +342,9 @@ class _PracticePageState extends State<PracticePage> {
       lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
-    _queueReviewUpdate(wordId: word['id'] as int, result: result);
+    // Luu xong moi hien ket qua: mat mang thi dung lai ngay, khong mat tien do.
+    final saved = await _saveReviewGrade(word, result);
+    if (!saved || !mounted) return;
 
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
 
@@ -411,15 +446,19 @@ class _PracticePageState extends State<PracticePage> {
       _words[_currentIndex] = {..._words[_currentIndex], 'meaning': next};
     });
     try {
-      final example = await _db.updateVocabularyWordDetails(
-        wordId: previous['id'] as int,
-        meaning: next,
-        pronunciation: (previous['pronunciation'] ?? '').toString(),
-        fullDetails: (previous['full_details'] ?? '').toString(),
-        wordType: (previous['word_type'] ?? '').toString(),
-        topicTag: (previous['topic_tag'] ?? '').toString(),
-        commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
-        regenerateExample: true,
+      final example = await runWithSaveFeedback<Map<String, String>?>(
+        context: context,
+        word: (w['word'] ?? '').toString(),
+        action: () => _db.updateVocabularyWordDetails(
+          wordId: previous['id'] as int,
+          meaning: next,
+          pronunciation: (previous['pronunciation'] ?? '').toString(),
+          fullDetails: (previous['full_details'] ?? '').toString(),
+          wordType: (previous['word_type'] ?? '').toString(),
+          topicTag: (previous['topic_tag'] ?? '').toString(),
+          commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
+          regenerateExample: true,
+        ),
       );
       if (example != null && mounted) {
         setState(() {
@@ -482,6 +521,29 @@ class _PracticePageState extends State<PracticePage> {
     if (_isLoading) {
       return Scaffold(
         body: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
+            onPressed: () => _popWithFlush(true),
+          ),
+          title: Text(
+            widget.listName,
+            style: TextStyle(color: theme.colorScheme.onSurface),
+          ),
+        ),
+        body: LoadErrorView(
+          error: _loadError,
+          onRetry: _retryLoad,
+          onBack: () => _popWithFlush(true),
+        ),
       );
     }
 
@@ -713,6 +775,7 @@ class _PracticePageState extends State<PracticePage> {
         minimum: const EdgeInsets.only(bottom: 8),
         child: Column(
           children: [
+            if (_isSavingGrade) const LinearProgressIndicator(minHeight: 2),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ClipRRect(

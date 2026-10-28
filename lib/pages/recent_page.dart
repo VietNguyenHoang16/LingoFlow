@@ -7,6 +7,7 @@ import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import '../services/word_enrichment_service.dart';
 import 'practice_page.dart';
@@ -336,79 +337,88 @@ class _RecentPageState extends State<RecentPage> {
     final previous = Map<String, dynamic>.from(word);
     final wordChanged = result.word != (previous['word'] ?? '').toString();
 
-    // Đổi Từ -> tự lấy phát âm / chi tiết từ từ điển, nghĩa + loại từ từ AI
-    // (giống màn Review). Hai request chạy song song.
-    WordEnrichment? enrichment;
-    AiWordInfo? aiInfo;
-    if (wordChanged) {
-      final enrichmentFuture = _enrichment.fetch(result.word);
-      final aiFuture = _enrichment.fetchAiInfo(result.word);
-      enrichment = await enrichmentFuture;
-      aiInfo = await aiFuture;
-      if (!mounted) return;
-    }
+    try {
+      await runWithSaveFeedback<void>(
+        context: context,
+        word: result.word,
+        action: () async {
+          // Đổi Từ -> tự lấy phát âm / chi tiết từ từ điển, nghĩa + loại từ từ
+          // AI (giống màn Review). Hai request chạy song song.
+          WordEnrichment? enrichment;
+          AiWordInfo? aiInfo;
+          if (wordChanged) {
+            final enrichmentFuture = _enrichment.fetch(result.word);
+            final aiFuture = _enrichment.fetchAiInfo(result.word);
+            enrichment = await enrichmentFuture;
+            aiInfo = await aiFuture;
+            if (!mounted) return;
+          }
 
-    final meaning = (aiInfo?.meaning.isNotEmpty ?? false)
-        ? aiInfo!.meaning
-        : result.meaning;
-    if (meaning.isEmpty) {
+          final meaning = (aiInfo?.meaning.isNotEmpty ?? false)
+              ? aiInfo!.meaning
+              : result.meaning;
+          if (meaning.isEmpty) {
+            throw const SaveAborted(
+              'Không lấy được nghĩa mới. Vui lòng nhập nghĩa.',
+            );
+          }
+
+          final pronunciation = (enrichment?.pronunciation.isNotEmpty ?? false)
+              ? enrichment!.pronunciation
+              : result.pronunciation;
+          final fullDetails = (enrichment?.fullDetails.isNotEmpty ?? false)
+              ? enrichment!.fullDetails
+              : result.fullDetails;
+          final wordType = (aiInfo?.wordType.isNotEmpty ?? false)
+              ? aiInfo!.wordType
+              : ((enrichment?.wordType.isNotEmpty ?? false)
+                  ? enrichment!.wordType
+                  : (previous['word_type'] ?? '').toString());
+
+          // Optimistic update: vá tại chỗ, không reload toàn trang nên không giật.
+          setState(() {
+            _patchWord(id, {
+              ...previous,
+              'word': result.word,
+              'meaning': meaning,
+              'pronunciation': pronunciation,
+              'full_details': fullDetails,
+              'word_type': wordType,
+              'topic_tag': result.topicTag,
+              'common_synonyms': result.commonSynonyms,
+            });
+          });
+          _flippedWords.remove(id);
+          await _db.updateVocabularyWord(
+            wordId: id,
+            word: result.word,
+            meaning: meaning,
+            pronunciation: pronunciation,
+            fullDetails: fullDetails,
+            wordType: wordType,
+            topicTag: result.topicTag,
+            commonSynonyms: result.commonSynonyms,
+          );
+          // Đồng bộ nền để khớp server (ví dụ mới), giữ nguyên vị trí cuộn.
+          await _refreshActiveList();
+        },
+      );
+      WordChangeBus().notifyChanged('edit-word');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không lấy được nghĩa mới. Vui lòng nhập nghĩa.'),
+        SnackBar(
+          content: Text(
+            wordChanged
+                ? 'Đã sửa "${result.word}" (AI cập nhật nghĩa + loại từ)'
+                : 'Đã sửa!',
+          ),
         ),
       );
-      return;
-    }
-
-    final pronunciation = (enrichment?.pronunciation.isNotEmpty ?? false)
-        ? enrichment!.pronunciation
-        : result.pronunciation;
-    final fullDetails = (enrichment?.fullDetails.isNotEmpty ?? false)
-        ? enrichment!.fullDetails
-        : result.fullDetails;
-    final wordType = (aiInfo?.wordType.isNotEmpty ?? false)
-        ? aiInfo!.wordType
-        : ((enrichment?.wordType.isNotEmpty ?? false)
-            ? enrichment!.wordType
-            : (previous['word_type'] ?? '').toString());
-
-    // Optimistic update: vá tại chỗ, không reload toàn trang nên không giật.
-    setState(() {
-      _patchWord(id, {
-        ...previous,
-        'word': result.word,
-        'meaning': meaning,
-        'pronunciation': pronunciation,
-        'full_details': fullDetails,
-        'word_type': wordType,
-        'topic_tag': result.topicTag,
-        'common_synonyms': result.commonSynonyms,
-      });
-    });
-    _flippedWords.remove(id);
-    try {
-      await _db.updateVocabularyWord(
-        wordId: id,
-        word: result.word,
-        meaning: meaning,
-        pronunciation: pronunciation,
-        fullDetails: fullDetails,
-        wordType: wordType,
-        topicTag: result.topicTag,
-        commonSynonyms: result.commonSynonyms,
-      );
-      // Đồng bộ nền để khớp server (ví dụ mới), giữ nguyên vị trí cuộn.
-      await _refreshActiveList();
-      WordChangeBus().notifyChanged('edit-word');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              wordChanged ? 'Đã sửa "${result.word}" (AI cập nhật nghĩa + loại từ)' : 'Đã sửa!',
-            ),
-          ),
-        );
-      }
+    } on SaveAborted catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       // Rollback khi lỗi mạng.
       if (mounted) {

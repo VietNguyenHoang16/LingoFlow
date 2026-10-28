@@ -14,6 +14,9 @@ import '../services/tts_settings_service.dart';
 import '../services/word_enrichment_service.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/quick_word_edit.dart';
+import '../widgets/load_error_view.dart';
+import '../widgets/save_blocked_dialog.dart';
+import '../widgets/save_feedback.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
@@ -80,8 +83,13 @@ class _ReviewPageState extends State<ReviewPage>
   int _totalReviewed = 0;
   int _masteryUps = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
-  final List<Future<void>> _pendingUpdates = [];
   bool _isPopping = false;
+
+  /// Dang ghi SRS cua luot vua cham -> khoa thao tac de khong cham chong.
+  bool _isGrading = false;
+
+  /// Loi tai danh sach tu (khac null = chua co phien on nao de hien).
+  Object? _loadError;
   bool _wordOptionsOpen = false;
   /// Dang xoa tu hoac dang luu phan chinh sua -> chan pop / cham diem / thao tac
   /// trung de du lieu trong phien khong bi ghi de sai.
@@ -117,23 +125,18 @@ class _ReviewPageState extends State<ReviewPage>
     }
   }
 
-  Future<void> _flushUpdates() async {
-    if (_pendingUpdates.isEmpty) return;
-    await Future.wait(List<Future<void>>.from(_pendingUpdates));
-    // SRS da luu xong -> bao cac trang tai lai so lieu nen.
+  /// Ghi SRS xong ngay tai luot cham diem (khong con hang doi an) -> chi con
+  /// bao cac trang khac tai lai so lieu nen truoc khi roi man hinh.
+  void _notifyProgressChanged() {
     WordChangeBus().notifyChanged('review-flush');
   }
 
-  /// Dam bao cac ghi SRS da luu xong truoc khi roi man hinh,
-  /// tranh mat du lieu tien do neu app bi tat.
   /// Guard _isPopping: chan double-tap Done / Done + back cung luc gay
   /// double Navigator.pop trong luc Navigator dang locked (!vidu _debugLocked).
   Future<void> _popWithFlush([bool result = false]) async {
-    if (_isPopping || _isWordBusy) return;
+    if (_isPopping || _isWordBusy || _isGrading) return;
     _isPopping = true;
-    try {
-      await _flushUpdates();
-    } catch (_) {}
+    _notifyProgressChanged();
     if (!mounted) return;
     final navigator = Navigator.of(context);
     if (!navigator.canPop()) return;
@@ -143,7 +146,6 @@ class _ReviewPageState extends State<ReviewPage>
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
-    unawaited(_flushUpdates());
     _answerFocusNode.removeListener(_handleAnswerFocusChange);
     _answerController.dispose();
     _answerFocusNode.dispose();
@@ -172,16 +174,24 @@ class _ReviewPageState extends State<ReviewPage>
         _dueWords = words.map(normalizeWord).toList();
         _currentIndex = 0;
         _isLoading = false;
+        _loadError = null;
       });
       _requestInputFocus();
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      // Mat mang / server loi: dung han thay vi hien "All caught up!" gia.
+      setState(() {
+        _isLoading = false;
+        _loadError = e;
+      });
     }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    _loadDueWords();
   }
 
   void _requestInputFocus({bool immediate = false}) {
@@ -260,10 +270,13 @@ class _ReviewPageState extends State<ReviewPage>
     });
   }
 
-  void _queueUpdate(int wordId, SrsResult result) {
-    final future = _db
-        .updateWordReview(
-          wordId: wordId,
+  /// Luu SRS cua [word] va chi tra `true` khi server da ghi xong.
+  ///
+  /// Mat mang / server loi -> mo hop thoai chan: nguoi dung thay ro luot on nay
+  /// chua duoc luu, co the thu lai hoac thoat, khong bi mat tien do am tham.
+  Future<bool> _saveReview(Map<String, dynamic> word, SrsResult result) async {
+    Future<void> write() => _db.updateWordReview(
+          wordId: word['id'] as int,
           reviewCount: result.newReviewCount,
           correctStreak: result.newCorrectStreak,
           easeFactor: result.newEaseFactor,
@@ -271,13 +284,27 @@ class _ReviewPageState extends State<ReviewPage>
           nextReviewDate: result.nextReviewDate,
           masteryLevel: result.newMasteryLevel,
           lapseCount: result.newLapseCount,
-        )
-        .catchError((e) {
-          debugPrint('Failed to update word review: $e');
-        });
+        );
 
-    _pendingUpdates.add(future);
-    future.whenComplete(() => _pendingUpdates.remove(future));
+    setState(() => _isGrading = true);
+    try {
+      await write();
+      if (mounted) setState(() => _isGrading = false);
+      return true;
+    } catch (e) {
+      debugPrint('Failed to update word review: $e');
+      if (!mounted) return false;
+      setState(() => _isGrading = false);
+      return showSaveBlockedDialog(
+        context: context,
+        error: e,
+        message:
+            'Lượt ôn "${(word['word'] ?? '').toString()}" chưa được lưu. '
+            'Kết nối lại rồi bấm "Thử lại" để không phải làm lại từ đầu.',
+        onRetry: write,
+        onExit: () => _popWithFlush(true),
+      );
+    }
   }
 
   /// Tu hien tai - null neu index ngoai pham vi (khong bao gio RangeError).
@@ -287,7 +314,13 @@ class _ReviewPageState extends State<ReviewPage>
   /// (sua Tu + Nghia, cac field khac lay tu dong tu tu dien) va `Xoa tu`.
   Future<void> _showWordOptions() async {
     final word = _currentWordSafe;
-    if (word == null || _wordOptionsOpen || _isCompleted || _isPopping) return;
+    if (word == null ||
+        _wordOptionsOpen ||
+        _isCompleted ||
+        _isPopping ||
+        _isGrading) {
+      return;
+    }
     _wordOptionsOpen = true;
     _answerFocusNode.unfocus();
     final wordId = word['id'] as int;
@@ -343,8 +376,6 @@ class _ReviewPageState extends State<ReviewPage>
       );
       if (confirm != true || !mounted) return;
       setState(() => _isWordBusy = true);
-      // Finish earlier Again writes before deleting the same database row.
-      await _flushUpdates();
       if (!mounted) return;
       await _db.deleteVocabularyWord(wordId);
       if (!mounted) return;
@@ -397,102 +428,37 @@ class _ReviewPageState extends State<ReviewPage>
     final wordChanged = result.word != (previous['word'] ?? '').toString();
     setState(() => _isWordBusy = true);
     try {
-      // Doi Tu -> vua lay phat am / chi tiet tu tu dien, vua nho AI phan loai
-      // lai va lay nghia moi. Hai request chay song song.
-      final enrichmentFuture = wordChanged
-          ? _fetchEnrichment(result.word)
-          : Future<WordEnrichment?>.value(null);
-      final aiInfoFuture = wordChanged
-          ? _enrichment.fetchAiInfo(result.word)
-          : Future<AiWordInfo?>.value(null);
-      final enrichment = await enrichmentFuture;
-      final aiInfo = await aiInfoFuture;
-      if (!mounted) return;
-
-      // AI la nguon nghia chinh khi doi Tu (nguoi dung duoc de trong o Nghia).
-      final meaning = (aiInfo?.meaning.isNotEmpty ?? false)
-          ? aiInfo!.meaning
-          : result.meaning;
-      if (meaning.isEmpty) {
-        setState(() => _isWordBusy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không lấy được nghĩa mới. Vui lòng nhập nghĩa.'),
-          ),
-        );
-        return;
-      }
-
-      final updated = <String, dynamic>{
-        ...previous,
-        'word': result.word,
-        'meaning': meaning,
-      };
-      if (enrichment != null) {
-        if (enrichment.pronunciation.isNotEmpty) {
-          updated['pronunciation'] = enrichment.pronunciation;
-        }
-        if (enrichment.fullDetails.isNotEmpty) {
-          updated['full_details'] = enrichment.fullDetails;
-        }
-      }
-      // Loai tu: uu tien AI, sau do moi den tu dien.
-      final wordType = (aiInfo?.wordType.isNotEmpty ?? false)
-          ? aiInfo!.wordType
-          : enrichment?.wordType;
-      if (wordType != null && wordType.isNotEmpty) {
-        updated['word_type'] = wordType;
-      }
-
-      setState(() {
-        // normalizeWord: refresh details_parsed / example cho panel vi du.
-        _replaceWordInSession(wordId, normalizeWord(updated));
-      });
-
-      Map<String, String>? example;
-      if (wordChanged) {
-        example = await _db.updateVocabularyWord(
+      final applied = await runWithSaveFeedback<
+          ({WordEnrichment? enrichment, AiWordInfo? aiInfo})>(
+        context: context,
+        word: result.word,
+        action: () => _applyWordEdit(
           wordId: wordId,
-          word: result.word,
-          meaning: meaning,
-          pronunciation: (updated['pronunciation'] ?? '').toString(),
-          fullDetails: (updated['full_details'] ?? '').toString(),
-          wordType: (updated['word_type'] ?? '').toString(),
-          topicTag: (updated['topic_tag'] ?? '').toString(),
-          commonSynonyms: (updated['common_synonyms'] ?? '').toString(),
-        );
-      } else {
-        example = await _db.updateVocabularyWordDetails(
-          wordId: wordId,
-          meaning: result.meaning,
-          pronunciation: (previous['pronunciation'] ?? '').toString(),
-          fullDetails: (previous['full_details'] ?? '').toString(),
-          wordType: (previous['word_type'] ?? '').toString(),
-          topicTag: (previous['topic_tag'] ?? '').toString(),
-          commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
-          regenerateExample: true,
-        );
-      }
+          previous: previous,
+          result: result,
+          wordChanged: wordChanged,
+        ),
+      );
       if (!mounted) return;
-      if (example != null) {
-        updated['example_sentence'] = example['sentence'] ?? '';
-        updated['example_translation'] = example['translation'] ?? '';
-        updated['example_target'] = example['target'] ?? '';
-        setState(() => _replaceWordInSession(wordId, normalizeWord(updated)));
-      }
-      setState(() {
-        // Chi reset khi chu cua Tu doi: dap an da go va dau sai tinh theo tu cu
-        // nen khong con dung nua.
-        if (wordChanged) _resetCardAnswerState();
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _editSavedMessage(result.word, wordChanged, enrichment, aiInfo),
+            _editSavedMessage(
+              result.word,
+              wordChanged,
+              applied.enrichment,
+              applied.aiInfo,
+            ),
           ),
         ),
       );
       WordChangeBus().notifyChanged('edit-word');
+    } on SaveAborted catch (e) {
+      // AI khong lay duoc nghia: chua ghi gi ca, chi bao de nguoi dung nhap tay.
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
       // Rollback theo id (khong theo _currentIndex) de khong ghi nham tu khac.
@@ -503,6 +469,101 @@ class _ReviewPageState extends State<ReviewPage>
     } finally {
       if (mounted) setState(() => _isWordBusy = false);
     }
+  }
+
+  /// Phan ghi that su cua [_editCurrentWord]: lay du lieu tu dien + AI roi luu.
+  /// Chay ben trong lop phu "Dang luu..." de nguoi dung biet va khong cham bay.
+  Future<({WordEnrichment? enrichment, AiWordInfo? aiInfo})> _applyWordEdit({
+    required int wordId,
+    required Map<String, dynamic> previous,
+    required WordEditResult result,
+    required bool wordChanged,
+  }) async {
+    // Doi Tu -> vua lay phat am / chi tiet tu tu dien, vua nho AI phan loai
+    // lai va lay nghia moi. Hai request chay song song.
+    final enrichmentFuture = wordChanged
+        ? _fetchEnrichment(result.word)
+        : Future<WordEnrichment?>.value(null);
+    final aiInfoFuture = wordChanged
+        ? _enrichment.fetchAiInfo(result.word)
+        : Future<AiWordInfo?>.value(null);
+    final enrichment = await enrichmentFuture;
+    final aiInfo = await aiInfoFuture;
+    if (!mounted) return (enrichment: enrichment, aiInfo: aiInfo);
+
+    // AI la nguon nghia chinh khi doi Tu (nguoi dung duoc de trong o Nghia).
+    final meaning = (aiInfo?.meaning.isNotEmpty ?? false)
+        ? aiInfo!.meaning
+        : result.meaning;
+    if (meaning.isEmpty) {
+      throw const SaveAborted(
+        'Không lấy được nghĩa mới. Vui lòng nhập nghĩa.',
+      );
+    }
+
+    final updated = <String, dynamic>{
+      ...previous,
+      'word': result.word,
+      'meaning': meaning,
+    };
+    if (enrichment != null) {
+      if (enrichment.pronunciation.isNotEmpty) {
+        updated['pronunciation'] = enrichment.pronunciation;
+      }
+      if (enrichment.fullDetails.isNotEmpty) {
+        updated['full_details'] = enrichment.fullDetails;
+      }
+    }
+    // Loai tu: uu tien AI, sau do moi den tu dien.
+    final wordType = (aiInfo?.wordType.isNotEmpty ?? false)
+        ? aiInfo!.wordType
+        : enrichment?.wordType;
+    if (wordType != null && wordType.isNotEmpty) {
+      updated['word_type'] = wordType;
+    }
+
+    setState(() {
+      // normalizeWord: refresh details_parsed / example cho panel vi du.
+      _replaceWordInSession(wordId, normalizeWord(updated));
+    });
+
+    Map<String, String>? example;
+    if (wordChanged) {
+      example = await _db.updateVocabularyWord(
+        wordId: wordId,
+        word: result.word,
+        meaning: meaning,
+        pronunciation: (updated['pronunciation'] ?? '').toString(),
+        fullDetails: (updated['full_details'] ?? '').toString(),
+        wordType: (updated['word_type'] ?? '').toString(),
+        topicTag: (updated['topic_tag'] ?? '').toString(),
+        commonSynonyms: (updated['common_synonyms'] ?? '').toString(),
+      );
+    } else {
+      example = await _db.updateVocabularyWordDetails(
+        wordId: wordId,
+        meaning: result.meaning,
+        pronunciation: (previous['pronunciation'] ?? '').toString(),
+        fullDetails: (previous['full_details'] ?? '').toString(),
+        wordType: (previous['word_type'] ?? '').toString(),
+        topicTag: (previous['topic_tag'] ?? '').toString(),
+        commonSynonyms: (previous['common_synonyms'] ?? '').toString(),
+        regenerateExample: true,
+      );
+    }
+    if (!mounted) return (enrichment: enrichment, aiInfo: aiInfo);
+    if (example != null) {
+      updated['example_sentence'] = example['sentence'] ?? '';
+      updated['example_translation'] = example['translation'] ?? '';
+      updated['example_target'] = example['target'] ?? '';
+      setState(() => _replaceWordInSession(wordId, normalizeWord(updated)));
+    }
+    setState(() {
+      // Chi reset khi chu cua Tu doi: dap an da go va dau sai tinh theo tu cu
+      // nen khong con dung nua.
+      if (wordChanged) _resetCardAnswerState();
+    });
+    return (enrichment: enrichment, aiInfo: aiInfo);
   }
 
   /// Lay du lieu phu tu tu dien; loi mang / tu khong co -> null (khong nem).
@@ -550,8 +611,8 @@ class _ReviewPageState extends State<ReviewPage>
     return 'Đã cập nhật "$word" + ${parts.join(', ')}';
   }
 
-  void _rateWord(int quality) {
-    if (_wordOptionsOpen || _isCompleted) return;
+  Future<void> _rateWord(int quality) async {
+    if (_wordOptionsOpen || _isCompleted || _isGrading) return;
     // Safari chi bat keyboard cho focus DONG BO trong gesture: xin focus
     // truoc moi tinh toan/setState. De cuoi handler + qua unfocus/refocus
     // 2 node la mat keyboard (element focused nhung keyboard khong len).
@@ -572,7 +633,10 @@ class _ReviewPageState extends State<ReviewPage>
       lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
-    _queueUpdate(word['id'] as int, result);
+    // Luu xong moi chuyen the: mat mang thi dung lai ngay, khong danh roi
+    // tien do cua luot vua cham.
+    final saved = await _saveReview(word, result);
+    if (!saved || !mounted) return;
 
     _totalReviewed++;
     if (result.newMasteryLevel > oldMastery) _masteryUps++;
@@ -605,7 +669,7 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   void _showAnswerCard() {
-    if (_wordOptionsOpen || _isCompleted) return;
+    if (_wordOptionsOpen || _isCompleted || _isGrading) return;
     final word = _currentWordSafe;
     if (word == null) return;
 
@@ -686,7 +750,7 @@ class _ReviewPageState extends State<ReviewPage>
 
   Future<void> _quickEditMeaning() async {
     final w = _currentWordSafe;
-    if (w == null || !mounted || _wordOptionsOpen) return;
+    if (w == null || !mounted || _wordOptionsOpen || _isGrading) return;
     final next = await showQuickMeaningEdit(
       context: context,
       word: (w['word'] ?? '').toString(),
@@ -698,15 +762,19 @@ class _ReviewPageState extends State<ReviewPage>
       _dueWords[_currentIndex] = {...w, 'meaning': next};
     });
     try {
-      final example = await _db.updateVocabularyWordDetails(
-        wordId: w['id'] as int,
-        meaning: next,
-        pronunciation: (w['pronunciation'] ?? '').toString(),
-        fullDetails: (w['full_details'] ?? '').toString(),
-        wordType: (w['word_type'] ?? '').toString(),
-        topicTag: (w['topic_tag'] ?? '').toString(),
-        commonSynonyms: (w['common_synonyms'] ?? '').toString(),
-        regenerateExample: true,
+      final example = await runWithSaveFeedback<Map<String, String>?>(
+        context: context,
+        word: (w['word'] ?? '').toString(),
+        action: () => _db.updateVocabularyWordDetails(
+          wordId: w['id'] as int,
+          meaning: next,
+          pronunciation: (w['pronunciation'] ?? '').toString(),
+          fullDetails: (w['full_details'] ?? '').toString(),
+          wordType: (w['word_type'] ?? '').toString(),
+          topicTag: (w['topic_tag'] ?? '').toString(),
+          commonSynonyms: (w['common_synonyms'] ?? '').toString(),
+          regenerateExample: true,
+        ),
       );
       if (example != null && mounted) {
         setState(() {
@@ -768,6 +836,32 @@ class _ReviewPageState extends State<ReviewPage>
         backgroundColor: theme.colorScheme.surface,
         body: Center(
           child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_rounded,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () => _popWithFlush(true),
+          ),
+          title: Text(
+            widget.grammarReview ? 'Grammar Review' : (widget.listName ?? 'Daily Review'),
+            style: TextStyle(color: theme.colorScheme.onSurface),
+          ),
+        ),
+        body: LoadErrorView(
+          error: _loadError,
+          onRetry: _retryLoad,
+          onBack: () => _popWithFlush(true),
         ),
       );
     }
@@ -841,9 +935,9 @@ class _ReviewPageState extends State<ReviewPage>
     final progress = (_currentIndex + 1) / _dueWords.length;
 
     return PopScope(
-      canPop: !_isWordBusy,
+      canPop: !_isWordBusy && !_isGrading,
       child: AbsorbPointer(
-        absorbing: _isWordBusy,
+        absorbing: _isWordBusy || _isGrading,
         child: CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.f10, shift: true): _showWordOptions,
@@ -922,7 +1016,7 @@ class _ReviewPageState extends State<ReviewPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              if (_isWordBusy) const LinearProgressIndicator(),
+              if (_isWordBusy || _isGrading) const LinearProgressIndicator(),
               // Progress bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
