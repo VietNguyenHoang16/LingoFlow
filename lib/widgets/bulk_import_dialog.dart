@@ -50,7 +50,10 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   bool _isProcessing = false;
 
   List<ImportLine> _lines = const [];
+  // Số dòng (theo lineNumber) người dùng đã bấm loại trừ ở bước preview.
+  final Set<int> _excluded = <int>{};
   int _validCount = 0;
+  int _excludedCount = 0;
   int _errorCount = 0;
   int _duplicateCount = 0;
 
@@ -80,6 +83,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       _fatalError = null;
       _stage = _stageAnalyzing;
       _analyzeTotal = 0;
+      _excluded.clear();
     });
     try {
       // 1. Tach danh sach tu + bo tu da co (nhanh, 1 request DB).
@@ -112,17 +116,33 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   }
 
   void _applyCounts(List<ImportLine> lines) {
-    int valid = 0, dup = 0;
+    int valid = 0, dup = 0, excluded = 0;
     for (final l in lines) {
       if (l.isValid) {
-        valid++;
+        if (_excluded.contains(l.lineNumber)) {
+          excluded++;
+        } else {
+          valid++;
+        }
       } else if (l.error == 'Trùng từ') {
         dup++;
       }
     }
     _validCount = valid;
+    _excludedCount = excluded;
     _duplicateCount = dup;
-    _errorCount = lines.length - valid - dup;
+    _errorCount = lines.length - valid - excluded - dup;
+  }
+
+  /// Bật/tắt loại trừ một từ khỏi lần import. Từ bị loại vẫn hiện trong danh
+  /// sách (mờ, gạch ngang) để bấm lại là hoàn tác được.
+  void _toggleExcluded(ImportLine line) {
+    setState(() {
+      if (!_excluded.remove(line.lineNumber)) {
+        _excluded.add(line.lineNumber);
+      }
+      _applyCounts(_lines);
+    });
   }
 
   Future<void> _goImport() async {
@@ -152,7 +172,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
 
     final result = await _importer.importBatch(
       widget.userId,
-      _lines,
+      _lines
+          .where((l) => !_excluded.contains(l.lineNumber))
+          .toList(growable: false),
       onFetchProgress: (fetched, total) {
         if (!mounted) return;
         if (!shouldTick(fetched, total)) return;
@@ -203,6 +225,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     setState(() {
       _stage = 0;
       _lines = const [];
+      _excluded.clear();
+      _excludedCount = 0;
     });
   }
 
@@ -374,6 +398,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           runSpacing: 4,
           children: [
             _stat('Hợp lệ', _validCount, theme.colorScheme.primary),
+            if (_excludedCount > 0)
+              _stat('Đã loại trừ', _excludedCount, theme.colorScheme.outline),
             _stat('Không dùng được', _errorCount, theme.colorScheme.error),
             _stat('Trùng từ', _duplicateCount, theme.colorScheme.onSurfaceVariant),
             _stat('Tổng dòng', _lines.length, theme.colorScheme.onSurface),
@@ -423,7 +449,12 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
                         Divider(height: 1, color: theme.dividerColor),
                     itemBuilder: (ctx, i) {
                       final l = _lines[i];
-                      return _PreviewRow(line: l);
+                      return _PreviewRow(
+                        line: l,
+                        excluded: _excluded.contains(l.lineNumber),
+                        onToggleExcluded:
+                            l.isValid ? () => _toggleExcluded(l) : null,
+                      );
                     },
                   ),
           ),
@@ -615,6 +646,17 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             Text(
               'Đã bỏ qua ${_errorCount + _duplicateCount} từ '
               '($_duplicateCount đã có, $_errorCount không dùng được).',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withAlpha(150),
+                fontFamily: 'Be Vietnam Pro',
+              ),
+            ),
+          ],
+          if (_excludedCount > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Đã loại trừ $_excludedCount từ bạn bỏ trước khi import.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withAlpha(150),
@@ -820,7 +862,14 @@ class _ImportSteps extends StatelessWidget {
 
 class _PreviewRow extends StatelessWidget {
   final ImportLine line;
-  const _PreviewRow({required this.line});
+  final bool excluded;
+  final VoidCallback? onToggleExcluded;
+
+  const _PreviewRow({
+    required this.line,
+    this.excluded = false,
+    this.onToggleExcluded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -829,7 +878,7 @@ class _PreviewRow extends StatelessWidget {
     final bgColor = isError
         ? theme.colorScheme.error.withAlpha(15)
         : Colors.transparent;
-    return Container(
+    final content = Container(
       color: bgColor,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -855,7 +904,7 @@ class _PreviewRow extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Be Vietnam Pro',
                 fontWeight: isError ? FontWeight.w500 : FontWeight.w600,
-                decoration: line.word.isEmpty
+                decoration: (line.word.isEmpty || excluded)
                     ? TextDecoration.lineThrough
                     : null,
               ),
@@ -868,7 +917,7 @@ class _PreviewRow extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Be Vietnam Pro',
                 color: theme.colorScheme.onSurface.withAlpha(180),
-                decoration: line.meaning.isEmpty
+                decoration: (line.meaning.isEmpty || excluded)
                     ? TextDecoration.lineThrough
                     : null,
               ),
@@ -886,8 +935,36 @@ class _PreviewRow extends StatelessWidget {
                 ),
               ),
             ),
+          if (onToggleExcluded != null)
+            SizedBox(
+              width: 36,
+              child: IconButton(
+                key: ValueKey('import-exclude-${line.lineNumber}'),
+                onPressed: onToggleExcluded,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                visualDensity: VisualDensity.compact,
+                tooltip: excluded
+                    ? 'Hoàn tác, import lại từ này'
+                    : 'Loại trừ từ này',
+                icon: Icon(
+                  excluded ? Icons.undo_rounded : Icons.block_rounded,
+                  size: 18,
+                  color: excluded
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withAlpha(130),
+                ),
+              ),
+            ),
         ],
       ),
+    );
+
+    return Opacity(
+      opacity: excluded ? 0.45 : 1.0,
+      child: onToggleExcluded == null
+          ? content
+          : InkWell(onTap: onToggleExcluded, child: content),
     );
   }
 }

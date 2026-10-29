@@ -137,6 +137,51 @@ void main() {
     });
   });
 
+  testWidgets('loai tru tu o preview: khong import, bam lai thi hoan tac', (
+    tester,
+  ) async {
+    await scenario(tester, (requests) async {
+      await tester.enterText(find.byType(TextField), 'apple, resilient');
+      await tester.tap(find.text('Phân tích bằng AI'));
+      await _settle(tester);
+
+      expect(find.text('Import 2 từ'), findsOneWidget);
+
+      // Loại trừ "resilient" (dòng #2).
+      await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import 1 từ'), findsOneWidget);
+      expect(find.text('Đã loại trừ: 1'), findsOneWidget);
+      // Dòng bị loại vẫn hiện để còn hoàn tác.
+      expect(find.text('resilient'), findsOneWidget);
+
+      // Bấm lại để hoàn tác.
+      await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
+      await tester.pumpAndSettle();
+      expect(find.text('Import 2 từ'), findsOneWidget);
+
+      // Loại trừ lần nữa rồi import: chỉ gửi "apple".
+      await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Import 1 từ'));
+      await tester.pumpAndSettle();
+
+      final sent = requests
+          .where((r) => r['action'] == 'bulkAddWords')
+          .expand((r) => ((r['data'] as Map)['words'] as List))
+          .cast<Map<String, dynamic>>()
+          .toList();
+      expect(sent.map((w) => w['word']), ['apple']);
+      expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
+      expect(
+        find.text('Đã loại trừ 1 từ bạn bỏ trước khi import.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('tu AI khong lay duoc nghia: bao ro va chi import tu hop le', (
     tester,
   ) async {
