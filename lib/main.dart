@@ -6,6 +6,7 @@ import 'services/database_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/word_type_classifier.dart';
+import 'widgets/tts_audio_unlocker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,7 +55,10 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.system,
-        builder: _buildAppShell,
+        // Boc toan app de bat lai audio doc sau khi iOS suspend (xem
+        // TtsAudioUnlocker): chi can cham bat ky dau la tieng doc hoat dong lai.
+        builder: (context, child) =>
+            TtsAudioUnlocker(child: _buildAppShell(context, child)),
         home: const IntroPage(),
       ),
     );

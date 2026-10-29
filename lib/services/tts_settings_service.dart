@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'google_voice_service.dart';
+import 'tts_web_audio.dart';
 
 class TtsVoiceOption {
   final String id;
@@ -21,10 +22,12 @@ class TtsVoiceOption {
 }
 
 class TtsSettingsService {
-  TtsSettingsService({GoogleVoiceService? googleVoiceService})
-      : _googleVoiceService = googleVoiceService ?? GoogleVoiceService();
+  TtsSettingsService({GoogleVoiceService? googleVoiceService, TtsWebAudio? webAudio})
+      : _googleVoiceService = googleVoiceService ?? GoogleVoiceService(),
+        _webAudio = webAudio ?? TtsWebAudio.instance;
 
   final GoogleVoiceService _googleVoiceService;
+  final TtsWebAudio _webAudio;
 
   /// Test seam: moi phong `_isWeb` trong unit test tren desktop.
   @visibleForTesting
@@ -186,6 +189,9 @@ class TtsSettingsService {
   }
 
   Future<bool> _speakNow(String clean, int token, {Duration? speakTimeout}) async {
+    // iOS de speechSynthesis o trang thai treo sau khi app xuong nen -> don
+    // truoc moi lan doc.
+    if (_isWeb) _webAudio.prepareForSpeech();
     if (await isGoogleVoiceSelected()) {
       if (await _googleVoiceService.speak(clean)) return true;
       // Google fail (mat mang/proxy chan) -> fallback giong he thong
