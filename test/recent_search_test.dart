@@ -254,4 +254,27 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  testWidgets('chạm từ đầu rồi chạm từ cuối chọn cả khoảng', (tester) async {
+    await scenario(tester, (requests) async {
+      await tester.tap(find.byTooltip('Luyện tập'));
+      await tester.pumpAndSettle();
+
+      // Chạm đầu tiên chỉ chọn đúng một từ.
+      await tester.tap(find.text('word0'));
+      await tester.pumpAndSettle();
+      expect(find.text('Luyện tập (1)'), findsOneWidget);
+
+      // Chạm từ cuối -> chọn luôn cả khoảng ở giữa.
+      await tester.tap(find.text('word2'));
+      await tester.pumpAndSettle();
+      expect(find.text('Luyện tập (3)'), findsOneWidget);
+
+      // Chạm lại một từ đã chọn -> chỉ bỏ đúng từ đó.
+      await tester.tap(find.text('word1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Luyện tập (2)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

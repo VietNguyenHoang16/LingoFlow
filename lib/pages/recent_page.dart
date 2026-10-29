@@ -40,6 +40,8 @@ class _RecentPageState extends State<RecentPage> {
   Map<String, dynamic> _reviewStats = const {};
   bool _isLoading = true;
   bool _isSelectionMode = false;
+  /// Mốc chọn khoảng: chạm từ đầu, rồi chạm từ cuối -> chọn cả khoảng ở giữa.
+  int? _selectionAnchor;
   String? _loadError;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -439,17 +441,53 @@ class _RecentPageState extends State<RecentPage> {
   void _toggleSelectionMode() {
     setState(() {
       _isSelectionMode = !_isSelectionMode;
+      _selectionAnchor = null;
       if (!_isSelectionMode) _selectedWords.clear();
     });
   }
 
+  /// Ô checkbox: bật/tắt đúng một từ (không nối khoảng) để tinh chỉnh lẻ.
   void _toggleWordSelection(int wordId) {
     setState(() {
       if (_selectedWords.contains(wordId)) {
         _selectedWords.remove(wordId);
+        if (_selectionAnchor == wordId) _selectionAnchor = null;
       } else {
         _selectedWords.add(wordId);
+        _selectionAnchor = wordId;
       }
+    });
+  }
+
+  /// Chạm thân thẻ: từ đầu tiên làm mốc, chạm từ khác chọn cả khoảng giữa hai từ.
+  void _handleWordTap(int index) {
+    final filtered = _filteredWords;
+    if (index < 0 || index >= filtered.length) return;
+    final wordId = filtered[index]['id'] as int;
+    final anchorIndex = _selectionAnchor == null
+        ? -1
+        : filtered.indexWhere((w) => w['id'] == _selectionAnchor);
+
+    setState(() {
+      // Chạm từ đã chọn -> bỏ chọn nó và bắt đầu mốc mới.
+      if (_selectedWords.contains(wordId)) {
+        _selectedWords.remove(wordId);
+        _selectionAnchor = null;
+        return;
+      }
+      // Chưa có mốc (hoặc mốc không còn trong danh sách): chọn đúng từ này.
+      if (anchorIndex == -1) {
+        _selectedWords.add(wordId);
+        _selectionAnchor = wordId;
+        return;
+      }
+      // Chọn cả khoảng từ mốc tới từ vừa chạm.
+      final from = anchorIndex < index ? anchorIndex : index;
+      final to = anchorIndex < index ? index : anchorIndex;
+      for (var i = from; i <= to; i++) {
+        _selectedWords.add(filtered[i]['id'] as int);
+      }
+      _selectionAnchor = wordId;
     });
   }
 
@@ -468,7 +506,10 @@ class _RecentPageState extends State<RecentPage> {
       ),
     ).then((_) {
       if (mounted) {
-        setState(() => _isSelectionMode = false);
+        setState(() {
+          _isSelectionMode = false;
+          _selectionAnchor = null;
+        });
         _selectedWords.clear();
       }
     });
@@ -687,7 +728,9 @@ class _RecentPageState extends State<RecentPage> {
                     const SizedBox(height: 2),
                     Text(
                       _isSelectionMode
-                          ? 'Đã chọn ${_selectedWords.length} từ'
+                          ? (_selectedWords.isEmpty
+                              ? 'Chạm từ đầu, rồi chạm từ cuối để chọn cả khoảng'
+                              : 'Đã chọn ${_selectedWords.length} từ · chạm từ khác để mở rộng')
                           : '${_filteredWords.length} từ gần đây',
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
@@ -992,7 +1035,7 @@ class _RecentPageState extends State<RecentPage> {
         color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
       );
       return GestureDetector(
-        onTap: () => _toggleWordSelection(wordId),
+        onTap: () => _handleWordTap(index),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
