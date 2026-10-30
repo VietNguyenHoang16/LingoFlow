@@ -8,10 +8,10 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này cập nhật thêm: **chọn từ để luyện theo khoảng** — chạm từ đầu làm mốc,
-> chạm từ cuối là chọn cả khoảng ở giữa (bấm lại một từ đã chọn để bỏ đúng từ
-> đó), thay cho việc chạm từng từ; vẫn giữ **loại trừ từ khi import**,
-> **Cài đặt → Cách AI sinh ví dụ** và việc **bỏ khoá trình độ A2–B1**.
+> Bản này cập nhật thêm: **bỏ số thứ tự khi import** — dán danh sách đánh số
+> (`29. asset`) thì từ lưu vào chỉ còn `asset`; vẫn giữ **chọn từ để luyện theo
+> khoảng**, **loại trừ khi import**, **Cài đặt → Cách AI sinh ví dụ** và việc
+> **bỏ khoá trình độ A2–B1**.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
@@ -19,35 +19,39 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,165,614 bytes` (20.2 MB)
-- SHA256: `06C70EAA0F6572EFE84B5602899E86EDB99F7D5F7230C6AB37F75654B4673006`
-- Ngày build: `29/10/2026` — bản mới nhất:
-  0. **Chọn từ để luyện theo khoảng**: ở màn Gần đây bấm ▶ rồi chạm từ đầu,
+- SHA256: `4E11B79D1E693206B229B9EE894DBA517297E5073454BA5995B081B8BE7276E9`
+- Ngày build: `30/10/2026` — bản mới nhất:
+  0. **Bỏ số thứ tự khi import**: dán danh sách đánh số (`29. asset`,
+     `3) give up`, `29 - take off`) thì số thứ tự bị bỏ, từ lưu vào chỉ còn
+     `asset`; số không phải thứ tự (`8-bit`, `3.14`, `24/7`) giữ nguyên. Áp
+     dụng cả ở màn Import hàng loạt lẫn dialog Thêm từ (nhập nhiều dòng).
+  1. **Chọn từ để luyện theo khoảng**: ở màn Gần đây bấm ▶ rồi chạm từ đầu,
      chạm từ cuối là chọn cả khoảng ở giữa; chạm lại một từ đã chọn để bỏ đúng
      từ đó. Dòng nhắc dưới tiêu đề hướng dẫn thao tác, áp dụng cả khi đang tìm
      kiếm.
-  1. **Loại trừ từ khi import hàng loạt**: ở bước xem trước, mỗi dòng hợp lệ có
+  2. **Loại trừ từ khi import hàng loạt**: ở bước xem trước, mỗi dòng hợp lệ có
      nút ⊘ để bỏ từ đó khỏi lần import. Từ bị loại vẫn hiện (mờ, gạch ngang) và
      bấm lại là hoàn tác; số trên nút Import và thống kê cập nhật theo, màn kết
      quả ghi rõ đã loại trừ bao nhiêu từ.
-  2. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
+  3. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
      (`concrete` → “cụ thể, rõ ràng”, `harness` → “tận dụng, khai thác”), chọn
      bối cảnh câu ví dụ (đời sống, công việc, IT, du lịch…), thêm yêu cầu riêng
      và xem trước đúng chỉ dẫn gửi AI. Lưu theo tài khoản, dùng ngay cho lần tạo
      nghĩa/ví dụ kế tiếp. Câu ví dụ không còn bị giới hạn trình độ A2–B1.
-  3. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
+  4. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
      chuyển sang từ tiếp theo sau khi server đã ghi xong SRS. Nếu lưu thất bại,
      app chặn lại bằng hộp thoại **"Mất kết nối mạng"** với hai lựa chọn
      **Thử lại** / **Thoát** — lượt ôn đó không bị đánh rơi âm thầm.
-  4. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
+  5. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
      **"Cần kết nối mạng"** + nút **Thử lại**, không còn hiện nhầm
      "All caught up!" / "No words to study".
-  5. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
+  6. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
      kiếm) có lớp phủ mờ khoá thao tác **"Đang lưu…"**, xong đổi thành dấu tick
      **"Đã lưu" + tên từ** rồi tan dần (blur nhẹ, spring, rung haptic). Không
      còn bấm nhầm trong lúc chờ.
-  6. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
+  7. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
      tải lại cả danh sách (nguyên nhân màn hình nhảy một cái).
-  7. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
+  8. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
      nghĩa/phân loại, sửa từ trong Ôn tập, tìm kiếm toàn bộ từ, thẻ học hiển thị
      trọn vẹn ví dụ dài.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
