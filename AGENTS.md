@@ -1,5 +1,23 @@
 # AGENTS.md
 
+## Bắt buộc: đồng bộ & báo cáo phát hành (đọc trước khi báo "xong")
+
+Người dùng nhìn app qua **web (PWA) / API / APK**, không nhìn code. Mọi thay đổi phải thực sự
+lên các bề mặt đó và chỉ được báo hoàn thành khi có bằng chứng.
+
+- **Vercel KHÔNG auto-deploy từ GitHub** → sau khi push phải chạy `vercel --prod --yes`
+  (deploy này áp dụng cho cả `api/` và `web/`).
+- **PWA giữ cache** → nhắc người dùng iPad: tắt hẳn app 2 lần, hoặc xoá icon rồi
+  "Thêm vào MH chính" lại.
+- **Sửa `lib/`** → build lại APK arm64, cập nhật `apk/vocab-arm64-release.apk` +
+  `apk/README.md` (dung lượng, SHA256, changelog), commit + push.
+- **Bắt buộc kiểm tra**: `main.dart.js` (và `pwa.js` nếu sửa `web/`) tải từ domain production
+  phải chứa chuỗi mới của thay đổi; link tải APK phải trả đúng SHA256 vừa build.
+- Thiếu bằng chứng (log deploy / kiểm tra production / hash APK) → **không** được nói
+  "đã cập nhật"; phải nói rõ phần nào chưa lên (web / API / APK).
+
+👉 Chi tiết đầy đủ — lệnh, checklist từng bước, mẫu báo cáo: [docs/deploy-checklist.md](docs/deploy-checklist.md)
+
 ## OpenCode Skill-Driven Execution
 
 This project uses **skill-driven execution** powered by the `skill` tool and skills located globally at `C:\Users\ASUS\.config\opencode\skills/`.
