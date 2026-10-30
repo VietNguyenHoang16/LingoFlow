@@ -1,0 +1,96 @@
+name: DB migrate (single list)
+
+# Chay bang cach push noi dung file migration-request.txt len main.
+# Ket qua duoc commit vao migration-report.txt de doc lai ma khong can token.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'migration-request.txt'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Che do chay'
+        type: choice
+        options:
+          - dry-run
+          - apply
+        default: dry-run
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Cai dependency
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Xac dinh che do
+        id: mode
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ inputs.mode }}"
+          else
+            MODE="$(tr -d '[:space:]' < migration-request.txt 2>/dev/null || echo dry-run)"
+          fi
+          case "$MODE" in
+            apply) echo "mode=apply" >> "$GITHUB_OUTPUT" ;;
+            *)     echo "mode=dry-run" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Audit chat luong tu vung (chi doc)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          {
+            echo "================================================"
+            echo "AUDIT CHAT LUONG TU VUNG (read-only) - $(date -u +%FT%TZ)"
+            echo "================================================"
+            node scripts/audit-vocabulary.js || true
+          } >> migration-report.txt 2>&1
+
+      - name: Chay migration gop ve mot list
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo ""
+            echo "================================================"
+            echo "MIGRATION - che do ${{ steps.mode.outputs.mode }} - $(date -u +%FT%TZ)"
+            echo "================================================"
+            if [ "${{ steps.mode.outputs.mode }}" = "apply" ]; then
+              node scripts/migrate-single-list.js --apply
+            else
+              node scripts/migrate-single-list.js
+            fi
+            echo ""
+            echo "--- xac nhan lai (phai la 1 list/user) ---"
+            node scripts/migrate-single-list.js
+          } 2>&1 | tee -a migration-report.txt
+
+      - name: Commit bao cao
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "migrate-bot"
+          git config user.email "migrate-bot@users.noreply.github.com"
+          git add migration-report.txt
+          if git diff --cached --quiet; then
+            echo "Khong co doi moi bao cao"
+          else
+            git commit -m "chore(db): bao cao migration ${{ steps.mode.outputs.mode }} - $(date -u +%FT%TZ)"
+            git pull --rebase origin main
+            git push origin main
+          fi
