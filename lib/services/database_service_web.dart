@@ -44,6 +44,20 @@ class AiWordInfo {
   bool get isUsable => meaning.isNotEmpty && wordType.isNotEmpty;
 }
 
+/// Tu da co trong bo tu cua user (dung khi import bi trung): kem nghia + loai
+/// tu da luu de bang import hien thi duoc.
+class ExistingWord {
+  final String word;
+  final String meaning;
+  final String wordType;
+
+  const ExistingWord({
+    required this.word,
+    this.meaning = '',
+    this.wordType = '',
+  });
+}
+
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
@@ -288,6 +302,26 @@ class DatabaseService {
       data: {'userId': userId, 'words': words},
     );
     return rows.map((w) => w.toString()).toSet();
+  }
+
+  /// Nhu [filterExistingWords] nhung kem nghia + loai tu da luu, de bang import
+  /// hien thi duoc nghia cua tu bi trung ngay tai dong do.
+  Future<List<ExistingWord>> findExistingWords(
+    int userId,
+    List<String> words,
+  ) async {
+    if (words.isEmpty) return const [];
+    final rows = await _request<List<dynamic>>(
+      'filterExistingWordsDetailed',
+      data: {'userId': userId, 'words': words},
+    );
+    return rows.whereType<Map>().map((row) {
+      return ExistingWord(
+        word: (row['word'] ?? '').toString(),
+        meaning: (row['meaning'] ?? '').toString().trim(),
+        wordType: (row['wordType'] ?? '').toString().trim(),
+      );
+    }).toList();
   }
 
   /// Them hang loat vao mot list. Tra ve so tu chen + danh sach tu loi.

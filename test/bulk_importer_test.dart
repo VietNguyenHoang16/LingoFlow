@@ -120,6 +120,64 @@ void main() {
   test('checkDuplicates chay truoc khi AI dien nghia', () async {
     final client = MockClient((request) async {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['action'], 'filterExistingWordsDetailed');
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {'word': 'Apple', 'meaning': 'quả táo', 'wordType': 'noun'},
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('apple, banana');
+    final checked = await http.runWithClient(
+      () => importer.checkDuplicates(1, lines),
+      () => client,
+    );
+
+    expect(checked[0].error, 'Trùng từ');
+    expect(checked[1].error, isNull);
+  });
+
+  test('tu trung voi bo tu cu hien thi nghia + loai tu da luu', () async {
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['action'], 'filterExistingWordsDetailed');
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {'word': 'apple', 'meaning': 'quả táo', 'wordType': 'noun'},
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('apple, banana');
+    final checked = await http.runWithClient(
+      () => importer.checkDuplicates(1, lines),
+      () => client,
+    );
+
+    expect(checked[0].isDuplicate, isTrue);
+    expect(checked[0].meaning, 'quả táo');
+    expect(checked[0].wordType, 'noun');
+    // Trung tu khong duoc import.
+    expect(checked[0].isValid, isFalse);
+    expect(checked[1].meaning, isEmpty);
+  });
+
+  test('API cu khong co action detailed: van danh dau trung qua fallback',
+      () async {
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (body['action'] == 'filterExistingWordsDetailed') {
+        return http.Response('{"error":"unknown action"}', 400);
+      }
       expect(body['action'], 'filterExistingWords');
       return http.Response(
         jsonEncode({'data': ['apple']}),
@@ -135,6 +193,34 @@ void main() {
     );
 
     expect(checked[0].error, 'Trùng từ');
+    expect(checked[0].meaning, isEmpty);
     expect(checked[1].error, isNull);
+  });
+
+  test('trung trong danh sach van hien nghia cua dong dau tien', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {'word': 'apple', 'meaning': 'quả táo', 'wordType': 'noun'},
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('apple, Apple, banana');
+    final enriched = await http.runWithClient(
+      () => importer.enrichMeanings(1, lines),
+      () => client,
+    );
+
+    expect(enriched[0].meaning, 'quả táo');
+    expect(enriched[1].error, 'Trùng trong danh sách');
+    // Dong trung khong duoc AI phan tich nhung van hien thi nghia.
+    expect(enriched[1].meaning, 'quả táo');
+    expect(enriched[1].wordType, 'noun');
+    expect(enriched[1].isValid, isFalse);
   });
 }

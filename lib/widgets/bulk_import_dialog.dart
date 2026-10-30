@@ -124,7 +124,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
         } else {
           valid++;
         }
-      } else if (l.error == 'Trùng từ') {
+      } else if (l.isDuplicate) {
         dup++;
       }
     }
@@ -473,7 +473,12 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
         ? 'Đang lấy phát âm $_fetched/$_fetchTotal…'
         : _retryLabel ?? 'Đang lưu $_done/$_total…';
 
-    final validWords = _lines.where((l) => l.isValid).take(20).toList();
+    // Chi hien thi nhung tu THUC SU duoc import: da loai tru / trung / loi deu
+    // khong duoc tick o day (truoc day tu bi loai tru van hien va bi tick).
+    final validWords = _lines
+        .where((l) => l.isValid && !_excluded.contains(l.lineNumber))
+        .take(20)
+        .toList();
     // Số từ đã xong ở phase hiện tại để tick list.
     final tickDone = _phase == 0 ? _fetched : _done;
 
@@ -874,10 +879,15 @@ class _PreviewRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isError = !line.isValid;
-    final bgColor = isError
-        ? theme.colorScheme.error.withAlpha(15)
-        : Colors.transparent;
+    // Trùng từ không phải lỗi nhập liệu: tô teal riêng, nghĩa đã có vẫn hiển
+    // thị đầy đủ ở cột nghĩa.
+    final isDuplicate = line.isDuplicate;
+    final isError = !line.isValid && !isDuplicate;
+    final bgColor = isDuplicate
+        ? theme.colorScheme.tertiary.withAlpha(14)
+        : isError
+            ? theme.colorScheme.error.withAlpha(15)
+            : Colors.transparent;
     final content = Container(
       color: bgColor,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -931,7 +941,9 @@ class _PreviewRow extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Be Vietnam Pro',
                   fontSize: 12,
-                  color: theme.colorScheme.error,
+                  color: isDuplicate
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.error,
                 ),
               ),
             ),

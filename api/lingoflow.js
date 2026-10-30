@@ -1,4 +1,4 @@
-﻿const { Pool } = require('pg');
+const { Pool } = require('pg');
 const crypto = require('crypto');
 const {
   createAiChain,
@@ -635,6 +635,29 @@ async function handleAction(action, data) {
         [data.userId, words],
       );
       return rows.map((row) => row.w);
+    }
+
+    // Nhu filterExistingWords nhung tra kem nghia + loai tu da luu, de bang
+    // import hien duoc nghia cua tu bi trung ngay tai dong do.
+    case 'filterExistingWordsDetailed': {
+      const words = Array.isArray(data.words)
+        ? data.words.map((w) => String(w || '').toLowerCase()).filter(Boolean)
+        : [];
+      if (words.length === 0) return [];
+      const rows = await query(
+        `SELECT DISTINCT ON (LOWER(vw.word))
+                LOWER(vw.word) AS w, vw.word, vw.meaning, vw.word_type
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND LOWER(vw.word) = ANY($2)
+         ORDER BY LOWER(vw.word), vw.id`,
+        [data.userId, words],
+      );
+      return rows.map((row) => ({
+        word: row.word || row.w,
+        meaning: row.meaning || '',
+        wordType: row.word_type || '',
+      }));
     }
 
     // Nghia tieng Viet + loai tu cho danh sach tu nguoi dung dan vao (import).

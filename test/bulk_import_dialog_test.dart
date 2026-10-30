@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -17,8 +18,10 @@ Future<void> _settle(WidgetTester tester) async {
 void main() {
   Future<void> scenario(
     WidgetTester tester,
-    Future<void> Function(List<Map<String, dynamic>> requests) check,
-  ) async {
+    Future<void> Function(List<Map<String, dynamic>> requests) check, {
+    List<Map<String, dynamic>> existingWords = const [],
+    Completer<void>? holdBulk,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(900, 1400);
     tester.view.devicePixelRatio = 1;
@@ -44,6 +47,12 @@ void main() {
       requests.add(body);
       final data = body['data'] as Map<String, dynamic>? ?? const {};
       switch (body['action']) {
+        case 'filterExistingWordsDetailed':
+          return http.Response(
+            jsonEncode({'data': existingWords}),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
         case 'filterExistingWords':
           return http.Response(
             jsonEncode({'data': []}),
@@ -71,6 +80,7 @@ void main() {
             headers: {'content-type': 'application/json; charset=utf-8'},
           );
         case 'bulkAddWords':
+          if (holdBulk != null) await holdBulk.future;
           final words = data['words'] as List;
           return http.Response(
             jsonEncode({
@@ -213,5 +223,70 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+  });
+
+  testWidgets('tu da co trong bo tu: hien nghia va khong bi tick khi import', (
+    tester,
+  ) async {
+    final hold = Completer<void>();
+    await scenario(
+      tester,
+      (requests) async {
+        await tester.enterText(find.byType(TextField), 'apple, resilient');
+        await tester.tap(find.text('Phân tích bằng AI'));
+        await _settle(tester);
+
+        // Bang import hien nghia cua tu bi trung + chi import tu moi.
+        expect(find.text('quả táo'), findsOneWidget);
+        expect(find.text('Trùng từ'), findsOneWidget);
+        expect(find.text('Import 1 từ'), findsOneWidget);
+
+        await tester.tap(find.text('Import 1 từ'));
+        await _settle(tester);
+
+        // Danh sach tick trong luc import chi co tu thuc su duoc luu.
+        expect(find.text('resilient'), findsOneWidget);
+
+        hold.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      existingWords: const [
+        {'word': 'apple', 'meaning': 'quả táo', 'wordType': 'noun'},
+      ],
+      holdBulk: hold,
+    );
+  });
+
+  testWidgets('tu bi loai tru khong xuat hien trong danh sach tick khi import', (
+    tester,
+  ) async {
+    final hold = Completer<void>();
+    await scenario(
+      tester,
+      (requests) async {
+        await tester.enterText(find.byType(TextField), 'apple, resilient');
+        await tester.tap(find.text('Phân tích bằng AI'));
+        await _settle(tester);
+
+        await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
+        await tester.pumpAndSettle();
+        expect(find.text('Import 1 từ'), findsOneWidget);
+
+        await tester.tap(find.text('Import 1 từ'));
+        await _settle(tester);
+
+        // "resilient" da bi loai tru -> khong con trong danh sach tick.
+        expect(find.text('apple'), findsOneWidget);
+        expect(find.text('resilient'), findsNothing);
+
+        hold.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      holdBulk: hold,
+    );
   });
 }

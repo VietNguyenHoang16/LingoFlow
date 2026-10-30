@@ -11,6 +11,10 @@ class ImportLine {
   String? wordType; // resolved key (noun/verb/...). null khi AI chưa phân loại.
   String? error; // null = hợp lệ.
 
+  static const String errorDuplicateInDb = 'Trùng từ';
+  static const String errorDuplicateInList = 'Trùng trong danh sách';
+  static const String errorAiMissing = 'AI không lấy được nghĩa';
+
   ImportLine({
     required this.lineNumber,
     required this.rawLine,
@@ -23,6 +27,11 @@ class ImportLine {
   /// Hợp lệ = đã có nghĩa + loại từ (AI điền) và không có lỗi.
   bool get isValid =>
       error == null && meaning.isNotEmpty && (wordType ?? '').isNotEmpty;
+
+  /// Từ bị trùng (đã có trong bộ từ, hoặc lặp lại trong danh sách dán vào).
+  /// Không phải lỗi nhập liệu nên UI tô màu riêng, và vẫn hiện nghĩa.
+  bool get isDuplicate =>
+      error == errorDuplicateInDb || error == errorDuplicateInList;
 
   ImportLine copyWith({String? meaning, String? wordType, String? error}) {
     return ImportLine(
@@ -83,7 +92,7 @@ class BulkWordImporter {
           lineNumber: lineNumber,
           rawLine: trimmed,
           word: word,
-          error: 'Trùng trong danh sách',
+          error: ImportLine.errorDuplicateInList,
         ));
         continue;
       }
@@ -152,7 +161,7 @@ class BulkWordImporter {
   ) async {
     final candidates =
         lines.where((l) => l.error == null && l.word.isNotEmpty).toList();
-    if (candidates.isEmpty) return lines;
+    if (candidates.isEmpty) return _fillListDuplicates(lines);
 
     Map<String, AiWordInfo> byWord;
     try {
@@ -161,23 +170,44 @@ class BulkWordImporter {
       byWord = {for (final info in infos) info.word.toLowerCase(): info};
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
-      return lines
-          .map((l) => l.error == null ? l.copyWith(error: message) : l)
-          .toList();
+      return _fillListDuplicates(
+        lines
+            .map((l) => l.error == null ? l.copyWith(error: message) : l)
+            .toList(),
+      );
     }
 
-    return lines.map((l) {
+    final enriched = lines.map((l) {
       if (l.error != null) return l;
       final info = byWord[l.word.toLowerCase()];
       if (info == null || !info.isUsable) {
-        return l.copyWith(error: 'AI không lấy được nghĩa');
+        return l.copyWith(error: ImportLine.errorAiMissing);
       }
       return l.copyWith(meaning: info.meaning, wordType: info.wordType);
+    }).toList();
+    return _fillListDuplicates(enriched);
+  }
+
+  /// Dòng trùng trong danh sách dán vào không được AI phân tích; lấy nghĩa của
+  /// dòng đầu tiên cùng từ để bảng import vẫn hiển thị nghĩa.
+  List<ImportLine> _fillListDuplicates(List<ImportLine> lines) {
+    final byWord = <String, ImportLine>{};
+    for (final l in lines) {
+      if (l.error == null && l.meaning.isNotEmpty) {
+        byWord.putIfAbsent(l.word.toLowerCase(), () => l);
+      }
+    }
+    return lines.map((l) {
+      if (l.error != ImportLine.errorDuplicateInList) return l;
+      final src = byWord[l.word.toLowerCase()];
+      if (src == null) return l;
+      return l.copyWith(meaning: src.meaning, wordType: src.wordType);
     }).toList();
   }
 
   /// Kiem tra tu trung bang 1 request duy nhat. Danh dau `Trùng từ`
-  /// trên tất cả dòng có cùng word (case-insensitive).
+  /// trên tất cả dòng có cùng word (case-insensitive), kèm nghĩa + loại từ
+  /// đã lưu để bảng import hiển thị được.
   Future<List<ImportLine>> checkDuplicates(
     int userId,
     List<ImportLine> lines,
@@ -191,22 +221,36 @@ class BulkWordImporter {
     }
     if (candidates.isEmpty) return lines;
 
-    Set<String> existing;
+    var existing = <String, ExistingWord>{};
     try {
-      existing = await _db.filterExistingWords(userId, candidates.toList());
+      for (final word in await _db.findExistingWords(userId, candidates.toList())) {
+        existing[word.word.toLowerCase()] = word;
+      }
     } catch (_) {
-      // Khong kiem tra duoc thi khong danh dau trung.
-      return lines;
+      // API cũ / lỗi mạng: fallback action cũ (chỉ có tên từ, không nghĩa).
+      try {
+        final names = await _db.filterExistingWords(userId, candidates.toList());
+        existing = {
+          for (final name in names)
+            name.toLowerCase(): ExistingWord(word: name),
+        };
+      } catch (_) {
+        // Khong kiem tra duoc thi khong danh dau trung.
+        return lines;
+      }
     }
 
     if (existing.isEmpty) return lines;
 
     return lines.map((l) {
       if (l.error != null) return l;
-      if (existing.contains(l.word.toLowerCase())) {
-        return l.copyWith(error: 'Trùng từ');
-      }
-      return l;
+      final hit = existing[l.word.toLowerCase()];
+      if (hit == null) return l;
+      return l.copyWith(
+        error: ImportLine.errorDuplicateInDb,
+        meaning: hit.meaning,
+        wordType: hit.wordType,
+      );
     }).toList();
   }
 
