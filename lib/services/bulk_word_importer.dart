@@ -110,8 +110,39 @@ class BulkWordImporter {
     var word = raw.trim();
     word = word.replaceFirst(RegExp(r'^[-*•]+\s*'), '');
     word = word.replaceAll(RegExp(r'''^["'“”]+|["'“”]+$'''), '');
+    word = stripLeadingNumber(word);
     return word.trim();
   }
+
+  /// Bỏ số thứ tự ở đầu dòng khi user dán danh sách đánh số:
+  /// "29. asset" -> "asset", "3) give up" -> "give up", "(4) commute" ->
+  /// "commute", "29 - take off" -> "take off". Dấu gạch ngang phải có khoảng
+  /// trắng sau đó để không phá từ ghép bắt đầu bằng số ("8-bit"); phần sau
+  /// số mà vẫn là số thì giữ nguyên ("3.14"). Dòng chỉ còn số thứ tự trả về
+  /// '' để bị bỏ qua.
+  static String stripLeadingNumber(String input) {
+    var text = input.trim();
+    // Lặp tối đa 3 lần cho kiểu "1. 2. asset".
+    for (var i = 0; i < 3; i++) {
+      String? rest;
+      for (final pattern in _numberPrefixes) {
+        final match = pattern.matchAsPrefix(text);
+        if (match == null) continue;
+        rest = text.substring(match.end).trimLeft();
+        break;
+      }
+      if (rest == null || rest == text) break;
+      if (RegExp(r'^\d').hasMatch(rest)) break;
+      text = rest;
+    }
+    return text;
+  }
+
+  /// `29. asset`, `29) asset`, `29: asset` và `29 - take off`.
+  static final List<RegExp> _numberPrefixes = [
+    RegExp(r'^[#(]?\s*\d+\s*[.):]\s*'),
+    RegExp(r'^[#(]?\s*\d+\s*[-–—]\s+'),
+  ];
 
   /// Nhờ AI lấy nghĩa tiếng Việt + loại từ cho các dòng hợp lệ. Từ nào AI không
   /// trả về được sẽ bị đánh dấu lỗi (ui bỏ qua và báo lại).

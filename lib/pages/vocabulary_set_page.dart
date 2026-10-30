@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import '../services/bulk_word_importer.dart';
 import '../services/word_change_bus.dart';
 import '../services/dictionary_service.dart';
 import '../services/srs_service.dart';
@@ -528,7 +529,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         // Parse toan bo dong truoc (khong goi mang)
         final parsed = <Map<String, dynamic>>[];
         for (String rawLine in lines) {
-          String line = rawLine.trim();
+          String line = BulkWordImporter.stripLeadingNumber(rawLine.trim());
           if (line.isEmpty) continue;
           int colonIdx = line.indexOf(':');
           String word;

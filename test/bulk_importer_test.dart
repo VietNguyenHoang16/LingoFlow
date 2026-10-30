@@ -35,6 +35,29 @@ void main() {
     );
   });
 
+  test('bo so thu tu dau dong khi danh so (29. asset -> asset)', () {
+    final lines = importer.parseWords(
+      '29. asset, 3) give up, 12 - take off, 7: run, (4) commute',
+    );
+    expect(
+      lines.map((l) => l.word),
+      ['asset', 'give up', 'take off', 'run', 'commute'],
+    );
+  });
+
+  test('giu nguyen khi so dau dong khong phai so thu tu', () {
+    final lines = importer.parseWords('8-bit, 24/7, 3.14, 1980s, 100m');
+    expect(
+      lines.map((l) => l.word),
+      ['8-bit', '24/7', '3.14', '1980s', '100m'],
+    );
+  });
+
+  test('dong chi co so thu tu rong bi bo qua', () {
+    final lines = importer.parseWords('29., apple');
+    expect(lines.map((l) => l.word), ['apple']);
+  });
+
   test('trung trong danh sach (khong phan biet hoa thuong) bi danh dau', () {
     final lines = importer.parseWords('apple, Apple, banana');
     expect(lines, hasLength(3));
