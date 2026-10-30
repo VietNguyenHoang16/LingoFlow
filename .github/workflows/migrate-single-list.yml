@@ -1,7 +1,8 @@
 name: DB migrate (single list)
 
 # Chay bang cach push noi dung file migration-request.txt len main.
-# Ket qua duoc commit vao migration-report.txt de doc lai ma khong can token.
+# Workflow push mot dau bao som + bao cao cuoi vao migration-report.txt
+# de doc lai ma khong can token GitHub.
 on:
   push:
     branches: [main]
@@ -26,6 +27,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Dau bao workflow chay (push som nhat)
+        shell: bash
+        run: |
+          git config user.name "migrate-bot"
+          git config user.email "migrate-bot@users.noreply.github.com"
+          echo "workflow da chay - $(date -u +%FT%TZ) - event=${{ github.event_name }}" >> migration-report.txt
+          git add migration-report.txt
+          if git diff --cached --quiet; then
+            echo "khong doi moi"
+          else
+            git commit -m "chore(db): marker workflow chay $(date -u +%FT%TZ)"
+            git push origin main
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -40,12 +55,13 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ inputs.mode }}"
           else
-            MODE="$(tr -d '[:space:]' < migration-request.txt 2>/dev/null || echo dry-run)"
+            MODE="$(grep -v '^[[:space:]]*#' migration-request.txt 2>/dev/null | tr -d '[:space:]' | head -1)"
           fi
           case "$MODE" in
             apply) echo "mode=apply" >> "$GITHUB_OUTPUT" ;;
             *)     echo "mode=dry-run" >> "$GITHUB_OUTPUT" ;;
           esac
+          echo "Che do: ${MODE:-dry-run}"
 
       - name: Audit chat luong tu vung (chi doc)
         env:
@@ -80,7 +96,7 @@ jobs:
             node scripts/migrate-single-list.js
           } 2>&1 | tee -a migration-report.txt
 
-      - name: Commit bao cao
+      - name: Commit bao cao cuoi
         if: always()
         shell: bash
         run: |
