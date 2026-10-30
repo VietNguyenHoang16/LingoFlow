@@ -38,6 +38,8 @@ jobs:
             echo "khong doi moi"
           else
             git commit -m "chore(db): marker workflow chay $(date -u +%FT%TZ)"
+            git checkout -- . 2>/dev/null || true
+            git pull --rebase origin main
             git push origin main
           fi
 
@@ -107,6 +109,12 @@ jobs:
             echo "Khong co doi moi bao cao"
           else
             git commit -m "chore(db): bao cao migration ${{ steps.mode.outputs.mode }} - $(date -u +%FT%TZ)"
+            # Bo thay doi phu sinh (package-lock do npm install) truoc khi pull/push.
+            git checkout -- . 2>/dev/null || true
             git pull --rebase origin main
-            git push origin main
+            for i in 1 2 3; do
+              if git push origin main; then break; fi
+              git pull --rebase origin main
+              sleep 5
+            done
           fi
