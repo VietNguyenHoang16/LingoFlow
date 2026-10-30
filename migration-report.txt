@@ -1,2 +1,161 @@
 workflow da chay - 2026-10-30T16:54:33Z - event=workflow_dispatch
 workflow da chay - 2026-10-30T16:59:59Z - event=workflow_dispatch
+================================================
+AUDIT CHAT LUONG TU VUNG (read-only) - 2026-10-30T17:00:02Z
+================================================
+=== KIEM TRA CHAT LUONG TU VUNG (read-only) ===
+Pham vi: toan bo DB | 2777 tu (2758 tu khac nhau)
+
+[FAIL] Trung tu: 7
+   - apple x14 (noun)
+   - aggressive x2 (adjective)
+   - appeal x2 (noun)
+   - calm x2 (adjective)
+   - convince x2 (adjective, verb)
+   - infect x2 (verb)
+   - prime x2 (adjective)
+   Goi y: Chi giu 1 dong cho moi tu; xoa bang tay de khong mat du lieu.
+[FAIL] Vi du khong chua tu: 105
+   - Do you mind + V-ing...?: Do you mind closing the window?
+   - Do you mind if + S + V...?: Do you mind if I sit here?
+   - I can't afford + N/to V: I can't afford a new phone.
+   - I end up + V-ing: I end up eating too much.
+   - I make it a point to + V-inf: I make it a point to walk daily.
+   - I was wondering if you could + V-inf...?: I was wondering if you could help me?
+   - I'd like to + V-inf: I'd like to book a table for two this evening, please.
+   - It's a good way to + V-inf: It's a good way to learn English.
+   - My day revolves around + N/V-ing: My day revolves around studying.
+   - There's something wrong with + noun: There's something wrong with my bike.
+   ... va 95 muc khac
+   Goi y: Vi du phai dung chinh tu (hoac dang bien the cua no).
+[FAIL] Vi du bi dung lai: 4
+   - x6 (apple): i eat an apple every day.
+   - x5 (apple): i eat an apple.
+   - x2 (Used to + V1789898797580, Used to + V1789898832655): i used to live in hanoi.
+   - x2 (endangered species, species): tigers are an endangered species.
+   Goi y: Moi tu nen co cau rieng; cau dung chung lam mat ngu canh.
+[WARN] Tu thieu IPA: 1602
+   Goi y: Co the lam day bang chuc nang lam giau tu.
+[WARN] Tu thieu vi du: 10
+   Goi y: Nen co vi du + ban dich de on tap co ngu canh.
+[WARN] Vi du thieu ban dich: 10
+   Goi y: Ban dich giup hieu nghia cau.
+[WARN] Nghia sai format: 1326
+   - 9-to-5: công việc/lịch làm việc giờ hành chính
+   - Can you do any better?: Bạn có thể giảm giá/thỏa thuận giá tốt hơn không?
+   - Do you mind if + S + V...?: Bạn có phiền nếu tôi/ai đó làm gì không?
+   - I can't afford + N/to V: Tôi không đủ khả năng chi trả cho cái gì/làm gì
+   - I make it a point to + V-inf: Tôi luôn chủ động/cố gắng làm gì đó
+   - Muslim: thuộc về Hồi giáo; theo đạo Hồi
+   - There is + N: co mot cai gi do
+   - Used to + V1789132182657: da tung
+   - Used to + V1789132228700: da tung
+   - Used to + V1789135559597: da tung
+   ... va 1316 muc khac
+   Goi y: Thong nhat 1 kieu: "(pos) nghia", khong dau ; hoac /, khong khoang trang thua.
+[WARN] Nghia dung chung cho nhieu tu: 22
+   - cay <- tree1789132180978, tree1789132227038, tree1789135557439, tree1789898796699, tree1789898831824
+   - da tung <- Used to + V1789132182657, Used to + V1789132228700, Used to + V1789135559597, Used to + V1789898797580, Used to + V1789898832655
+   - (adj) chính xác <- accurate, exact
+   - (n) bằng chứng <- evidence, proof
+   - (n) nhật ký <- diary, journal
+   - (v) chuyển đổi <- convert, switch
+   - (v) quan sát, nhận thấy <- observe, observed
+   - Bạn có phiền làm gì không? <- Do you mind + V-ing...?, Would you mind + V-ing...?
+   - Bạn có phiền nếu tôi/ai đó làm gì không? <- Do you mind if + S + V...?, Would you mind if + S + V...?
+   - chạy trốn; bỏ trốn <- flee, run away
+   ... va 12 muc khac
+   Goi y: Quiz nghia -> tu se co nhieu dap an dung.
+
+--- Suc khoe on tap (tham khao, khong tinh FAIL) ---
+  New           33 tu | leech 0 | qua han 0
+  Learning     182 tu | leech 0 | qua han 0
+  Reviewing   1743 tu | leech 0 | qua han 21
+  Mastered     819 tu | leech 0 | qua han 0
+
+Ket qua: 3 FAIL, 5 WARN -> CAN SUA
+
+================================================
+MIGRATION - che do apply - 2026-10-30T17:00:06Z
+================================================
+Che do: APPLY (ghi that)
+Pham vi: toan bo DB
+Tu truoc khi chay: 2777 (tong id 4150904)
+
+Da tao backup: vocabulary_words_backup_20261030170008, vocabulary_lists_backup_20261030170008
+
+user 1: 12 list -> 1 list | 2750 tu -> list #159 (2750 tu) | chuyen 2750, xoa 12 list rong
+   list duoc gop: #1 Danh từ/noun, #31 Động từ/verb, #32 Tính từ/adjective, #33 Trạng từ/adverb, #34 Giới từ/preposition, #35 Liên từ/conjunction, #42 Idiom/idiom, #43 Phrasal_verb/phrasal_verb, #44 Interjection/interjection, #47 Grammar/grammar, #56 Collocation/collocation, #74 Pronoun/pronoun
+user 13: 1 list -> 1 list | 1 tu -> list #160 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #46 E2E-test/noun
+user 14: 2 list -> 1 list | 3 tu -> list #161 (3 tu) | chuyen 3, xoa 2 list rong
+   list duoc gop: #48 Noun/noun, #49 Grammar/grammar
+user 15: 2 list -> 1 list | 2 tu -> list #162 (2 tu) | chuyen 2, xoa 2 list rong
+   list duoc gop: #50 Noun/noun, #51 Grammar/grammar
+user 16: 2 list -> 1 list | 2 tu -> list #163 (2 tu) | chuyen 2, xoa 2 list rong
+   list duoc gop: #52 Noun/noun, #53 Grammar/grammar
+user 17: 2 list -> 1 list | 2 tu -> list #164 (2 tu) | chuyen 2, xoa 2 list rong
+   list duoc gop: #54 Noun/noun, #55 Grammar/grammar
+user 18: 1 list -> 1 list | 1 tu -> list #165 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #57 Noun/noun
+user 19: 1 list -> 1 list | 1 tu -> list #166 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #58 Noun/noun
+user 20: 1 list -> 1 list | 1 tu -> list #167 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #59 Noun/noun
+user 21: 1 list -> 1 list | 1 tu -> list #168 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #60 Noun/noun
+user 22: 2 list -> 1 list | 2 tu -> list #169 (2 tu) | chuyen 2, xoa 2 list rong
+   list duoc gop: #61 Noun/noun, #62 Grammar/grammar
+user 23: 2 list -> 1 list | 2 tu -> list #170 (2 tu) | chuyen 2, xoa 2 list rong
+   list duoc gop: #63 Noun/noun, #64 Grammar/grammar
+user 24: 1 list -> 1 list | 1 tu -> list #171 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #65 Noun/noun
+user 25: 1 list -> 1 list | 1 tu -> list #172 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #66 Noun/noun
+user 26: 1 list -> 1 list | 1 tu -> list #173 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #67 Noun/noun
+user 27: 1 list -> 1 list | 1 tu -> list #174 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #68 Noun/noun
+user 28: 1 list -> 1 list | 1 tu -> list #175 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #69 Noun/noun
+user 29: 1 list -> 1 list | 1 tu -> list #176 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #70 Noun/noun
+user 30: 1 list -> 1 list | 1 tu -> list #177 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #71 Noun/noun
+user 31: 1 list -> 1 list | 1 tu -> list #178 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #72 Noun/noun
+user 32: 1 list -> 1 list | 1 tu -> list #179 (1 tu) | chuyen 1, xoa 1 list rong
+   list duoc gop: #73 Noun/noun
+
+Kiem tra: 2777 tu truoc / 2777 tu sau - khong mat tu nao. OK
+Da commit. Chay lai script de kiem tra (se bao 1 list/user).
+
+--- xac nhan lai (phai la 1 list/user) ---
+Che do: DRY-RUN (chi chay, se ROLLBACK)
+Pham vi: toan bo DB
+Tu truoc khi chay: 2777 (tong id 4150904)
+
+user 1: 1 list -> 1 list | 2750 tu -> list #159 (2750 tu) | chuyen 0, xoa 0 list rong
+user 13: 1 list -> 1 list | 1 tu -> list #160 (1 tu) | chuyen 0, xoa 0 list rong
+user 14: 1 list -> 1 list | 3 tu -> list #161 (3 tu) | chuyen 0, xoa 0 list rong
+user 15: 1 list -> 1 list | 2 tu -> list #162 (2 tu) | chuyen 0, xoa 0 list rong
+user 16: 1 list -> 1 list | 2 tu -> list #163 (2 tu) | chuyen 0, xoa 0 list rong
+user 17: 1 list -> 1 list | 2 tu -> list #164 (2 tu) | chuyen 0, xoa 0 list rong
+user 18: 1 list -> 1 list | 1 tu -> list #165 (1 tu) | chuyen 0, xoa 0 list rong
+user 19: 1 list -> 1 list | 1 tu -> list #166 (1 tu) | chuyen 0, xoa 0 list rong
+user 20: 1 list -> 1 list | 1 tu -> list #167 (1 tu) | chuyen 0, xoa 0 list rong
+user 21: 1 list -> 1 list | 1 tu -> list #168 (1 tu) | chuyen 0, xoa 0 list rong
+user 22: 1 list -> 1 list | 2 tu -> list #169 (2 tu) | chuyen 0, xoa 0 list rong
+user 23: 1 list -> 1 list | 2 tu -> list #170 (2 tu) | chuyen 0, xoa 0 list rong
+user 24: 1 list -> 1 list | 1 tu -> list #171 (1 tu) | chuyen 0, xoa 0 list rong
+user 25: 1 list -> 1 list | 1 tu -> list #172 (1 tu) | chuyen 0, xoa 0 list rong
+user 26: 1 list -> 1 list | 1 tu -> list #173 (1 tu) | chuyen 0, xoa 0 list rong
+user 27: 1 list -> 1 list | 1 tu -> list #174 (1 tu) | chuyen 0, xoa 0 list rong
+user 28: 1 list -> 1 list | 1 tu -> list #175 (1 tu) | chuyen 0, xoa 0 list rong
+user 29: 1 list -> 1 list | 1 tu -> list #176 (1 tu) | chuyen 0, xoa 0 list rong
+user 30: 1 list -> 1 list | 1 tu -> list #177 (1 tu) | chuyen 0, xoa 0 list rong
+user 31: 1 list -> 1 list | 1 tu -> list #178 (1 tu) | chuyen 0, xoa 0 list rong
+user 32: 1 list -> 1 list | 1 tu -> list #179 (1 tu) | chuyen 0, xoa 0 list rong
+
+Kiem tra: 2777 tu truoc / 2777 tu sau - khong mat tu nao. OK
+Dry-run xong - chua ghi gi. Them --apply de thuc thi.
