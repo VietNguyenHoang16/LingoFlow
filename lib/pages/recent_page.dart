@@ -1125,9 +1125,6 @@ class _RecentPageState extends State<RecentPage> {
       meaning: meaning,
       wordType: wordType,
       topicTag: (word['topic_tag'] as String?) ?? '',
-      metaLabel: (word['list_name'] as String?)?.isNotEmpty == true
-          ? word['list_name'] as String
-          : null,
       createdLabel: createdAt != null ? _formatRelative(createdAt) : null,
       example: resolved['sentence'] ?? '',
       exampleTranslation: (resolved['translation'] ?? '').isEmpty

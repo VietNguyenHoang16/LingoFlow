@@ -288,20 +288,6 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                                         return Wrap(spacing: 4, runSpacing: 4, children: tokens.map((t) => WordTypeBadge(typeKey: t, compact: true)).toList());
                                       }),
                                     ],
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.folder_outlined, size: 13, color: theme.colorScheme.onSurfaceVariant),
-                                        const SizedBox(width: 5),
-                                        Icon(Icons.label_outline, size: 13, color: theme.colorScheme.onSurfaceVariant),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text('${word['category'] ?? ''} / ${word['list_name'] ?? ''}',
-                                            style: TextStyle(fontFamily: 'Be Vietnam Pro', fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurfaceVariant),
-                                            overflow: TextOverflow.ellipsis),
-                                        ),
-                                      ],
-                                    ),
                                   ],
                                 ),
                               );

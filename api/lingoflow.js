@@ -50,15 +50,19 @@ const CATEGORIES = [
 ];
 
 
-async function ensureCanonicalList(userId, category) {
+// Mot list duy nhat cho moi user (khong ten, khong category). word_type van
+// nam tren tung tu nen khong can tach list theo loai tu nhu truoc.
+async function ensureCanonicalList(userId) {
   const rows = await query(
-    'SELECT id FROM vocabulary_lists WHERE user_id = $1 AND category = $2 LIMIT 1',
-    [userId, category],
+    `SELECT id FROM vocabulary_lists
+     WHERE user_id = $1 AND COALESCE(name, '') = '' AND COALESCE(category, '') = ''
+     ORDER BY id LIMIT 1`,
+    [userId],
   );
   if (rows.length > 0) return asInt(rows[0].id);
   const r = await query(
-    'INSERT INTO vocabulary_lists (user_id, category, name) VALUES ($1, $2, $3) RETURNING id',
-    [userId, category, category.charAt(0).toUpperCase() + category.slice(1)],
+    `INSERT INTO vocabulary_lists (user_id, category, name) VALUES ($1, '', '') RETURNING id`,
+    [userId],
   );
   return asInt(r[0].id);
 }
@@ -87,7 +91,6 @@ function mapWordRow(row) {
     example_target: row.example_target || '',
     common_synonyms: row.common_synonyms || '',
     created_at: normalizeDate(row.created_at),
-    ...(row.list_name !== undefined ? { list_name: row.list_name || '' } : {}),
     ...(row.list_id !== undefined ? { list_id: asInt(row.list_id) } : {}),
     ...(row.category !== undefined ? { category: row.category || '' } : {}),
   };
@@ -337,66 +340,70 @@ async function handleAction(action, data) {
       return asInt(rows[0].id);
     }
 
+    // Van tra ve dung 1 dong (client cu khong phai sua), nhung so lieu duoc
+    // dem tren toan bo tu cua user theo word_type - khong con list rieng.
     case 'getListsByCategory': {
+      const listId = await ensureCanonicalList(data.userId);
       const rows = await query(
-        `SELECT vl.id, vl.name, vl.word_count, vl.progress, vl.last_practiced,
-                (SELECT COUNT(*) FROM vocabulary_words vw2
-                 WHERE vw2.list_id = vl.id
-                 AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw2.word_type, ''), ' ', ''), ','))
-                 AND (vw2.next_review_date IS NULL OR vw2.next_review_date <= $2)) AS due_count,
-                (SELECT COUNT(*) FROM vocabulary_words vw2
-                 WHERE vw2.list_id = vl.id
-                 AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw2.word_type, ''), ' ', ''), ','))) AS cat_word_count
-         FROM vocabulary_lists vl
+        `SELECT COUNT(*) AS cat_word_count,
+                COUNT(*) FILTER (WHERE vw.next_review_date IS NULL
+                                   OR vw.next_review_date <= $2) AS due_count,
+                ROUND(CASE WHEN COUNT(*) = 0 THEN 0
+                      ELSE COUNT(*) FILTER (WHERE COALESCE(vw.mastery_level, 0) >= 3) * 100.0 / COUNT(*)
+                 END) AS progress
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
-           AND EXISTS (SELECT 1 FROM vocabulary_words vw WHERE vw.list_id = vl.id
-                       AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ',')))
-         ORDER BY vl.created_at DESC`,
+           AND $3 = ANY(string_to_array(REPLACE(COALESCE(vw.word_type, ''), ' ', ''), ','))`,
         [data.userId, new Date(), data.category],
       );
-      return rows.map((row) => ({
-        id: asInt(row.id),
-        name: row.name || '',
-        wordCount: asInt(row.cat_word_count),
-        progress: asInt(row.progress),
-        lastPracticed: normalizeDate(row.last_practiced),
-        dueCount: asInt(row.due_count),
-      }));
+      return [{
+        id: listId,
+        name: '',
+        wordCount: asInt(rows[0].cat_word_count),
+        progress: asInt(rows[0].progress),
+        lastPracticed: null,
+        dueCount: asInt(rows[0].due_count),
+      }];
     }
 
     case 'getAllLists': {
+      const listId = await ensureCanonicalList(data.userId);
       const rows = await query(
-        `SELECT vl.id, vl.name, vl.category, vl.word_count, vl.progress, vl.last_practiced,
-                 (SELECT COUNT(*) FROM vocabulary_words vw
-                  WHERE vw.list_id = vl.id
-                  AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-                  AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS due_count
-         FROM vocabulary_lists vl
+        `SELECT COUNT(*) AS word_count,
+                COUNT(*) FILTER (WHERE vw.next_review_date IS NULL
+                                   OR vw.next_review_date <= $2) AS due_count,
+                ROUND(CASE WHEN COUNT(*) = 0 THEN 0
+                      ELSE COUNT(*) FILTER (WHERE COALESCE(vw.mastery_level, 0) >= 3) * 100.0 / COUNT(*)
+                 END) AS progress
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
-         ORDER BY vl.category, vl.created_at DESC`,
+           AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
         [data.userId, new Date()],
       );
-      return rows.map((row) => ({
-        id: asInt(row.id),
-        name: row.name || '',
-        category: row.category || '',
-        wordCount: asInt(row.word_count),
-        progress: asInt(row.progress),
-        lastPracticed: normalizeDate(row.last_practiced),
-        dueCount: asInt(row.due_count),
-      }));
+      return [{
+        id: listId,
+        name: '',
+        category: '',
+        wordCount: asInt(rows[0].word_count),
+        progress: asInt(rows[0].progress),
+        lastPracticed: null,
+        dueCount: asInt(rows[0].due_count),
+      }];
     }
 
     case 'updateListProgress':
+      // listId client gui len co the la list cu -> cap nhat theo user.
       await query(
-        'UPDATE vocabulary_lists SET progress = $1, word_count = $2, last_practiced = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = $4',
-        [data.progress, data.wordCount, data.listId, data.userId],
+        'UPDATE vocabulary_lists SET progress = $1, word_count = $2, last_practiced = CURRENT_TIMESTAMP WHERE user_id = $3',
+        [data.progress, data.wordCount, data.userId],
       );
       return null;
 
+    // Chi con 1 list/user: khong cho xoa de tranh mat toan bo tu.
     case 'deleteList':
-      await query('DELETE FROM vocabulary_lists WHERE id = $1 AND user_id = $2', [data.listId, data.userId]);
-      return null;
+      throw new Error('Chi co mot danh sach duy nhat nen khong the xoa.');
 
     // ---- Categories (aggregated stats) ----
     case 'getCategoryStats': {
@@ -504,21 +511,14 @@ async function handleAction(action, data) {
 
     // ---- Words ----
     case 'addVocabularyWord': {
-      let listId = data.listId;
-      if (!listId && data.category) {
-        listId = await ensureCanonicalList(data.userId, data.category);
-      }
-      if (!listId) throw new Error('Thieu listId hoac category');
-      const ownerCheck = await query(
-        'SELECT user_id FROM vocabulary_lists WHERE id = $1 LIMIT 1',
-        [listId],
-      );
-      if (ownerCheck.length === 0 || asInt(ownerCheck[0].user_id) !== asInt(data.userId)) {
-        throw new Error('Khong co quyen them vao danh sach nay');
-      }
+      // Mot list duy nhat cho moi user: bo hoan toan listId/category tu client.
+      const listId = await ensureCanonicalList(data.userId);
+      // Chan trung tren toan bo tu cua user (truoc day chi chan trong 1 list).
       const userCheck = await query(
-        'SELECT id FROM vocabulary_words WHERE list_id = $1 AND LOWER(word) = LOWER($2) LIMIT 1',
-        [listId, data.word],
+        `SELECT 1 FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND LOWER(vw.word) = LOWER($2) LIMIT 1`,
+        [data.userId, data.word],
       );
       if (userCheck.length > 0) {
         throw new Error('Tu nay da ton tai');
@@ -691,18 +691,8 @@ async function handleAction(action, data) {
       const items = Array.isArray(data.words) ? data.words : [];
       if (items.length === 0) return { insertedCount: 0, failed: [] };
 
-      let listId = data.listId;
-      if (!listId && data.category) {
-        listId = await ensureCanonicalList(data.userId, data.category);
-      }
-      if (!listId) throw new Error('Thieu listId hoac category');
-      const ownerCheck = await query(
-        'SELECT user_id FROM vocabulary_lists WHERE id = $1 LIMIT 1',
-        [listId],
-      );
-      if (ownerCheck.length === 0 || asInt(ownerCheck[0].user_id) !== asInt(data.userId)) {
-        throw new Error('Khong co quyen them vao danh sach nay');
-      }
+      // Mot list duy nhat cho moi user: bo listId/category tu client.
+      const listId = await ensureCanonicalList(data.userId);
 
       // Loai tu trung (theo user, khong phai chi trong list nay).
       const lowerWords = [...new Set(items.map((it) => String(it.word || '').toLowerCase()).filter(Boolean))];
@@ -839,9 +829,9 @@ async function handleAction(action, data) {
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.id = $1 AND vl.user_id = $2
+         WHERE vl.user_id = $1
          ORDER BY vw.created_at DESC, vw.id DESC`,
-        [data.listId, data.userId],
+        [data.userId],
       );
       return rows.map(mapWordRow);
     }
@@ -851,7 +841,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
-                vl.name AS list_name, vl.id AS list_id
+                vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
@@ -869,7 +859,7 @@ async function handleAction(action, data) {
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
                 vw.created_at,
-                vl.name AS list_name, vl.id AS list_id
+                vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
@@ -1020,10 +1010,10 @@ async function handleAction(action, data) {
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.id = $1 AND vl.user_id = $2 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $3)
+         WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
                AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
-        [data.listId, data.userId, new Date()],
+        [data.userId, new Date()],
       );
       return rows.map(mapWordRow);
     }
@@ -1033,7 +1023,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
-                vl.name AS list_name, vl.id AS list_id
+                vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
@@ -1049,7 +1039,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
-                vl.name AS list_name, vl.id AS list_id
+                vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
@@ -1068,7 +1058,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
-                vl.name AS list_name, vl.id AS list_id
+                vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
@@ -1171,8 +1161,8 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.mastery_level, COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.id = $1 AND vl.user_id = $2 GROUP BY vw.mastery_level ORDER BY vw.mastery_level`,
-        [data.listId, data.userId],
+         WHERE vl.user_id = $1 GROUP BY vw.mastery_level ORDER BY vw.mastery_level`,
+        [data.userId],
       );
       const breakdown = {};
       for (const row of rows) breakdown[asInt(row.mastery_level)] = asInt(row.count);
@@ -1198,7 +1188,7 @@ async function handleAction(action, data) {
     case 'getWordIndex': {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag,
-                vl.id AS list_id, vl.name AS list_name, vl.category AS category
+                vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
@@ -1212,8 +1202,6 @@ async function handleAction(action, data) {
         word_type: row.word_type || '',
         topic_tag: row.topic_tag || '',
         list_id: asInt(row.list_id),
-        list_name: row.list_name || '',
-        category: row.category || '',
       }));
     }
 
@@ -1241,7 +1229,7 @@ async function handleAction(action, data) {
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
-                vw.created_at, vl.name AS list_name, vl.id AS list_id
+                vw.created_at, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
@@ -1255,9 +1243,8 @@ async function handleAction(action, data) {
 
     case 'findWordByText': {
       const rows = await query(
-        `SELECT vw.word, vw.pronunciation, vw.meaning, vl.name AS list_name
+        `SELECT vw.word, vw.pronunciation, vw.meaning
          FROM vocabulary_words vw
-         LEFT JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE LOWER(vw.word) = LOWER($1)
          LIMIT 1`,
         [data.word],
@@ -1268,7 +1255,6 @@ async function handleAction(action, data) {
         word: rows[0].word || '',
         pronunciation: rows[0].pronunciation || '',
         meaning: rows[0].meaning || '',
-        list_name: rows[0].list_name || '',
       };
     }
 

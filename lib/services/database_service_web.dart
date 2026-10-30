@@ -181,11 +181,6 @@ class DatabaseService {
   }
 
   // ---- Lists ----
-  Future<int> createList(int userId, String category, String name) async {
-    final id = await _request<dynamic>('createList', data: {'userId': userId, 'category': category, 'name': name});
-    return _asInt(id);
-  }
-
   Future<List<Map<String, dynamic>>> getListsByCategory(int userId, String category) async {
     final rows = await _request<List<dynamic>>('getListsByCategory', data: {'userId': userId, 'category': category});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();

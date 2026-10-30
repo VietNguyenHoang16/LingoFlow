@@ -561,9 +561,6 @@ class _CategoryPageState extends State<CategoryPage> {
       meaning: meaning,
       wordType: wordType,
       topicTag: (word['topic_tag'] as String?) ?? '',
-      metaLabel: (word['list_name'] as String?)?.isNotEmpty == true
-          ? word['list_name'] as String
-          : null,
       example: resolved['sentence'] ?? '',
       exampleTranslation: (resolved['translation'] ?? '').isEmpty
           ? null

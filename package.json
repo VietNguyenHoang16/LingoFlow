@@ -5,7 +5,9 @@
   "scripts": {
     "build": "npm run build:web",
     "build:web": "bash scripts/vercel-build.sh",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "audit:vocab": "node scripts/audit-vocabulary.js",
+    "migrate:single-list": "node scripts/migrate-single-list.js"
   },
   "dependencies": {
     "pg": "^8.16.3"
