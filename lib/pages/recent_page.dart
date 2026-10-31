@@ -1642,9 +1642,15 @@ class _SearchResultRow extends StatelessWidget {
                         WordTypeBadge(typeKey: type, compact: true),
                       Builder(builder: (context) {
                         final isPassive = learningMode == 'passive';
-                        final color = isPassive
-                            ? theme.colorScheme.tertiary
-                            : theme.colorScheme.primary;
+                        final isUnset = learningMode.isEmpty;
+                        final color = isUnset
+                            ? Colors.orange
+                            : (isPassive
+                                ? theme.colorScheme.tertiary
+                                : theme.colorScheme.primary);
+                        final label = isUnset
+                            ? 'Chưa phân loại'
+                            : (isPassive ? 'Nên biết' : 'Học ngay');
                         return Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -1654,7 +1660,7 @@ class _SearchResultRow extends StatelessWidget {
                             border: Border.all(color: color.withAlpha(80)),
                           ),
                           child: Text(
-                            isPassive ? 'Nên biết' : 'Học ngay',
+                            label,
                             style: TextStyle(
                               fontFamily: 'Be Vietnam Pro',
                               fontSize: 10,

@@ -196,12 +196,19 @@ class _CardFront extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              // App chỉ còn 2 loại: chip này là phân loại duy nhất trên thẻ.
+              // App chỉ còn 2 loại (và trạng thái "chưa phân loại").
               Builder(builder: (context) {
                 final isPassive = learningMode == 'passive';
-                final color = isPassive
-                    ? theme.colorScheme.tertiary
-                    : theme.colorScheme.primary;
+                final isUnset = learningMode.isEmpty;
+                final color = isUnset
+                    ? Colors.orange
+                    : (isPassive ? theme.colorScheme.tertiary : theme.colorScheme.primary);
+                final label = isUnset
+                    ? 'Chưa phân loại'
+                    : (isPassive ? 'Nên biết' : 'Học ngay');
+                final icon = isUnset
+                    ? Icons.help_outline_rounded
+                    : (isPassive ? Icons.visibility_outlined : Icons.bolt_rounded);
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -212,14 +219,10 @@ class _CardFront extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        isPassive ? Icons.visibility_outlined : Icons.bolt_rounded,
-                        size: 12,
-                        color: color,
-                      ),
+                      Icon(icon, size: 12, color: color),
                       const SizedBox(width: 4),
                       Text(
-                        isPassive ? 'Nên biết' : 'Học ngay',
+                        label,
                         style: TextStyle(
                           fontFamily: 'Be Vietnam Pro',
                           fontSize: 11,

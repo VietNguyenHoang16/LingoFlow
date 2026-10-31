@@ -330,8 +330,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           theme),
                       const SizedBox(height: 4),
                       Text(
-                        'AI xếp mọi từ thành Học ngay (dùng được ngay) hoặc Nên biết '
-                        '(chỉ cần hiểu), theo mục tiêu giao tiếp + IT. Bạn xem trước rồi áp dụng.',
+                        'Duyệt từng lô 20 từ: chọn Học ngay / Nên biết bằng nút 2 bên, '
+                        'copy nhanh 20 từ để dán sang chỗ khác. Từ đã nộp sẽ không hiện lại.',
                         style: TextStyle(
                           fontFamily: 'Be Vietnam Pro',
                           fontSize: 12,
@@ -345,8 +345,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         height: 44,
                         child: OutlinedButton.icon(
                           onPressed: _openModeMigration,
-                          icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                          label: const Text('Phân loại lại từ vựng'),
+                          icon: const Icon(Icons.checklist_rounded, size: 18),
+                          label: const Text('Phân loại từ vựng'),
                         ),
                       ),
                     ],

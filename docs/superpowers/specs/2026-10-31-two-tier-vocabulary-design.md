@@ -208,3 +208,15 @@ Trả thêm "collocations": 2-3 cụm hay dùng nhất (chỉ khi active; passiv
 - "Áp dụng" chỉ gửi các từ đổi loại qua `bulkSetLearningMode` (1 câu UPDATE
   dùng unnest), reset lịch đúng quy tắc.
 - Vào từ Cài đặt → "Phân loại từ vựng".
+
+### Phase 4b — duyệt lô 20 từ (2026-10-31)
+- `learning_mode = ''` = **chưa phân loại**; migration version 6 đưa toàn bộ từ về
+  trạng thái này một lần (không đụng lịch ôn). Hai tab vẫn hiện từ '' (coi như Học
+  ngay) và thẻ hiện chip "Chưa phân loại".
+- Màn phân loại mới: mỗi lô 20 từ, mỗi từ có **nút lớn 2 bên Học ngay / Nên biết**
+  (bấm bên nào sáng bên đó, bấm lại để bỏ chọn); có **Copy N từ** (chỉ từ tiếng
+  Anh, cách nhau dấu phẩy), AI gợi ý, "Tất cả Học ngay/Nên biết"; "Nộp N từ" chỉ
+  bật khi chọn đủ lô.
+- Nộp qua `bulkClassifyWords` (chỉ đổi `learning_mode`, không reset lịch ôn); từ
+  đã có trạng thái không xuất hiện ở lô sau.
+

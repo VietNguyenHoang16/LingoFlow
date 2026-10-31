@@ -491,6 +491,32 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
+  /// Từ CHƯA phân loại (learning_mode = '') theo lô — màn Phân loại từ vựng.
+  Future<({List<Map<String, dynamic>> items, int remaining, int total})>
+      getUnclassifiedWords(int userId, {int limit = 20}) async {
+    final result = await _request<Map<String, dynamic>>(
+      'getUnclassifiedWords',
+      data: {'userId': userId, 'limit': limit},
+    );
+    final rows = result['items'] as List<dynamic>? ?? const [];
+    return (
+      items: rows
+          .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
+          .toList(),
+      remaining: _asInt(result['remaining']),
+      total: _asInt(result['total']),
+    );
+  }
+
+  /// Gán loại cho lô từ vừa duyệt (chỉ đổi loại, không reset lịch ôn).
+  Future<int> bulkClassifyWords(List<Map<String, dynamic>> items) async {
+    final result = await _request<Map<String, dynamic>>(
+      'bulkClassifyWords',
+      data: {'items': items},
+    );
+    return _asInt(result['updatedCount']);
+  }
+
   Future<List<Map<String, dynamic>>> getWordsMissingPronunciation(int userId) async {
     final rows = await _request<List<dynamic>>('getWordsMissingPronunciation', data: {'userId': userId});
     return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();

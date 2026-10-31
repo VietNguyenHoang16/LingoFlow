@@ -202,50 +202,50 @@ void main() {
     }, () => client);
   });
 
-  testWidgets('migration: AI gợi ý, áp dụng gửi đúng thay đổi', (tester) async {
+  testWidgets('phân loại: nút 2 bên, copy 20 từ, nộp xong từ không hiện lại', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    final candidates = [
-      word(id: 1, word: 'deploy', meaning: 'triển khai'),
-      word(id: 2, word: 'chancellor', meaning: 'thủ tướng'),
+    final batch = [
+      word(id: 1, word: 'deploy', meaning: 'triển khai', mode: ''),
+      word(id: 2, word: 'chancellor', meaning: 'thủ tướng', mode: ''),
     ];
     final requests = <Map<String, dynamic>>[];
+    final clipboard = <String>[];
+    var submitted = false;
+
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final args = call.arguments as Map;
+          clipboard.add(args['text'] as String);
+        }
+        return null;
+      },
+    );
 
     final client = MockClient((request) async {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       requests.add(body);
       switch (body['action']) {
-        case 'getMigrationCandidates':
-          return http.Response(jsonEncode({'data': candidates}), 200,
-              headers: {'content-type': 'application/json; charset=utf-8'});
-        case 'enrichWords':
+        case 'getUnclassifiedWords':
           return http.Response(
             jsonEncode({
-              'data': [
-                {
-                  'word': 'deploy',
-                  'meaning': 'triển khai',
-                  'wordType': 'verb',
-                  'learningMode': 'active',
-                  'collocations': 'deploy to production',
-                },
-                {
-                  'word': 'chancellor',
-                  'meaning': 'thủ tướng',
-                  'wordType': 'noun',
-                  'learningMode': 'passive',
-                  'collocations': '',
-                },
-              ],
+              'data': submitted
+                  ? {'items': [], 'remaining': 0, 'total': 2}
+                  : {'items': batch, 'remaining': 2, 'total': 2},
             }),
             200,
             headers: {'content-type': 'application/json; charset=utf-8'},
           );
-        case 'bulkSetLearningMode':
+        case 'bulkClassifyWords':
+          submitted = true;
           return http.Response(
-            jsonEncode({'data': {'updatedCount': 1}}),
+            jsonEncode({'data': {'updatedCount': 2}}),
             200,
             headers: {'content-type': 'application/json; charset=utf-8'},
           );
@@ -256,21 +256,44 @@ void main() {
     await http.runWithClient(() async {
       await _pumpApp(tester, const ModeMigrationPage(userId: 1));
 
+      expect(find.textContaining('Còn 2/2 từ chưa phân loại'), findsOneWidget);
       expect(find.text('deploy'), findsOneWidget);
-      await tester.tap(find.text('AI phân loại giúp tôi'));
+      expect(find.text('chancellor'), findsOneWidget);
+
+      // Bấm nút lớn 2 bên cho từng từ.
+      await tester.tap(find.byKey(const ValueKey('classify-active-1')));
+      await tester.tap(find.byKey(const ValueKey('classify-passive-2')));
+      await tester.pumpAndSettle();
+      expect(find.text('Đã chọn 2/2 từ'), findsOneWidget);
+
+      // Copy nhanh 20 từ (chỉ từ tiếng Anh, cách nhau dấu phẩy).
+      await tester.tap(find.byKey(const ValueKey('classify-copy')));
+      await tester.pumpAndSettle();
+      expect(clipboard, isNotEmpty);
+      expect(clipboard.last, 'deploy, chancellor');
+
+      // Cho SnackBar copy tự ẩn để không che nút Nộp.
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Áp dụng (1 thay đổi)'), findsOneWidget);
-      await tester.tap(find.textContaining('Áp dụng (1 thay đổi)'));
+      // Nộp lô: gửi đúng 2 từ + loại đã chọn.
+      await tester.tap(find.byKey(const ValueKey('classify-submit')));
       await tester.pumpAndSettle();
 
-      final bulk =
-          requests.where((r) => r['action'] == 'bulkSetLearningMode').toList();
+      final bulk = requests
+          .where((r) => r['action'] == 'bulkClassifyWords')
+          .toList();
       expect(bulk, hasLength(1));
       final items = (bulk.single['data'] as Map)['items'] as List;
-      expect(items, hasLength(1));
-      expect((items.single as Map)['id'], 2);
-      expect((items.single as Map)['mode'], 'passive');
+      expect(items, hasLength(2));
+      expect(
+        {for (final it in items) (it as Map)['id']: it['mode']},
+        {1: 'active', 2: 'passive'},
+      );
+
+      // Nộp xong server trả lô rỗng -> từ đã có trạng thái không hiện lại.
+      expect(find.text('deploy'), findsNothing);
+      expect(find.text('Đã phân loại tất cả từ!'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, () => client);
   });
