@@ -195,7 +195,18 @@ async function getUserAiExampleStyle(userId) {
 }
 
 // Tang len moi khi them migration trong ensureSchema, neu khong se bi gate bo qua.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
+
+// Cột bắt buộc của mô hình 2 loại từ. Luôn kiểm tra (idempotent) vì DB cũ có
+// thể đã ở version mới nhất TRƯỚC khi 2 cột này tồn tại -> không thể chỉ dựa
+// vào version gate (lỗi "column vw.learning_mode does not exist").
+let requiredColumnsReady;
+async function ensureRequiredColumns() {
+  if (requiredColumnsReady) return;
+  await addColumnIfNotExists('vocabulary_words', 'learning_mode', "VARCHAR(10) DEFAULT 'active'");
+  await addColumnIfNotExists('vocabulary_words', 'collocations', 'TEXT');
+  requiredColumnsReady = true;
+}
 
 async function ensureSchema() {
   if (!schemaReady) {
@@ -203,7 +214,11 @@ async function ensureSchema() {
       // Fast path: schema da dung version -> 2 query thay vi ~20 (cold start).
       await query(`CREATE TABLE IF NOT EXISTS schema_meta (id INTEGER PRIMARY KEY, version INTEGER NOT NULL)`);
       const meta = await query('SELECT version FROM schema_meta WHERE id = 1');
-      if (meta.length > 0 && asInt(meta[0].version) >= SCHEMA_VERSION) return;
+      if (meta.length > 0 && asInt(meta[0].version) >= SCHEMA_VERSION) {
+        // Du version van phai dam bao 2 cot moi (xem ensureRequiredColumns).
+        await ensureRequiredColumns();
+        return;
+      }
 
       // Core tables
       await query(`
@@ -302,6 +317,7 @@ async function ensureSchema() {
         'INSERT INTO schema_meta (id, version) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET version = $1',
         [SCHEMA_VERSION],
       );
+      await ensureRequiredColumns();
     })().catch((error) => {
       schemaReady = undefined;
       throw error;
