@@ -16,7 +16,7 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,166,050 bytes` (20.2 MB)
-- SHA256: `CF7BC34A46659E5B38E55EBDED4A83C5BE4721F524B6275A43652E3B4ACE5AA1`
+- SHA256: `D79F781FCA81303850A0F229A1B920262CB761F58FA7F14E8F1AC6A6B4400A74`
 - Ngày build: `01/11/2026` — bản mới nhất:
   0. **Luyện tập: khung đáp án phủ kín màn hình** — khi hiện đáp án, bàn phím tự
      đóng nên khung đáp án dùng trọn chiều cao màn hình từ trên xuống dưới
@@ -24,9 +24,9 @@ Link tải nhanh:
      dung canh giữa nên nhìn cân đối. Kết quả vẫn hiện **ngay lập tức** (không
      chờ mạng); PC / iPad có bàn phím cứng thì Enter vẫn sang câu tiếp, còn lại
      bấm nút **Tiếp**.
-     **Xoá ở ô tìm kiếm (màn danh mục) cập nhật ngay**: xoá bớt ký tự là danh
-     sách từ bên dưới lọc lại tức thì (không còn chờ 250ms như trước), và có
-     thêm nút **×** để xoá nhanh cả ô.
+     **Xoá từ ngay trong kết quả tìm kiếm**: từ vừa xoá biến mất tức thì ở cả
+     panel kết quả lẫn danh sách từ bên dưới (trước đây danh sách bên dưới vẫn
+     giữ từ đã xoá cho tới khi tải lại trang).
   1. **Gỡ mô hình 2 loại** (theo yêu cầu): mọi từ đã thêm đều là từ muốn học,
      nên đã bỏ tab Học ngay / Nên biết, chip loại, phiên ôn Nên biết 4 đáp án và
      màn Phân loại lô 20 từ. Toàn bộ từ về 1 danh sách như trước (không xoá từ,
