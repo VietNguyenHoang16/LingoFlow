@@ -6,11 +6,15 @@ class ExampleCard extends StatelessWidget {
   final String? pos;
   final String? translation;
 
+  /// Gioi han so dong khi can hien thi gon (mac dinh: hien thi day du).
+  final int? maxLines;
+
   const ExampleCard({
     super.key,
     required this.example,
     this.pos,
     this.translation,
+    this.maxLines,
   });
 
   @override
@@ -68,10 +72,12 @@ class ExampleCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  // Khong gioi han dong: vi du dai hien thi tron ven (truoc
-                  // day bi cat o 2 dong + ellipsis).
+                  // Mac dinh khong gioi han dong (vi du dai hien thi du); man
+                  // luyen tap truyen maxLines de giu moi thu trong 1 khung.
                   Text(
                     example,
+                    maxLines: maxLines,
+                    overflow: maxLines == null ? null : TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'Be Vietnam Pro',
                       fontSize: 13,

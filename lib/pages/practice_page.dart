@@ -643,6 +643,7 @@ class _PracticePageState extends State<PracticePage> {
                   final maskedFont = compact ? 26.0 : 32.0;
                   final isCorrectAnswer = _spellController.text.trim().toLowerCase() ==
                       currentWord['word'].toString().toLowerCase();
+                  final typedAnswer = _spellController.text.trim();
 
                   final content = Padding(
                     padding: EdgeInsets.fromLTRB(contentPadding, keyboardOpen ? 8 : 12, contentPadding, 16),
@@ -651,7 +652,11 @@ class _PracticePageState extends State<PracticePage> {
                       children: [
                         Container(
                           width: double.infinity,
-                          padding: EdgeInsets.all(cardPadding),
+                          padding: EdgeInsets.all(
+                            _showResult
+                                ? (compact ? 12 : 16)
+                                : cardPadding,
+                          ),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer.withAlpha(51),
                             borderRadius: BorderRadius.circular(16),
@@ -659,13 +664,18 @@ class _PracticePageState extends State<PracticePage> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              MasteryBadge(level: masteryLevel),
-                              SizedBox(height: compact ? 8 : 12),
-                              Text(
-                                'Từ tiếng Anh của nghĩa này là gì?',
-                                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                              ),
-                              SizedBox(height: compact ? 8 : 12),
+                              // Khi da tra loi tren man hinh nho: bo bot dong chu
+                              // de toan bo ket qua + nut Tiep nam trong 1 khung.
+                              if (!_showResult || !compact) ...[
+                                MasteryBadge(level: masteryLevel),
+                                SizedBox(height: compact ? 8 : 12),
+                                Text(
+                                  'Từ tiếng Anh của nghĩa này là gì?',
+                                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                                ),
+                                SizedBox(height: compact ? 8 : 12),
+                              ] else
+                                const SizedBox(height: 2),
                               GestureDetector(
                                 onTap: _quickEditMeaning,
                                 child: Row(
@@ -697,7 +707,10 @@ class _PracticePageState extends State<PracticePage> {
                             ],
                           ),
                         ),
-                        SizedBox(height: sectionGap),
+                        SizedBox(height: _showResult && compact ? 8 : sectionGap),
+                        // Khi da co ket qua: an phan go tu de moi thu (dap an,
+                        // vi du, nut Tiep) nam gon trong 1 khung man hinh.
+                        if (!_showResult) ...[
                         Text(
                           'Gõ từ tiếng Anh:',
                           style: TextStyle(
@@ -729,12 +742,9 @@ class _PracticePageState extends State<PracticePage> {
                           ),
                         ),
                         // Hint button
-                        if (!_showResult) ...[
-                          const SizedBox(height: 6),
-                          _buildPracticeHintButton(currentWord),
-                          const SizedBox(height: 6),
-                        ] else
-                          SizedBox(height: compact ? 10 : 14),
+                        const SizedBox(height: 6),
+                        _buildPracticeHintButton(currentWord),
+                        const SizedBox(height: 8),
                         TextField(
                           controller: _spellController,
                           focusNode: _spellFocusNode,
@@ -756,65 +766,90 @@ class _PracticePageState extends State<PracticePage> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: _showResult ? null : (_) => _checkSpell(),
                         ),
-                        SizedBox(height: compact ? 10 : 14),
+                        ],
                         // Ket qua: dung/sai + dap an + phat am + vi du + SRS.
                         if (_showResult) ...[
                           Container(
-                            padding: EdgeInsets.all(compact ? 12 : 16),
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: compact ? 10 : 12,
+                              vertical: compact ? 8 : 10,
+                            ),
                             decoration: BoxDecoration(
                               color: isCorrectAnswer
-                                  ? Colors.green.withAlpha(51)
-                                  : Colors.red.withAlpha(51),
+                                  ? Colors.green.withAlpha(45)
+                                  : Colors.red.withAlpha(45),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  isCorrectAnswer ? Icons.check_circle : Icons.cancel,
-                                  color: isCorrectAnswer ? Colors.green : Colors.red,
-                                ),
-                                SizedBox(width: compact ? 10 : 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        isCorrectAnswer ? 'Đúng rồi!' : 'Sai rồi',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: isCorrectAnswer ? Colors.green : Colors.red,
-                                        ),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      isCorrectAnswer ? Icons.check_circle : Icons.cancel,
+                                      size: 18,
+                                      color: isCorrectAnswer ? Colors.green : Colors.red,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isCorrectAnswer ? 'Đúng rồi!' : 'Sai rồi',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isCorrectAnswer ? Colors.green : Colors.red,
                                       ),
-                                      Text(
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
                                         'Đáp án: ${currentWord['word']}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.colorScheme.onSurface,
+                                        ),
                                       ),
-                                      if ((currentWord['pronunciation'] ?? '').isNotEmpty)
-                                        Text(
-                                          '/${currentWord['pronunciation']}/',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontStyle: FontStyle.italic,
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      if (practiceExample.isNotEmpty) ...[
-                                        const SizedBox(height: 6),
-                                        ExampleCard(
-                                          example: practiceExample,
-                                          pos: practicePos,
-                                          translation: practiceTranslation.isEmpty ? null : practiceTranslation,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                                if ((currentWord['pronunciation'] ?? '').isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      '/${currentWord['pronunciation']}/',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                if (!isCorrectAnswer && typedAnswer.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      'Bạn gõ: $typedAnswer',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                if (practiceExample.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  ExampleCard(
+                                    example: practiceExample,
+                                    pos: practicePos,
+                                    translation: practiceTranslation.isEmpty ? null : practiceTranslation,
+                                    maxLines: compact ? 3 : 4,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -852,16 +887,18 @@ class _PracticePageState extends State<PracticePage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Center(
-                            child: Text(
-                              'Nhấn Enter để tiếp tục',
+                          if (!compact) ...[
+                            const SizedBox(height: 8),
+                            Center(
+                              child: Text(
+                                'Nhấn Enter để tiếp tục',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
+                          ],
                         ],
                       ],
                     ),
