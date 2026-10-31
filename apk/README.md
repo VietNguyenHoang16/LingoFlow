@@ -9,9 +9,10 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 | **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
 > Bản này đổi màn **Phân loại từ vựng** sang duyệt lô 20 từ: nút lớn 2 bên Học
-> ngay / Nên biết, copy nhanh 20 từ, nộp xong từ không hiện lại. Toàn bộ từ cũ đã
-> reset về "chưa phân loại" để duyệt lại (lịch ôn giữ nguyên). Vẫn giữ 2 tab, ôn
-> Nên biết 4 đáp án, import 3 nhãn và các cải tiến trước.
+> ngay / Nên biết, copy nhanh 20 từ, **xoá từ không ưu tiên ngay trong lô**, nộp
+> xong từ không hiện lại. Toàn bộ từ cũ đã reset về "chưa phân loại" để duyệt lại
+> (lịch ôn giữ nguyên). Vẫn giữ 2 tab, ôn Nên biết 4 đáp án, import 3 nhãn và các
+> cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
@@ -19,14 +20,16 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,231,910 bytes` (20.2 MB)
-- SHA256: `6DC233EDFA92FE5E573E8C6EB9A1A88A14C97B54BC3969C9C34264811EE54ADE`
+- SHA256: `AC5AC4DB3EA1531DD1DDECFE0F2EF8E30188BE9ED4BA60E5543D6E8A7E936F5B`
 - Ngày build: `31/10/2026` — bản mới nhất:
   0. **Phân loại từ vựng theo lô 20 từ**: mỗi từ có **nút lớn 2 bên Học ngay /
      Nên biết** (bấm bên nào sáng bên đó, bấm lại để bỏ chọn), **Copy N từ** (chỉ
      từ tiếng Anh, cách nhau dấu phẩy) để dán sang AI/chỗ khác, **AI gợi ý**,
      "Tất cả Học ngay/Nên biết". **Nộp N từ** lưu lô hiện tại; từ đã nộp không
-     hiện lại. Toàn bộ từ cũ đã được đưa về trạng thái "chưa phân loại" để duyệt
-     lại từ đầu (không mất lịch ôn).
+     hiện lại. Mỗi dòng có nút **xoá (không ưu tiên)** — xoá xong số từ còn lại
+     giảm ngay, snackbar sau khi nộp báo còn bao nhiêu từ chưa phân loại. Toàn bộ
+     từ cũ đã được đưa về trạng thái "chưa phân loại" để duyệt lại từ đầu (không
+     mất lịch ôn).
   1. **2 loại từ chạy đầy đủ**: trang chính có 2 tab **Học ngay / Nên biết** (đếm
      due riêng), thẻ có chip loại và long-press để chuyển loại. **Nên biết** ôn
      bằng **4 đáp án** (không gõ), lịch giãn 1→3→7→21→45 ngày, sai hẹn 1 ngày,
