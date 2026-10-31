@@ -8,31 +8,37 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này làm gọn **màn luyện tập**: trả lời xong là thấy đủ kết quả trong một
-> khung (không phải kéo xuống), nút Tiếp luôn ở đáy; trước đó đã bỏ hẳn Multiple
-> Choice, chỉ còn gõ từ, nhãn tiếng Việt. Vẫn giữ ô tìm kiếm dạng panel (danh sách
-> không đổi) và các cải tiến trước (import loại trừ/trùng từ, bỏ số thứ tự, chọn
-> từ theo khoảng, Cài đặt → Cách AI sinh ví dụ, bỏ khoá A2–B1).
+> Bản này bắt đầu mô hình **2 loại từ**: AI gán **Học ngay / Nên biết / Bỏ qua**
+> ngay khi import, kèm cụm từ cho từ Học ngay; bảng import cho đổi loại bằng 1
+> chạm, từ "Bỏ qua" không được lưu. Vẫn giữ màn luyện tập gọn 1 khung, ô tìm kiếm
+> dạng panel và các cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,165,946 bytes` (20.2 MB)
-- SHA256: `44285C32016AAB875467A1DF6119BC4010C1CBE3F71C60214694F1CDE9CBCB41`
+- Kích thước: `21,165,958 bytes` (20.2 MB)
+- SHA256: `29B88D40332EECF6B7FF5C1AF6A382D1212889A344182EC3864C370EF4A4ECE9`
 - Ngày build: `31/10/2026` — bản mới nhất:
-  0. **Luyện tập: kết quả gọn trong 1 khung** — trả lời xong thì phần gõ từ được
+  0. **Hai loại từ — Học ngay / Nên biết (Phase 1)**: AI phân loại mỗi từ khi
+     phân tích/import thành **Học ngay** (cần dùng được: email, họp, code),
+     **Nên biết** (chỉ cần hiểu khi đọc/nghe) hoặc **Bỏ qua** (không ưu tiên).
+     Bảng import hiện chip 3 trạng thái bấm để đổi, cụm từ đi kèm cho từ Học
+     ngay (vd "comply with"), thống kê tách riêng; từ "Bỏ qua" không tick sẵn
+     và không được lưu. (Phase sau: tab 2 loại ở trang chính, phiên ôn Nên
+     biết bằng 4 đáp án, màn duyệt phân loại lại từ cũ.)
+  1. **Luyện tập: kết quả gọn trong 1 khung** — trả lời xong thì phần gõ từ được
      ẩn đi, toàn bộ kết quả (đúng/sai, đáp án, phiên âm, "Bạn gõ", ví dụ, lịch
      ôn) nằm gọn trong một màn hình, **không phải kéo xuống**; nút Tiếp luôn ở
      đáy. Ví dụ trong khung kết quả giới hạn 3–4 dòng cho gọn.
-  1. **Luyện tập: bỏ Multiple Choice, dọn giao diện**: màn luyện tập chỉ còn
+  2. **Luyện tập: bỏ Multiple Choice, dọn giao diện**: màn luyện tập chỉ còn
      **gõ từ** (không còn chọn đáp án 4 lựa chọn / phím tắt 1–4). Bố cục gọn
      lại: thẻ chỉ còn mức ghi nhớ + nghĩa; đáp án/phát âm/ví dụ/SRS hiện một lần;
      màn kết thúc rút gọn còn **"Đúng X/Y"** + **Làm lại** / **Thoát**. Nhãn
      chuyển hết sang tiếng Việt (kể cả mức ghi nhớ: Mới / Đang học / Đang ôn /
      Đã thuộc).
-  2. **Tìm kiếm không thay danh sách**: gõ vào ô tìm kiếm thì kết quả nằm trong
+  3. **Tìm kiếm không thay danh sách**: gõ vào ô tìm kiếm thì kết quả nằm trong
      panel riêng ngay dưới ô (cao tối đa ~38% màn hình, tự cuộn), còn danh sách
      từ bên dưới **giữ nguyên từ và vị trí cuộn** — nhìn được cả 2 phần để kiểm
      tra từ đã tồn tại chưa. Mỗi dòng kết quả có từ, loại từ, chip **"Đã có"**,
@@ -40,43 +46,43 @@ Link tải nhanh:
      Không có kết quả → hiện **"Chưa có từ này trong bộ từ của bạn"** + nút
      **Thêm từ** (mở import với từ điền sẵn, AI lấy nghĩa/loại từ ngay, thêm
      xong tự đóng).
-  3. **Import — loại trừ & trùng từ**:
+  4. **Import — loại trừ & trùng từ**:
      - Từ bạn bấm ⊘ loại trừ **không còn xuất hiện (và không bị tick)** ở danh sách
        đang lưu trong lúc import; danh sách chỉ còn đúng số từ sẽ được thêm.
      - Từ **trùng với bộ từ đã lưu** hiện luôn **nghĩa + loại từ** đã lưu ngay trong
        bảng import (dòng tô teal thay vì đỏ như lỗi); từ trùng ngay trong danh sách
        dán vào cũng hiện nghĩa của dòng đầu tiên.
-  4. **Bỏ số thứ tự khi import**: dán danh sách đánh số (`29. asset`,
+  5. **Bỏ số thứ tự khi import**: dán danh sách đánh số (`29. asset`,
      `3) give up`, `29 - take off`) thì số thứ tự bị bỏ, từ lưu vào chỉ còn
      `asset`; số không phải thứ tự (`8-bit`, `3.14`, `24/7`) giữ nguyên. Áp
      dụng cả ở màn Import hàng loạt lẫn dialog Thêm từ (nhập nhiều dòng).
-  5. **Chọn từ để luyện theo khoảng**: ở màn Gần đây bấm ▶ rồi chạm từ đầu,
+  6. **Chọn từ để luyện theo khoảng**: ở màn Gần đây bấm ▶ rồi chạm từ đầu,
      chạm từ cuối là chọn cả khoảng ở giữa; chạm lại một từ đã chọn để bỏ đúng
      từ đó. Dòng nhắc dưới tiêu đề hướng dẫn thao tác, áp dụng cả khi đang tìm
      kiếm.
-  6. **Loại trừ từ khi import hàng loạt**: ở bước xem trước, mỗi dòng hợp lệ có
+  7. **Loại trừ từ khi import hàng loạt**: ở bước xem trước, mỗi dòng hợp lệ có
      nút ⊘ để bỏ từ đó khỏi lần import. Từ bị loại vẫn hiện (mờ, gạch ngang) và
      bấm lại là hoàn tác; số trên nút Import và thống kê cập nhật theo, màn kết
      quả ghi rõ đã loại trừ bao nhiêu từ.
-  7. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
+  8. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
      (`concrete` → “cụ thể, rõ ràng”, `harness` → “tận dụng, khai thác”), chọn
      bối cảnh câu ví dụ (đời sống, công việc, IT, du lịch…), thêm yêu cầu riêng
      và xem trước đúng chỉ dẫn gửi AI. Lưu theo tài khoản, dùng ngay cho lần tạo
      nghĩa/ví dụ kế tiếp. Câu ví dụ không còn bị giới hạn trình độ A2–B1.
-  8. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
+  9. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
      chuyển sang từ tiếp theo sau khi server đã ghi xong SRS. Nếu lưu thất bại,
      app chặn lại bằng hộp thoại **"Mất kết nối mạng"** với hai lựa chọn
      **Thử lại** / **Thoát** — lượt ôn đó không bị đánh rơi âm thầm.
-  9. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
+  10. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
      **"Cần kết nối mạng"** + nút **Thử lại**, không còn hiện nhầm
      "All caught up!" / "No words to study".
-  10. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
+  11. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
      kiếm) có lớp phủ mờ khoá thao tác **"Đang lưu…"**, xong đổi thành dấu tick
      **"Đã lưu" + tên từ** rồi tan dần (blur nhẹ, spring, rung haptic). Không
      còn bấm nhầm trong lúc chờ.
-  11. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
+  12. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
      tải lại cả danh sách (nguyên nhân màn hình nhảy một cái).
-  12. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
+  13. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
      nghĩa/phân loại, sửa từ trong Ôn tập, tìm kiếm toàn bộ từ, thẻ học hiển thị
      trọn vẹn ví dụ dài, và TTS trên iPad Safari tự phục hồi sau khi chuyển app.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
