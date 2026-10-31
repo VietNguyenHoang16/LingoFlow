@@ -46,8 +46,10 @@ class _PracticePageState extends State<PracticePage> {
   /// Loi tai danh sach tu (khac null = khong co de luyen).
   Object? _loadError;
 
-  /// Dang ghi SRS cua cau vua tra loi -> khoa thao tac, khong danh roi tien do.
-  bool _isSavingGrade = false;
+  /// Số lượt ghi SRS đang chạy nền (có thể >1 nếu mạng chậm và người dùng đã
+  /// sang câu tiếp). Chỉ dùng để chặn thoát trang, KHÔNG chặn việc trả lời.
+  int _pendingSaves = 0;
+  bool get _isSavingGrade => _pendingSaves > 0;
 
   int _currentIndex = 0;
   int _score = 0;
@@ -63,6 +65,7 @@ class _PracticePageState extends State<PracticePage> {
 
   final TextEditingController _spellController = TextEditingController();
   final FocusNode _spellFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _hintLevel = 0;
 
@@ -131,7 +134,6 @@ class _PracticePageState extends State<PracticePage> {
     setState(() {
       _showResult = false;
       _spellController.clear();
-      _spellFocusNode.unfocus();
       _questionStartTime = DateTime.now();
       _hintLevel = 0;
 
@@ -155,8 +157,11 @@ class _PracticePageState extends State<PracticePage> {
         }
       }
     });
-    if (!_isCompleted) {
+    if (_isCompleted) {
+      _spellFocusNode.unfocus();
+    } else {
       _focusSpellInputIfNeeded();
+      _scrollToTopAfterFrame();
     }
   }
 
@@ -189,15 +194,15 @@ class _PracticePageState extends State<PracticePage> {
           lapseCount: result.newLapseCount,
         );
 
-    setState(() => _isSavingGrade = true);
+    setState(() => _pendingSaves++);
     try {
       await write();
-      if (mounted) setState(() => _isSavingGrade = false);
+      if (mounted) setState(() => _pendingSaves = (_pendingSaves - 1).clamp(0, 999));
       return true;
     } catch (e) {
       debugPrint('Failed to save review update: $e');
       if (!mounted) return false;
-      setState(() => _isSavingGrade = false);
+      setState(() => _pendingSaves = (_pendingSaves - 1).clamp(0, 999));
       return showSaveBlockedDialog(
         context: context,
         error: e,
@@ -222,7 +227,7 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   Future<void> _checkSpell() async {
-    if (_words.isEmpty || _showResult || _isSavingGrade) return;
+    if (_words.isEmpty || _showResult) return;
     final word = _words[_currentIndex];
     final correct = word['word'];
     final isCorrect = _spellController.text.trim().toLowerCase() == correct.toLowerCase();
@@ -236,8 +241,9 @@ class _PracticePageState extends State<PracticePage> {
         _totalAnswered++;
         if (isCorrect) _score++;
       });
-      _spellFocusNode.unfocus();
-      unawaited(_speak(correct));
+      // Không unfocus: giữ bàn phím mở để tick lần nữa là sang câu tiếp.
+      _speakAfterFrame(correct);
+      _scrollToTopAfterFrame();
       return;
     }
 
@@ -257,10 +263,8 @@ class _PracticePageState extends State<PracticePage> {
       lapseCount: word['lapse_count'] as int? ?? 0,
     );
 
-    // Luu xong moi hien ket qua: mat mang thi dung lai ngay, khong mat tien do.
-    final saved = await _saveReviewGrade(word, result);
-    if (!saved || !mounted) return;
-
+    // Hiện kết quả NGAY (không chờ mạng) để bấm tick là thấy phản hồi tức thì.
+    // SRS lưu ở nền; nếu lỗi mạng vẫn chặn tiến độ bằng hộp thoại như trước.
     _sessionResults.add({
       'word': correct,
       'isCorrect': isCorrect,
@@ -274,8 +278,25 @@ class _PracticePageState extends State<PracticePage> {
       _totalAnswered++;
       if (isCorrect) _score++;
     });
-    _spellFocusNode.unfocus();
-    unawaited(_speak(correct));
+    _speakAfterFrame(correct);
+    _scrollToTopAfterFrame();
+    unawaited(_saveReviewGrade(word, result));
+  }
+
+  /// Đọc từ sau khi frame kết quả đã vẽ xong (TTS không làm chậm phản hồi).
+  void _speakAfterFrame(String text) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_speak(text));
+    });
+  }
+
+  /// Kéo nội dung lên đầu để khung kết quả hiện ngay, không bị trôi xuống dưới.
+  void _scrollToTopAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    });
   }
 
   void _restart() {
@@ -292,6 +313,7 @@ class _PracticePageState extends State<PracticePage> {
       _retryWords.clear();
       _questionStartTime = DateTime.now();
     });
+    _focusSpellInputIfNeeded();
   }
 
   bool _handleHardwareKey(KeyEvent event) {
@@ -410,6 +432,7 @@ class _PracticePageState extends State<PracticePage> {
     HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _spellController.dispose();
     _spellFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -708,9 +731,14 @@ class _PracticePageState extends State<PracticePage> {
                           ),
                         ),
                         SizedBox(height: _showResult && compact ? 8 : sectionGap),
-                        // Khi da co ket qua: an phan go tu de moi thu (dap an,
-                        // vi du, nut Tiep) nam gon trong 1 khung man hinh.
-                        if (!_showResult) ...[
+                        // Giữ ô nhập trong cây (Offstage) khi hiện kết quả: bàn
+                        // phím không đóng/mở lại giữa các câu -> bấm tick lần nữa
+                        // là sang câu tiếp, hết cảm giác khựng vì IME.
+                        Offstage(
+                          offstage: _showResult,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                         Text(
                           'Gõ từ tiếng Anh:',
                           style: TextStyle(
@@ -764,10 +792,42 @@ class _PracticePageState extends State<PracticePage> {
                             ),
                           ),
                           textInputAction: TextInputAction.done,
-                          onSubmitted: _showResult ? null : (_) => _checkSpell(),
+                          // Giữ bàn phím mở sau khi bấm ✓: mặc định Flutter sẽ
+                          // unfocus (bàn phím đóng rồi mở lại -> khựng). No-op
+                          // để tick lần nữa là sang câu tiếp ngay.
+                          onEditingComplete: () {},
+                          onSubmitted: _showResult
+                              ? (_) => _nextQuestion()
+                              : (_) => _checkSpell(),
                         ),
-                        ],
+                            ],
+                          ),
+                        ),
                         // Ket qua: dung/sai + dap an + phat am + vi du + SRS.
+                        if (_showResult && keyboardOpen)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.keyboard_return_rounded,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Bấm Enter/nút ✓ trên bàn phím để sang câu tiếp',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         if (_showResult) ...[
                           Container(
                             width: double.infinity,
@@ -905,6 +965,7 @@ class _PracticePageState extends State<PracticePage> {
                   );
 
                   return SingleChildScrollView(
+                    controller: _scrollController,
                     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(minHeight: constraints.maxHeight),
