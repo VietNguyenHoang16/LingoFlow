@@ -12,6 +12,7 @@ import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import '../services/word_enrichment_service.dart';
 import 'practice_page.dart';
+import 'passive_review_page.dart';
 import 'profile_page.dart';
 import 'review_page.dart';
 
@@ -33,6 +34,8 @@ class _RecentPageState extends State<RecentPage> {
   StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   List<Map<String, dynamic>> _words = [];
+  /// Tab đang xem: 'active' (Học ngay) hoặc 'passive' (Nên biết).
+  String _mode = 'active';
   // Kết quả tìm trên toàn bộ từ đã lưu (server), tách khỏi 20 từ gần nhất.
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
@@ -154,11 +157,7 @@ class _RecentPageState extends State<RecentPage> {
       });
     }
     try {
-      final words = await _db.getRecentWords(widget.userId, limit: 20);
-      // TEMP-DEBUG topic_tag
-      debugPrint('DBG recent load: total=${words.length} '
-          'withTag=${words.where((w) => ((w['topic_tag'] ?? '') as String).isNotEmpty).length} '
-          'keys=${words.isEmpty ? [] : words.first.keys.toList()}');
+      final words = await _db.getRecentWords(widget.userId, limit: 50, mode: _mode);
       if (!mounted) return;
       setState(() {
         _words = words;
@@ -186,6 +185,8 @@ class _RecentPageState extends State<RecentPage> {
 
   int get _dueWords => (_reviewStats['dueToday'] as int?) ?? 0;
   int get _dueGrammar => (_reviewStats['grammarDue'] as int?) ?? 0;
+  /// Số từ "Nên biết" đến hạn ôn nhẹ.
+  int get _passiveDue => (_reviewStats['passiveDue'] as int?) ?? 0;
 
   Future<void> _openReview({bool grammar = false}) async {
     await Navigator.push(
@@ -197,6 +198,73 @@ class _RecentPageState extends State<RecentPage> {
     if (!mounted) return;
     await _loadRecent(background: true);
     await _loadReviewStats();
+  }
+
+  /// Đổi tab Học ngay / Nên biết.
+  void _switchMode(String mode) {
+    if (_mode == mode) return;
+    setState(() {
+      _mode = mode;
+      _words = [];
+      _isLoading = true;
+      _loadError = null;
+      _isSelectionMode = false;
+      _selectedWords.clear();
+      _selectionAnchor = null;
+    });
+    _loadRecent();
+  }
+
+  /// Mở phiên ôn nhẹ cho từ Nên biết (4 đáp án, không gõ).
+  Future<void> _openPassiveReview() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PassiveReviewPage(userId: widget.userId),
+      ),
+    );
+    if (!mounted) return;
+    await _loadRecent(background: true);
+    await _loadReviewStats();
+  }
+
+  /// Đổi loại 1 từ: Học ngay <-> Nên biết (server reset lịch ôn theo loại).
+  Future<void> _toggleWordMode(Map<String, dynamic> word) async {
+    final id = word['id'] as int;
+    final current = (word['learning_mode'] ?? 'active').toString();
+    final next = current == 'passive' ? 'active' : 'passive';
+    try {
+      await _db.setWordLearningMode(id, next);
+      if (!mounted) return;
+      setState(() {
+        final idx = _words.indexWhere((w) => w['id'] == id);
+        if (idx != -1) {
+          _words[idx] = {..._words[idx], 'learning_mode': next};
+        }
+        final sidx = _searchResults.indexWhere((w) => w['id'] == id);
+        if (sidx != -1) {
+          _searchResults[sidx] = {..._searchResults[sidx], 'learning_mode': next};
+        }
+      });
+      await _loadReviewStats();
+      await _loadRecent(background: true);
+      WordChangeBus().notifyChanged('word-mode');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+            next == 'passive'
+                ? 'Đã chuyển "${(word['word'] ?? '').toString()}" sang Nên biết'
+                : 'Đã chuyển "${(word['word'] ?? '').toString()}" sang Học ngay',
+          )),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
   }
 
   Future<void> _openSettings() async {
@@ -308,6 +376,37 @@ class _RecentPageState extends State<RecentPage> {
               ),
             ],
             const Divider(),
+            ListTile(
+              leading: Icon(
+                (word['learning_mode'] ?? 'active') == 'passive'
+                    ? Icons.bolt_rounded
+                    : Icons.visibility_outlined,
+                color: (word['learning_mode'] ?? 'active') == 'passive'
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.tertiary,
+              ),
+              title: Text(
+                (word['learning_mode'] ?? 'active') == 'passive'
+                    ? 'Chuyển sang Học ngay'
+                    : 'Chuyển sang Nên biết',
+                style: const TextStyle(
+                    fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                (word['learning_mode'] ?? 'active') == 'passive'
+                    ? 'Ôn bằng gõ từ, tính vào "cần ôn hôm nay"'
+                    : 'Ôn nhẹ bằng 4 đáp án, không tính due',
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleWordMode(word);
+              },
+            ),
             ListTile(
               leading: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
               title: const Text('Chinh sua / them nhan',
@@ -617,6 +716,45 @@ class _RecentPageState extends State<RecentPage> {
         ),
         child: Row(
           children: [
+            // Nút ôn nhẹ cho từ Nên biết: tách riêng khỏi "ôn tập hôm nay".
+            if (_passiveDue > 0) ...[
+              SizedBox(
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: _openPassiveReview,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    foregroundColor: theme.colorScheme.tertiary,
+                    side: BorderSide(color: theme.colorScheme.tertiary.withAlpha(130)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Gặp lại nhẹ',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                      ),
+                      Text(
+                        '$_passiveDue',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: SizedBox(
                 height: 52,
@@ -729,7 +867,7 @@ class _RecentPageState extends State<RecentPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isSelectionMode ? 'Chọn từ để luyện' : 'Recent Words',
+                      _isSelectionMode ? 'Chọn từ để luyện' : 'Từ vựng',
                       style: TextStyle(
                         fontFamily: 'Plus Jakarta Sans',
                         fontSize: compact ? 20 : 24,
@@ -744,7 +882,9 @@ class _RecentPageState extends State<RecentPage> {
                           ? (_selectedWords.isEmpty
                               ? 'Chạm từ đầu, rồi chạm từ cuối để chọn cả khoảng'
                               : 'Đã chọn ${_selectedWords.length} từ · chạm từ khác để mở rộng')
-                          : '${_visibleWords.length} từ gần đây',
+                          : (_mode == 'passive'
+                              ? '${_visibleWords.length} từ nên biết'
+                              : '${_visibleWords.length} từ học ngay'),
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: 12,
@@ -785,7 +925,7 @@ class _RecentPageState extends State<RecentPage> {
                     ),
                   ),
                 ),
-                if (_words.isNotEmpty) ...[
+                if (_words.isNotEmpty && _mode == 'active') ...[
                   const SizedBox(width: 8),
                   Tooltip(
                     message: 'Luyện tập',
@@ -844,7 +984,9 @@ class _RecentPageState extends State<RecentPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          _buildModeTabs(theme),
+          const SizedBox(height: 10),
           TextField(
             controller: _searchController,
             style: TextStyle(
@@ -853,7 +995,7 @@ class _RecentPageState extends State<RecentPage> {
               color: theme.colorScheme.onSurface,
             ),
             decoration: InputDecoration(
-              hintText: 'Tìm nhanh từ đã lưu (để kiểm tra từ đã có chưa)...',
+              hintText: 'Tìm từ đã lưu…',
               prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant, size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
@@ -874,6 +1016,91 @@ class _RecentPageState extends State<RecentPage> {
                 : _buildSearchPanel(theme),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Hai tab lớn: Học ngay (active) / Nên biết (passive).
+  Widget _buildModeTabs(ThemeData theme) {
+    return Row(
+      children: [
+        Expanded(
+          child: _modeTab(theme, 'Học ngay', 'active', Icons.bolt_rounded, _dueWords),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _modeTab(theme, 'Nên biết', 'passive', Icons.visibility_outlined, _passiveDue),
+        ),
+      ],
+    );
+  }
+
+  Widget _modeTab(
+    ThemeData theme,
+    String label,
+    String mode,
+    IconData icon,
+    int due,
+  ) {
+    final selected = _mode == mode;
+    final color = mode == 'passive'
+        ? theme.colorScheme.tertiary
+        : theme.colorScheme.primary;
+    return GestureDetector(
+      key: ValueKey('mode-tab-$mode'),
+      onTap: () => _switchMode(mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? color.withAlpha(22) : theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color.withAlpha(150) : theme.colorScheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 16,
+                color: selected ? color : theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  color: selected ? color : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            if (due > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(35),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$due',
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -1063,6 +1290,7 @@ class _RecentPageState extends State<RecentPage> {
           meaning: (word['meaning'] ?? '').toString(),
           pronunciation: (word['pronunciation'] ?? '').toString(),
           wordType: (word['word_type'] ?? '').toString(),
+          learningMode: (word['learning_mode'] ?? 'active').toString(),
           onTap: () => _speak((word['word'] ?? '').toString()),
           onLongPress: () => _showWordOptions(word),
         );
@@ -1164,7 +1392,8 @@ class _RecentPageState extends State<RecentPage> {
         ),
         const SizedBox(height: 20),
         Center(
-          child: Text('Chưa có từ nào',
+          child: Text(
+            _mode == 'passive' ? 'Chưa có từ Nên biết' : 'Chưa có từ nào',
             style: TextStyle(
               fontFamily: 'Plus Jakarta Sans', fontSize: 18, fontWeight: FontWeight.w700,
               color: theme.colorScheme.onSurface,
@@ -1172,7 +1401,10 @@ class _RecentPageState extends State<RecentPage> {
         ),
         const SizedBox(height: 8),
         Center(
-          child: Text('Nhấn + ở trang chính để import từ đầu tiên',
+          child: Text(
+            _mode == 'passive'
+                ? 'AI sẽ xếp từ vào đây khi phân tích/import nếu chỉ cần hiểu khi đọc'
+                : 'Nhấn + ở trang chính để import từ đầu tiên',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Be Vietnam Pro', fontSize: 14,
@@ -1318,6 +1550,7 @@ class _RecentPageState extends State<RecentPage> {
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       accent: theme.colorScheme.primary,
       isDifficult: word['is_difficult'] == true,
+      learningMode: (word['learning_mode'] ?? 'active').toString(),
       onTap: () {
         setState(() {
           if (isFlipped) {
@@ -1359,6 +1592,7 @@ class _SearchResultRow extends StatelessWidget {
     required this.meaning,
     required this.pronunciation,
     required this.wordType,
+    this.learningMode = 'active',
     required this.onTap,
     required this.onLongPress,
   });
@@ -1367,6 +1601,7 @@ class _SearchResultRow extends StatelessWidget {
   final String meaning;
   final String pronunciation;
   final String wordType;
+  final String learningMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -1405,6 +1640,30 @@ class _SearchResultRow extends StatelessWidget {
                       ),
                       if (type.isNotEmpty)
                         WordTypeBadge(typeKey: type, compact: true),
+                      Builder(builder: (context) {
+                        final isPassive = learningMode == 'passive';
+                        final color = isPassive
+                            ? theme.colorScheme.tertiary
+                            : theme.colorScheme.primary;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: color.withAlpha(20),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: color.withAlpha(80)),
+                          ),
+                          child: Text(
+                            isPassive ? 'Nên biết' : 'Học ngay',
+                            style: TextStyle(
+                              fontFamily: 'Be Vietnam Pro',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
+                        );
+                      }),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),

@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'synonym_block.dart';
-import 'topic_tag_badge.dart';
-import 'word_type_badge.dart';
 
 /// Flashcard 3D lật mặt trước/sau dùng chung cho Recent + Category.
 /// Mặt trước: badges, từ lớn căn giữa + loa, phiên âm, gợi ý lật.
@@ -25,6 +23,9 @@ class FlipWordCard extends StatefulWidget {
   final String commonSynonyms;
   final Color accent;
   final bool isDifficult;
+
+  /// 'active' = Học ngay, 'passive' = Nên biết.
+  final String learningMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onSpeak;
@@ -45,6 +46,7 @@ class FlipWordCard extends StatefulWidget {
     this.commonSynonyms = '',
     required this.accent,
     this.isDifficult = false,
+    this.learningMode = 'active',
     required this.onTap,
     required this.onLongPress,
     required this.onSpeak,
@@ -135,6 +137,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                       createdLabel: widget.createdLabel,
                       isDifficult: widget.isDifficult,
                       accent: widget.accent,
+                      learningMode: widget.learningMode,
                       theme: theme,
                       onSpeak: widget.onSpeak,
                     ),
@@ -155,6 +158,7 @@ class _CardFront extends StatelessWidget {
   final String? createdLabel;
   final bool isDifficult;
   final Color accent;
+  final String learningMode;
   final ThemeData theme;
   final VoidCallback onSpeak;
 
@@ -167,6 +171,7 @@ class _CardFront extends StatelessWidget {
     this.createdLabel,
     required this.isDifficult,
     required this.accent,
+    this.learningMode = 'active',
     required this.theme,
     required this.onSpeak,
   });
@@ -191,8 +196,41 @@ class _CardFront extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              if (wordType.isNotEmpty) WordTypeBadge(typeKey: wordType, compact: true),
-              if (topicTag.isNotEmpty) TopicTagBadge(tag: topicTag),
+              // App chỉ còn 2 loại: chip này là phân loại duy nhất trên thẻ.
+              Builder(builder: (context) {
+                final isPassive = learningMode == 'passive';
+                final color = isPassive
+                    ? theme.colorScheme.tertiary
+                    : theme.colorScheme.primary;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(22),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: color.withAlpha(90)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPassive ? Icons.visibility_outlined : Icons.bolt_rounded,
+                        size: 12,
+                        color: color,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isPassive ? 'Nên biết' : 'Học ngay',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
               if (createdLabel != null && createdLabel!.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

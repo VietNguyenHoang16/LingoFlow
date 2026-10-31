@@ -183,3 +183,28 @@ Trả thêm "collocations": 2-3 cụm hay dùng nhất (chỉ khi active; passiv
   201 test pass; analyze không thêm lỗi.
 - Chưa làm (Phase 2–5): tab 2 loại ở trang chính, chip trên thẻ, đổi loại
   trong menu/sửa từ, phiên ôn Nên biết (4 đáp án), đếm due riêng, màn migration.
+
+### Phase 2 — xong (2026-10-31)
+- Trang chính có 2 tab **Học ngay / Nên biết** (kèm số due từng loại) ngay dưới
+  tiêu đề; danh sách lọc theo tab (`getRecentWords` nhận `mode`).
+- Thẻ hiện chip loại (Học ngay = primary, Nên biết = teal); bỏ badge từ loại /
+  chủ đề khỏi thẻ theo spec.
+- Menu long-press có **"Chuyển sang Học ngay / Nên biết"** → gọi
+  `setWordLearningMode`, reload danh sách + due.
+- Đếm riêng: `dueToday` chỉ active; thêm `passiveDue`; nút "Gặp lại nhẹ (M)"
+  đứng cạnh "Ôn tập hôm nay (N)".
+- Luyện tập (▶) chỉ hiện ở tab Học ngay.
+
+### Phase 3 — xong (2026-10-31)
+- `PassiveReviewPage`: từ + phát âm + loa, 4 đáp án nghĩa (1 đúng + 3 nhiễu từ
+  nghĩa của các từ khác), chọn đúng/sai, hiện nghĩa + ví dụ + lịch gặp lại.
+- Lịch giãn 1 → 3 → 7 → 21 → 45 ngày theo `review_count`; sai hẹn 1 ngày;
+  `mastery_level` giữ 0 (không lên cấp), không tính due/streak của Học ngay.
+- Lưu qua `updateWordReview` (sẵn có) với mastery 0.
+
+### Phase 4 — xong (2026-10-31)
+- `ModeMigrationPage`: tải toàn bộ từ (`getMigrationCandidates`), AI phân loại
+  theo lô 30 từ (dùng `enrichWords`), chip sửa tay, đổi hàng loạt, đếm thay đổi.
+- "Áp dụng" chỉ gửi các từ đổi loại qua `bulkSetLearningMode` (1 câu UPDATE
+  dùng unnest), reset lịch đúng quy tắc.
+- Vào từ Cài đặt → "Phân loại từ vựng".

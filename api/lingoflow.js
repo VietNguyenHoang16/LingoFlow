@@ -496,14 +496,19 @@ async function handleAction(action, data) {
         // grammar truoc khi FILTER (LIKE '%grammar%') chay -> grammar_due luon = 0.
         // Dieu kien NOT LIKE phai nam trong tung FILTER de dem tu vung, rieng grammar_due dem rieng.
         `SELECT COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS due_today,
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+                                      AND COALESCE(vw.learning_mode, 'active') = 'active') AS due_today,
                 COUNT(*) FILTER (WHERE vw.mastery_level = 3
-                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS total_mastered,
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+                                      AND COALESCE(vw.learning_mode, 'active') = 'active') AS total_mastered,
                 COUNT(*) FILTER (WHERE COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS total_words,
                 COUNT(*) FILTER (WHERE vw.last_reviewed_at IS NOT NULL AND vw.last_reviewed_at >= CURRENT_DATE
                                       AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS reviewed_today,
                 COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-                                      AND COALESCE(vw.word_type, '') LIKE '%grammar%') AS grammar_due
+                                      AND COALESCE(vw.word_type, '') LIKE '%grammar%') AS grammar_due,
+                COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+                                      AND COALESCE(vw.learning_mode, 'active') = 'passive') AS passive_due
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1`,
@@ -527,6 +532,7 @@ async function handleAction(action, data) {
           totalWords: asInt(reviewRows[0].total_words),
           reviewedToday: asInt(reviewRows[0].reviewed_today),
           grammarDue: asInt(reviewRows[0].grammar_due),
+          passiveDue: asInt(reviewRows[0].passive_due),
           breakdown,
         },
       };
@@ -911,6 +917,7 @@ async function handleAction(action, data) {
 
     case 'getRecentWords': {
       const limit = Math.min(Math.max(asInt(data.limit) || 20, 1), 100);
+      const mode = ['active', 'passive'].includes(String(data.mode || '')) ? String(data.mode) : 'all';
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
@@ -920,9 +927,10 @@ async function handleAction(action, data) {
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
+               AND ($3 = 'all' OR COALESCE(vw.learning_mode, 'active') = $3)
          ORDER BY vw.created_at DESC
          LIMIT $2`,
-        [data.userId, limit],
+        [data.userId, limit, mode],
       );
       return rows.map(mapWordRow);
     }
@@ -1078,6 +1086,7 @@ async function handleAction(action, data) {
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
                AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+               AND COALESCE(vw.learning_mode, 'active') = 'active'
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.userId, new Date()],
       );
@@ -1094,6 +1103,7 @@ async function handleAction(action, data) {
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
                AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+               AND COALESCE(vw.learning_mode, 'active') = 'active'
          ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
         [data.userId, new Date()],
       );
@@ -1135,19 +1145,102 @@ async function handleAction(action, data) {
       return rows.map(mapWordRow);
     }
 
+    // ---- Hai loai tu: Nen biet + doi loai + migration ----
+    case 'getPassiveDueWords': {
+      const limit = Math.min(Math.max(asInt(data.limit) || 20, 1), 50);
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+                vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
+                vw.created_at
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1
+               AND COALESCE(vw.learning_mode, 'active') = 'passive'
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+               AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+         ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC
+         LIMIT $3`,
+        [data.userId, new Date(), limit],
+      );
+      return rows.map(mapWordRow);
+    }
+
+    // Doi loai 1 tu: ve Hoc ngay thi hoc lai tu dau, ve Nen biet thi on nhe lai.
+    case 'setWordLearningMode': {
+      const wordId = asInt(data.wordId);
+      if (!wordId) throw new Error('Thieu wordId');
+      const mode = normalizeLearningMode(data.mode);
+      const rows = await query(
+        `UPDATE vocabulary_words
+         SET learning_mode = $1, interval_days = 0, correct_streak = 0,
+             next_review_date = NULL, is_mastered = FALSE,
+             mastery_level = CASE WHEN $1 = 'active' THEN 0 ELSE mastery_level END,
+             lapse_count = CASE WHEN $1 = 'active' THEN 0 ELSE lapse_count END
+         WHERE id = $2 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $3)
+         RETURNING id`,
+        [mode, wordId, data.userId],
+      );
+      if (rows.length === 0) throw new Error('Khong tim thay tu nay');
+      return { wordId, learningMode: mode };
+    }
+
+    case 'bulkSetLearningMode': {
+      const items = Array.isArray(data.items) ? data.items : [];
+      const ids = [];
+      const modes = [];
+      for (const it of items) {
+        const id = asInt(it.id);
+        if (id <= 0) continue;
+        ids.push(id);
+        modes.push(normalizeLearningMode(it.mode));
+      }
+      if (ids.length === 0) return { updatedCount: 0 };
+      const result = await pool.query(
+        `UPDATE vocabulary_words vw
+         SET learning_mode = u.mode, interval_days = 0, correct_streak = 0,
+             next_review_date = NULL, is_mastered = FALSE,
+             mastery_level = CASE WHEN u.mode = 'active' THEN 0 ELSE vw.mastery_level END,
+             lapse_count = CASE WHEN u.mode = 'active' THEN 0 ELSE vw.lapse_count END
+         FROM unnest($1::int[], $2::text[]) AS u(id, mode)
+         WHERE vw.id = u.id
+           AND vw.list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $3)`,
+        [ids, modes, data.userId],
+      );
+      return { updatedCount: result.rowCount };
+    }
+
+    // Danh sach tu de man "phan loai lai" (AI goi y Hoc ngay / Nen biet).
+    case 'getMigrationCandidates': {
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details,
+                vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations, vw.created_at
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+         ORDER BY LOWER(vw.word) ASC
+         LIMIT 2000`,
+        [data.userId],
+      );
+      return rows.map(mapWordRow);
+    }
+
     case 'getReviewStats': {
       const due = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+               AND COALESCE(vw.learning_mode, 'active') = 'active'`,
         [data.userId, new Date()],
       );
       const mastered = await query(
         `SELECT COUNT(*) AS count FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND vw.mastery_level = 3
-               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'`,
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+               AND COALESCE(vw.learning_mode, 'active') = 'active'`,
         [data.userId],
       );
       const total = await query(
@@ -1182,12 +1275,21 @@ async function handleAction(action, data) {
                AND COALESCE(vw.word_type, '') LIKE '%grammar%'`,
         [data.userId, new Date()],
       );
+      const passiveDue = await query(
+        `SELECT COUNT(*) AS count FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+               AND COALESCE(vw.learning_mode, 'active') = 'passive'`,
+        [data.userId, new Date()],
+      );
       return {
         dueToday: asInt(due[0].count),
         totalMastered: asInt(mastered[0].count),
         totalWords: asInt(total[0].count),
         reviewedToday: asInt(reviewedToday[0].count),
         grammarDue: asInt(grammarDue[0].count),
+        passiveDue: asInt(passiveDue[0].count),
         breakdown,
       };
     }

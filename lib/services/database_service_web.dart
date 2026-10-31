@@ -463,8 +463,31 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20}) async {
-    final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit});
+  Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20, String mode = 'all'}) async {
+    final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit, 'mode': mode});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
+  /// Từ "Nên biết" đã đến hạn ôn nhẹ (4 đáp án, không bắt gõ).
+  Future<List<Map<String, dynamic>>> getPassiveDueWords(int userId, {int limit = 20}) async {
+    final rows = await _request<List<dynamic>>('getPassiveDueWords', data: {'userId': userId, 'limit': limit});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
+  /// Đổi loại 1 từ (Học ngay <-> Nên biết). Server reset lịch ôn theo loại.
+  Future<void> setWordLearningMode(int wordId, String mode) async {
+    await _request<void>('setWordLearningMode', data: {'wordId': wordId, 'mode': mode});
+  }
+
+  /// Áp dụng kết quả phân loại lại: mỗi item là {'id': int, 'mode': 'active'|'passive'}.
+  Future<int> bulkSetLearningMode(List<Map<String, dynamic>> items) async {
+    final result = await _request<Map<String, dynamic>>('bulkSetLearningMode', data: {'items': items});
+    return _asInt(result['updatedCount']);
+  }
+
+  /// Danh sách từ để mở màn "Phân loại lại từ vựng".
+  Future<List<Map<String, dynamic>>> getMigrationCandidates(int userId) async {
+    final rows = await _request<List<dynamic>>('getMigrationCandidates', data: {'userId': userId});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 

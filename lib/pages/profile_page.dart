@@ -9,6 +9,7 @@ import '../widgets/ai_api_settings_sheet.dart';
 import '../widgets/ai_example_style_sheet.dart';
 import '../widgets/pwa_install_banner.dart';
 import 'login_page.dart';
+import 'mode_migration_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final int userId;
@@ -77,6 +78,21 @@ class _ProfilePageState extends State<ProfilePage> {
     final saved = await AiExampleStyleSheet.show(context);
     if (saved == null || !mounted) return;
     setState(() => _styleSummary = saved.summary);
+  }
+
+  Future<void> _openModeMigration() async {
+    final updated = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ModeMigrationPage(userId: widget.userId),
+      ),
+    );
+    if (!mounted) return;
+    if (updated != null && updated > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã cập nhật loại cho $updated từ')),
+      );
+    }
   }
 
   Future<void> _runPronunciationBackfill() async {
@@ -294,6 +310,43 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Phân loại lại từ vựng cũ (Học ngay / Nên biết)
+                _buildCard(
+                  theme: theme,
+                  isDark: isDark,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle(
+                          'Phân loại từ vựng',
+                          Icons.swap_horiz_rounded,
+                          theme),
+                      const SizedBox(height: 4),
+                      Text(
+                        'AI xếp mọi từ thành Học ngay (dùng được ngay) hoặc Nên biết '
+                        '(chỉ cần hiểu), theo mục tiêu giao tiếp + IT. Bạn xem trước rồi áp dụng.',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          height: 1.45,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: OutlinedButton.icon(
+                          onPressed: _openModeMigration,
+                          icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                          label: const Text('Phân loại lại từ vựng'),
                         ),
                       ),
                     ],
