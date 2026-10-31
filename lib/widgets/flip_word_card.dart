@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'synonym_block.dart';
+import 'topic_tag_badge.dart';
+import 'word_type_badge.dart';
 
 /// Flashcard 3D lật mặt trước/sau dùng chung cho Recent + Category.
 /// Mặt trước: badges, từ lớn căn giữa + loa, phiên âm, gợi ý lật.
@@ -21,11 +23,9 @@ class FlipWordCard extends StatefulWidget {
   final String? exampleTranslation;
   final String? exampleTarget;
   final String commonSynonyms;
+  final String collocations;
   final Color accent;
   final bool isDifficult;
-
-  /// 'active' = Học ngay, 'passive' = Nên biết.
-  final String learningMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onSpeak;
@@ -44,9 +44,9 @@ class FlipWordCard extends StatefulWidget {
     this.exampleTranslation,
     this.exampleTarget,
     this.commonSynonyms = '',
+    this.collocations = '',
     required this.accent,
     this.isDifficult = false,
-    this.learningMode = 'active',
     required this.onTap,
     required this.onLongPress,
     required this.onSpeak,
@@ -123,6 +123,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                         exampleTranslation: widget.exampleTranslation,
                         exampleTarget: widget.exampleTarget,
                         commonSynonyms: widget.commonSynonyms,
+                        collocations: widget.collocations,
                         accent: widget.accent,
                         theme: theme,
                         onSpeak: widget.onSpeak,
@@ -137,7 +138,6 @@ class _FlipWordCardState extends State<FlipWordCard>
                       createdLabel: widget.createdLabel,
                       isDifficult: widget.isDifficult,
                       accent: widget.accent,
-                      learningMode: widget.learningMode,
                       theme: theme,
                       onSpeak: widget.onSpeak,
                     ),
@@ -158,7 +158,6 @@ class _CardFront extends StatelessWidget {
   final String? createdLabel;
   final bool isDifficult;
   final Color accent;
-  final String learningMode;
   final ThemeData theme;
   final VoidCallback onSpeak;
 
@@ -171,7 +170,6 @@ class _CardFront extends StatelessWidget {
     this.createdLabel,
     required this.isDifficult,
     required this.accent,
-    this.learningMode = 'active',
     required this.theme,
     required this.onSpeak,
   });
@@ -196,44 +194,8 @@ class _CardFront extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              // App chỉ còn 2 loại (và trạng thái "chưa phân loại").
-              Builder(builder: (context) {
-                final isPassive = learningMode == 'passive';
-                final isUnset = learningMode.isEmpty;
-                final color = isUnset
-                    ? Colors.orange
-                    : (isPassive ? theme.colorScheme.tertiary : theme.colorScheme.primary);
-                final label = isUnset
-                    ? 'Chưa phân loại'
-                    : (isPassive ? 'Nên biết' : 'Học ngay');
-                final icon = isUnset
-                    ? Icons.help_outline_rounded
-                    : (isPassive ? Icons.visibility_outlined : Icons.bolt_rounded);
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(22),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: color.withAlpha(90)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 12, color: color),
-                      const SizedBox(width: 4),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+              if (wordType.isNotEmpty) WordTypeBadge(typeKey: wordType, compact: true),
+              if (topicTag.isNotEmpty) TopicTagBadge(tag: topicTag),
               if (createdLabel != null && createdLabel!.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -376,6 +338,7 @@ class _CardBack extends StatelessWidget {
   final String? exampleTranslation;
   final String? exampleTarget;
   final String commonSynonyms;
+  final String collocations;
   final Color accent;
   final ThemeData theme;
   final VoidCallback onSpeak;
@@ -388,6 +351,7 @@ class _CardBack extends StatelessWidget {
     this.exampleTranslation,
     this.exampleTarget,
     this.commonSynonyms = '',
+    this.collocations = '',
     required this.accent,
     required this.theme,
     required this.onSpeak,
@@ -564,6 +528,26 @@ class _CardBack extends StatelessWidget {
             common: commonSynonyms,
             accent: accent,
           ),
+          if (collocations.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'Cụm từ: ${collocations.trim()}',
+                style: TextStyle(
+                  fontFamily: 'Be Vietnam Pro',
+                  fontSize: 12,
+                  height: 1.4,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [

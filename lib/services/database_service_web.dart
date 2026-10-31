@@ -26,15 +26,12 @@ class BulkAddResult {
   const BulkAddResult({required this.insertedCount, this.failed = const []});
 }
 
-/// Nghia tieng Viet + loai tu + loai hoc do AI lay cho mot tu. `error` khac
-/// rong khi AI khong tra ve duoc (client bo qua tu do va bao lai).
+/// Nghia tieng Viet + loai tu do AI lay cho mot tu. `error` khac rong khi AI
+/// khong tra ve duoc (client bo qua tu do va bao lai).
 class AiWordInfo {
   final String word;
   final String meaning;
   final String wordType;
-
-  /// 'active' = Hoc ngay, 'passive' = Nen biet, 'skip' = Khong uu tien.
-  final String learningMode;
   final String collocations;
   final String error;
 
@@ -42,7 +39,6 @@ class AiWordInfo {
     required this.word,
     required this.meaning,
     required this.wordType,
-    this.learningMode = 'active',
     this.collocations = '',
     this.error = '',
   });
@@ -295,7 +291,6 @@ class DatabaseService {
         word: (row['word'] ?? '').toString(),
         meaning: (row['meaning'] ?? '').toString().trim(),
         wordType: (row['wordType'] ?? '').toString().trim(),
-        learningMode: (row['learningMode'] ?? '').toString().trim(),
         collocations: (row['collocations'] ?? '').toString().trim(),
         error: (row['error'] ?? '').toString(),
       );
@@ -463,58 +458,9 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20, String mode = 'all'}) async {
-    final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit, 'mode': mode});
+  Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20}) async {
+    final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
-  }
-
-  /// Từ "Nên biết" đã đến hạn ôn nhẹ (4 đáp án, không bắt gõ).
-  Future<List<Map<String, dynamic>>> getPassiveDueWords(int userId, {int limit = 20}) async {
-    final rows = await _request<List<dynamic>>('getPassiveDueWords', data: {'userId': userId, 'limit': limit});
-    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
-  }
-
-  /// Đổi loại 1 từ (Học ngay <-> Nên biết). Server reset lịch ôn theo loại.
-  Future<void> setWordLearningMode(int wordId, String mode) async {
-    await _request<void>('setWordLearningMode', data: {'wordId': wordId, 'mode': mode});
-  }
-
-  /// Áp dụng kết quả phân loại lại: mỗi item là {'id': int, 'mode': 'active'|'passive'}.
-  Future<int> bulkSetLearningMode(List<Map<String, dynamic>> items) async {
-    final result = await _request<Map<String, dynamic>>('bulkSetLearningMode', data: {'items': items});
-    return _asInt(result['updatedCount']);
-  }
-
-  /// Danh sách từ để mở màn "Phân loại lại từ vựng".
-  Future<List<Map<String, dynamic>>> getMigrationCandidates(int userId) async {
-    final rows = await _request<List<dynamic>>('getMigrationCandidates', data: {'userId': userId});
-    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
-  }
-
-  /// Từ CHƯA phân loại (learning_mode = '') theo lô — màn Phân loại từ vựng.
-  Future<({List<Map<String, dynamic>> items, int remaining, int total})>
-      getUnclassifiedWords(int userId, {int limit = 20}) async {
-    final result = await _request<Map<String, dynamic>>(
-      'getUnclassifiedWords',
-      data: {'userId': userId, 'limit': limit},
-    );
-    final rows = result['items'] as List<dynamic>? ?? const [];
-    return (
-      items: rows
-          .map((row) => _mapDates(Map<String, dynamic>.from(row as Map)))
-          .toList(),
-      remaining: _asInt(result['remaining']),
-      total: _asInt(result['total']),
-    );
-  }
-
-  /// Gán loại cho lô từ vừa duyệt (chỉ đổi loại, không reset lịch ôn).
-  Future<int> bulkClassifyWords(List<Map<String, dynamic>> items) async {
-    final result = await _request<Map<String, dynamic>>(
-      'bulkClassifyWords',
-      data: {'items': items},
-    );
-    return _asInt(result['updatedCount']);
   }
 
   Future<List<Map<String, dynamic>>> getWordsMissingPronunciation(int userId) async {

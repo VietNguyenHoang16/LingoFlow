@@ -69,10 +69,10 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   bool _isProcessing = false;
 
   List<ImportLine> _lines = const [];
+  // Số dòng (theo lineNumber) người dùng đã bấm loại trừ ở bước preview.
+  final Set<int> _excluded = <int>{};
   int _validCount = 0;
-  int _activeCount = 0;
-  int _passiveCount = 0;
-  int _skipCount = 0;
+  int _excludedCount = 0;
   int _errorCount = 0;
   int _duplicateCount = 0;
 
@@ -117,6 +117,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       _fatalError = null;
       _stage = _stageAnalyzing;
       _analyzeTotal = 0;
+      _excluded.clear();
     });
     try {
       // 1. Tach danh sach tu + bo tu da co (nhanh, 1 request DB).
@@ -149,33 +150,31 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   }
 
   void _applyCounts(List<ImportLine> lines) {
-    int active = 0, passive = 0, skipped = 0, dup = 0;
+    int valid = 0, dup = 0, excluded = 0;
     for (final l in lines) {
       if (l.isValid) {
-        if (l.learningMode == ImportLine.modePassive) {
-          passive++;
+        if (_excluded.contains(l.lineNumber)) {
+          excluded++;
         } else {
-          active++;
+          valid++;
         }
-      } else if (l.isSkip) {
-        skipped++;
       } else if (l.isDuplicate) {
         dup++;
       }
     }
-    _activeCount = active;
-    _passiveCount = passive;
-    _skipCount = skipped;
-    _validCount = active + passive;
+    _validCount = valid;
+    _excludedCount = excluded;
     _duplicateCount = dup;
-    _errorCount = lines.length - active - passive - skipped - dup;
+    _errorCount = lines.length - valid - excluded - dup;
   }
 
-  /// Đổi loại từ: Học ngay → Nên biết → Bỏ qua → Học ngay.
-  /// "Bỏ qua" thay cho thao tác loại trừ trước đây: không tick, không gửi lên.
-  void _cycleMode(ImportLine line, String next) {
+  /// Bật/tắt loại trừ một từ khỏi lần import. Từ bị loại vẫn hiện trong danh
+  /// sách (mờ, gạch ngang) để bấm lại là hoàn tác được.
+  void _toggleExcluded(ImportLine line) {
     setState(() {
-      line.learningMode = next;
+      if (!_excluded.remove(line.lineNumber)) {
+        _excluded.add(line.lineNumber);
+      }
       _applyCounts(_lines);
     });
   }
@@ -207,7 +206,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
 
     final result = await _importer.importBatch(
       widget.userId,
-      _lines.where((l) => l.isValid).toList(growable: false),
+      _lines
+          .where((l) => !_excluded.contains(l.lineNumber))
+          .toList(growable: false),
       onFetchProgress: (fetched, total) {
         if (!mounted) return;
         if (!shouldTick(fetched, total)) return;
@@ -266,9 +267,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     setState(() {
       _stage = 0;
       _lines = const [];
-      _activeCount = 0;
-      _passiveCount = 0;
-      _skipCount = 0;
+      _excluded.clear();
+      _excludedCount = 0;
     });
   }
 
@@ -439,10 +439,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
           spacing: 12,
           runSpacing: 4,
           children: [
-            _stat('Học ngay', _activeCount, theme.colorScheme.primary),
-            _stat('Nên biết', _passiveCount, theme.colorScheme.tertiary),
-            if (_skipCount > 0)
-              _stat('Bỏ qua', _skipCount, theme.colorScheme.outline),
+            _stat('Hợp lệ', _validCount, theme.colorScheme.primary),
+            if (_excludedCount > 0)
+              _stat('Đã loại trừ', _excludedCount, theme.colorScheme.outline),
             _stat('Không dùng được', _errorCount, theme.colorScheme.error),
             _stat('Trùng từ', _duplicateCount, theme.colorScheme.onSurfaceVariant),
             _stat('Tổng dòng', _lines.length, theme.colorScheme.onSurface),
@@ -494,9 +493,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
                       final l = _lines[i];
                       return _PreviewRow(
                         line: l,
-                        onCycleMode: l.error == null
-                            ? (next) => _cycleMode(l, next)
-                            : null,
+                        excluded: _excluded.contains(l.lineNumber),
+                        onToggleExcluded:
+                            l.isValid ? () => _toggleExcluded(l) : null,
                       );
                     },
                   ),
@@ -516,9 +515,10 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
         ? 'Đang lấy phát âm $_fetched/$_fetchTotal…'
         : _retryLabel ?? 'Đang lưu $_done/$_total…';
 
-    // Chi hien thi nhung tu THUC SU duoc import; tu "Bo qua" khong duoc tick.
+    // Chi hien thi nhung tu THUC SU duoc import: da loai tru / trung / loi deu
+    // khong duoc tick o day (truoc day tu bi loai tru van hien va bi tick).
     final validWords = _lines
-        .where((l) => l.isValid)
+        .where((l) => l.isValid && !_excluded.contains(l.lineNumber))
         .take(20)
         .toList();
     // Số từ đã xong ở phase hiện tại để tick list.
@@ -700,10 +700,10 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
               ),
             ),
           ],
-          if (_skipCount > 0) ...[
+          if (_excludedCount > 0) ...[
             const SizedBox(height: 4),
             Text(
-              'Đã bỏ qua $_skipCount từ mà AI xếp "không ưu tiên".',
+              'Đã loại trừ $_excludedCount từ bạn bỏ trước khi import.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withAlpha(150),
@@ -909,164 +909,116 @@ class _ImportSteps extends StatelessWidget {
 
 class _PreviewRow extends StatelessWidget {
   final ImportLine line;
+  final bool excluded;
+  final VoidCallback? onToggleExcluded;
 
-  /// null = không cho đổi (dòng lỗi). Giá trị truyền vào là loại kế tiếp.
-  final void Function(String next)? onCycleMode;
-
-  const _PreviewRow({required this.line, this.onCycleMode});
+  const _PreviewRow({
+    required this.line,
+    this.excluded = false,
+    this.onToggleExcluded,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isSkip = line.isSkip;
+    // Trùng từ không phải lỗi nhập liệu: tô teal riêng, nghĩa đã có vẫn hiển
+    // thị đầy đủ ở cột nghĩa.
     final isDuplicate = line.isDuplicate;
-    final isError = !line.isValid && !isSkip && !isDuplicate;
-    final modeColor = line.learningMode == ImportLine.modePassive
-        ? theme.colorScheme.tertiary
-        : isSkip
-            ? theme.colorScheme.outline
-            : theme.colorScheme.primary;
-    final bgColor = isSkip
-        ? theme.colorScheme.surfaceContainerHigh.withAlpha(130)
-        : isDuplicate
-            ? theme.colorScheme.tertiary.withAlpha(14)
-            : isError
-                ? theme.colorScheme.error.withAlpha(15)
-                : Colors.transparent;
-
-    return ColoredBox(
+    final isError = !line.isValid && !isDuplicate;
+    final bgColor = isDuplicate
+        ? theme.colorScheme.tertiary.withAlpha(14)
+        : isError
+            ? theme.colorScheme.error.withAlpha(15)
+            : Colors.transparent;
+    final content = Container(
       color: bgColor,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 30,
-              child: Text(
-                '#${line.lineNumber}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
-                  color: theme.colorScheme.onSurface.withAlpha(120),
-                ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 32,
+            child: Text(
+              '#${line.lineNumber}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                color: theme.colorScheme.onSurface.withAlpha(120),
               ),
             ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 2,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        line.word,
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontWeight: isError ? FontWeight.w500 : FontWeight.w600,
-                        ),
-                      ),
-                      if ((line.wordType ?? '').isNotEmpty)
-                        WordTypeBadge(typeKey: line.wordType!, compact: true),
-                      if (line.error != null)
-                        Text(
-                          line.error!,
-                          style: TextStyle(
-                            fontFamily: 'Be Vietnam Pro',
-                            fontSize: 11,
-                            color: isDuplicate
-                                ? theme.colorScheme.tertiary
-                                : theme.colorScheme.error,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (line.meaning.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Text(
-                        line.meaning,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface.withAlpha(180),
-                        ),
-                      ),
-                    ),
-                  if (line.collocations.isNotEmpty && !isSkip)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        'Cụm: ${line.collocations}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontSize: 11,
-                          fontStyle: FontStyle.italic,
-                          color: modeColor.withAlpha(200),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (onCycleMode != null) _modeChip(theme, modeColor),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _modeChip(ThemeData theme, Color color) {
-    final isPassive = line.learningMode == ImportLine.modePassive;
-    final isSkip = line.learningMode == ImportLine.modeSkip;
-    final label = isPassive ? 'Nên biết' : (isSkip ? 'Bỏ qua' : 'Học ngay');
-    final icon = isPassive
-        ? Icons.visibility_outlined
-        : (isSkip ? Icons.block_rounded : Icons.bolt_rounded);
-    final next = line.learningMode == ImportLine.modeActive
-        ? ImportLine.modePassive
-        : (isPassive ? ImportLine.modeSkip : ImportLine.modeActive);
-    final nextLabel = next == ImportLine.modeActive
-        ? 'Học ngay'
-        : (next == ImportLine.modePassive ? 'Nên biết' : 'Bỏ qua');
-    return Tooltip(
-      message: 'Đổi sang $nextLabel',
-      child: InkWell(
-        key: ValueKey('import-mode-${line.lineNumber}'),
-        onTap: () => onCycleMode!(next),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          margin: const EdgeInsets.only(left: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: color.withAlpha(20),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withAlpha(90)),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 12, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label,
+          if (line.wordType != null) ...[
+            WordTypeBadge(typeKey: line.wordType!, compact: true),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            flex: 2,
+            child: Text(
+              line.word,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontWeight: isError ? FontWeight.w500 : FontWeight.w600,
+                decoration: (line.word.isEmpty || excluded)
+                    ? TextDecoration.lineThrough
+                    : null,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              line.meaning,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                color: theme.colorScheme.onSurface.withAlpha(180),
+                decoration: (line.meaning.isEmpty || excluded)
+                    ? TextDecoration.lineThrough
+                    : null,
+              ),
+            ),
+          ),
+          if (line.error != null)
+            Expanded(
+              flex: 2,
+              child: Text(
+                line.error!,
                 style: TextStyle(
                   fontFamily: 'Be Vietnam Pro',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: color,
+                  fontSize: 12,
+                  color: isDuplicate
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.error,
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+          if (onToggleExcluded != null)
+            SizedBox(
+              width: 36,
+              child: IconButton(
+                key: ValueKey('import-exclude-${line.lineNumber}'),
+                onPressed: onToggleExcluded,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                visualDensity: VisualDensity.compact,
+                tooltip: excluded
+                    ? 'Hoàn tác, import lại từ này'
+                    : 'Loại trừ từ này',
+                icon: Icon(
+                  excluded ? Icons.undo_rounded : Icons.block_rounded,
+                  size: 18,
+                  color: excluded
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withAlpha(130),
+                ),
+              ),
+            ),
+        ],
       ),
+    );
+
+    return Opacity(
+      opacity: excluded ? 0.45 : 1.0,
+      child: onToggleExcluded == null
+          ? content
+          : InkWell(onTap: onToggleExcluded, child: content),
     );
   }
 }

@@ -559,10 +559,10 @@ const WORD_TYPES = [
   'idiom', 'collocation', 'grammar',
 ];
 
-// Nghia tieng Viet + loai tu + loai hoc (active/passive/skip) + cum tu cho mot tu.
+// Nghia tieng Viet + loai tu + cum tu cho mot tu.
 function buildWordInfoPrompt({ word, style }) {
   const w = String(word || '').trim();
-  return `You classify ONE English word or phrase for a Vietnamese learner.
+  return `You describe ONE English word or phrase for a Vietnamese learner.
 The learner's goal: everyday communication + working in IT (software / office).
 
 Rules:
@@ -573,24 +573,13 @@ Rules:
   * collocation for common word pairs or short phrases that are not idioms
   * grammar for grammar patterns or structures
   * interjection for exclamations (wow, oops)
-- "learningMode" is exactly one of: active, passive, skip.
-  * "active" (Hoc ngay) = core word the learner should USE this week in emails,
-    meetings, code, docs or daily conversation (e.g. acknowledge, deploy, deadline, follow up).
-    They need to recall the meaning AND produce it themselves.
-  * "passive" (Nen biet) = useful word met occasionally in docs, news, formal or
-    narrow IT contexts; the learner only needs to RECOGNISE the meaning
-    (e.g. chancellor, auditor, bloc). Specialised IT terms a normal developer
-    rarely says themselves (e.g. idempotency, orchestrator) go here.
-  * "skip" = rarely/never appears in this learner's work or daily life, or only
-    obscure political/news vocabulary (e.g. bloc, chancellor in a political article).
-- "collocations": for "active" only, 2-3 most useful collocations/short phrases
-  the learner should know (<= 60 characters each, e.g. "comply with", "raise an alert").
-  For "passive" and "skip" return [].
+- "collocations": 2-3 most useful collocations/short phrases the learner should
+  know (<= 60 characters each, e.g. "comply with", "raise an alert").
 - Pick the meaning a learner most needs first; do not list several senses.
 
 ${buildStylePrompt(style, { contexts: false })}Word: ${w}
 
-Reply with JSON only: {"meaning":"...","wordType":"...","learningMode":"active|passive|skip","collocations":["..."]}`;
+Reply with JSON only: {"meaning":"...","wordType":"...","collocations":["..."]}`;
 }
 
 function normalizeGeneratedWordInfo(parsed, word) {
@@ -604,24 +593,19 @@ function normalizeGeneratedWordInfo(parsed, word) {
   if (!WORD_TYPES.includes(wordType)) {
     throw new Error(`AI returned an unknown word type for word info: ${rawType}`);
   }
-  const rawMode = String(parsed?.learningMode || '').trim().toLowerCase();
-  const learningMode = ['active', 'passive', 'skip'].includes(rawMode) ? rawMode : 'active';
   const rawCollocations = Array.isArray(parsed?.collocations) ? parsed.collocations : [];
   const collocations = [];
-  if (learningMode === 'active') {
-    for (const item of rawCollocations) {
-      const value = clean(item, 60);
-      if (!value) continue;
-      if (collocations.some((x) => x.toLowerCase() === value.toLowerCase())) continue;
-      collocations.push(value);
-      if (collocations.length >= 3) break;
-    }
+  for (const item of rawCollocations) {
+    const value = clean(item, 60);
+    if (!value) continue;
+    if (collocations.some((x) => x.toLowerCase() === value.toLowerCase())) continue;
+    collocations.push(value);
+    if (collocations.length >= 3) break;
   }
   return {
     word: String(word || '').trim(),
     meaning,
     wordType,
-    learningMode,
     collocations: collocations.join(' · '),
   };
 }

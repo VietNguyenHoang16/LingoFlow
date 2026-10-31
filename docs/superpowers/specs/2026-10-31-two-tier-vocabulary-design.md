@@ -1,7 +1,10 @@
 # Spec: Hai loại từ vựng — Học ngay (active) & Nên biết (passive)
 
 - Ngày: 2026-10-31
-- Trạng thái: **đã duyệt** — Phase 1 đã triển khai, Phase 2–5 đang chờ
+- Trạng thái: **ĐÃ GỠ (2026-10-31)** — người dùng quyết định bỏ mô hình 2 loại vì
+  mọi từ đã thêm đều là từ muốn học; từ nào cần ôn kĩ thì tự chọn bằng tính năng
+  chọn từ để luyện. Xem "Phase 4c — gỡ mô hình" ở cuối để biết phần nào bị xoá và
+  phần nào được giữ lại (cụm từ đi kèm).
 - Người dùng: chủ app, mục tiêu giao tiếp đời thường + IT
 
 ## 1. Mục tiêu
@@ -222,3 +225,24 @@ Trả thêm "collocations": 2-3 cụm hay dùng nhất (chỉ khi active; passiv
 - Mỗi dòng có nút **xoá (không ưu tiên)**: xác nhận rồi xoá hẳn khỏi bộ từ, số từ
   còn lại/tổng giảm ngay; snackbar sau khi nộp báo "còn N từ chưa phân loại".
 
+### Phase 4c — gỡ mô hình 2 loại (2026-10-31)
+
+Người dùng chốt lại: **mọi từ đã thêm đều là từ muốn học**, không cần chia
+Học ngay / Nên biết; từ nào muốn ôn kĩ thì tự chọn bằng tính năng chọn từ để
+luyện. Đã gỡ:
+
+- Tab Học ngay / Nên biết, chip loại trên thẻ, menu đổi loại, nút "Gặp lại nhẹ".
+- Trang ôn Nên biết 4 đáp án (`passive_review_page.dart`) và toàn bộ action
+  `getPassiveDueWords`, `setWordLearningMode`, `bulkSetLearningMode`,
+  `getMigrationCandidates`, `getUnclassifiedWords`, `bulkClassifyWords`.
+- Màn phân loại lô 20 từ (`mode_migration_page.dart`) và mục trong Cài đặt.
+- Nhãn "Học ngay / Nên biết / Bỏ qua" trong prompt AI và bảng import (import trở
+  lại luồng loại trừ thủ công như trước).
+
+Giữ lại:
+
+- Một danh sách từ duy nhất + SRS + luyện tập gõ từ + chọn từ để luyện.
+- **Cụm từ đi kèm** (`collocations`): AI vẫn gợi ý 2–3 cụm cho mỗi từ, lưu DB và
+  hiện ở mặt sau thẻ ("Cụm từ: …").
+- Cột `learning_mode` trong DB giữ lại nhưng không dùng; migration version 7 đưa
+  mọi từ về `'active'` một lần (không xoá từ, không đụng lịch ôn).

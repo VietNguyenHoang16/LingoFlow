@@ -9,15 +9,8 @@ class ImportLine {
   final String word;
   final String meaning;
   String? wordType; // resolved key (noun/verb/...). null khi AI chưa phân loại.
+  String collocations; // cụm từ đi kèm do AI gợi ý ('' nếu không có).
   String? error; // null = hợp lệ.
-
-  /// 'active' = Học ngay, 'passive' = Nên biết, 'skip' = Bỏ qua (AI gợi ý).
-  String learningMode;
-  String collocations;
-
-  static const String modeActive = 'active';
-  static const String modePassive = 'passive';
-  static const String modeSkip = 'skip';
 
   static const String errorDuplicateInDb = 'Trùng từ';
   static const String errorDuplicateInList = 'Trùng trong danh sách';
@@ -29,42 +22,28 @@ class ImportLine {
     required this.word,
     this.meaning = '',
     this.wordType,
-    this.error,
-    this.learningMode = modeActive,
     this.collocations = '',
+    this.error,
   });
 
-  /// Bỏ qua = AI thấy từ không ưu tiên với mục tiêu giao tiếp + IT.
-  bool get isSkip => learningMode == modeSkip;
-
-  /// Hợp lệ = đã có nghĩa + loại từ (AI điền), không lỗi và không bị bỏ qua.
+  /// Hợp lệ = đã có nghĩa + loại từ (AI điền) và không có lỗi.
   bool get isValid =>
-      error == null &&
-      meaning.isNotEmpty &&
-      (wordType ?? '').isNotEmpty &&
-      !isSkip;
+      error == null && meaning.isNotEmpty && (wordType ?? '').isNotEmpty;
 
   /// Từ bị trùng (đã có trong bộ từ, hoặc lặp lại trong danh sách dán vào).
   /// Không phải lỗi nhập liệu nên UI tô màu riêng, và vẫn hiện nghĩa.
   bool get isDuplicate =>
       error == errorDuplicateInDb || error == errorDuplicateInList;
 
-  ImportLine copyWith({
-    String? meaning,
-    String? wordType,
-    String? error,
-    String? learningMode,
-    String? collocations,
-  }) {
+  ImportLine copyWith({String? meaning, String? wordType, String? collocations, String? error}) {
     return ImportLine(
       lineNumber: lineNumber,
       rawLine: rawLine,
       word: word,
       meaning: meaning ?? this.meaning,
       wordType: wordType ?? this.wordType,
-      error: error ?? this.error,
-      learningMode: learningMode ?? this.learningMode,
       collocations: collocations ?? this.collocations,
+      error: error ?? this.error,
     );
   }
 }
@@ -207,29 +186,13 @@ class BulkWordImporter {
       if (info == null || !info.isUsable) {
         return l.copyWith(error: ImportLine.errorAiMissing);
       }
-      final mode = _normalizeMode(info.learningMode);
       return l.copyWith(
         meaning: info.meaning,
         wordType: info.wordType,
-        learningMode: mode,
-        // Cụm từ chỉ có nghĩa với từ Học ngay.
-        collocations:
-            mode == ImportLine.modeActive ? info.collocations : '',
+        collocations: info.collocations,
       );
     }).toList();
     return _fillListDuplicates(enriched);
-  }
-
-  /// AI co the tra thieu / tra la -> mac dinh Hoc ngay.
-  static String _normalizeMode(String raw) {
-    switch (raw.trim().toLowerCase()) {
-      case ImportLine.modePassive:
-        return ImportLine.modePassive;
-      case ImportLine.modeSkip:
-        return ImportLine.modeSkip;
-      default:
-        return ImportLine.modeActive;
-    }
   }
 
   /// Dòng trùng trong danh sách dán vào không được AI phân tích; lấy nghĩa của
@@ -248,7 +211,6 @@ class BulkWordImporter {
       return l.copyWith(
         meaning: src.meaning,
         wordType: src.wordType,
-        learningMode: src.learningMode,
         collocations: src.collocations,
       );
     }).toList();
@@ -540,7 +502,6 @@ class BulkWordImporter {
         'wordType': l.wordType,
         'topicTag': '',
         'commonSynonyms': '',
-        'learningMode': l.learningMode,
         'collocations': l.collocations,
       }).toList();
 
