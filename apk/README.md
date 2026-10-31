@@ -15,10 +15,18 @@ Link tải nhanh:
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,166,006 bytes` (20.2 MB)
-- SHA256: `A6794BF3CC50874A72AC93E741402A2226E0EACEC8D866AC4F80BDD569868772`
-- Ngày build: `31/10/2026` — bản mới nhất:
-  0. **Luyện tập mượt hơn khi bấm tick**: kết quả hiện **ngay lập tức**, bàn phím **không đóng/mở lại** giữa các câu — bấm ✓ (Enter) lần nữa là sang câu tiếp, không còn cảm giác khựng. Kết quả vẫn được lưu nền; mất mạng thì chặn tiến độ như trước.
+- Kích thước: `21,166,050 bytes` (20.2 MB)
+- SHA256: `CF7BC34A46659E5B38E55EBDED4A83C5BE4721F524B6275A43652E3B4ACE5AA1`
+- Ngày build: `01/11/2026` — bản mới nhất:
+  0. **Luyện tập: khung đáp án phủ kín màn hình** — khi hiện đáp án, bàn phím tự
+     đóng nên khung đáp án dùng trọn chiều cao màn hình từ trên xuống dưới
+     (không còn bị bóp nhỏ), chữ to hơn (đáp án 44 → 48, nghĩa 18 → 20), nội
+     dung canh giữa nên nhìn cân đối. Kết quả vẫn hiện **ngay lập tức** (không
+     chờ mạng); PC / iPad có bàn phím cứng thì Enter vẫn sang câu tiếp, còn lại
+     bấm nút **Tiếp**.
+     **Xoá ở ô tìm kiếm (màn danh mục) cập nhật ngay**: xoá bớt ký tự là danh
+     sách từ bên dưới lọc lại tức thì (không còn chờ 250ms như trước), và có
+     thêm nút **×** để xoá nhanh cả ô.
   1. **Gỡ mô hình 2 loại** (theo yêu cầu): mọi từ đã thêm đều là từ muốn học,
      nên đã bỏ tab Học ngay / Nên biết, chip loại, phiên ôn Nên biết 4 đáp án và
      màn Phân loại lô 20 từ. Toàn bộ từ về 1 danh sách như trước (không xoá từ,
@@ -28,7 +36,7 @@ Link tải nhanh:
   2. **Luyện tập: kết quả gọn trong 1 khung** — trả lời xong thì phần gõ từ được
      ẩn đi, toàn bộ kết quả (đúng/sai, đáp án, phiên âm, "Bạn gõ", ví dụ, lịch
      ôn) nằm gọn trong một màn hình, **không phải kéo xuống**; nút Tiếp luôn ở
-     đáy. Ví dụ trong khung kết quả giới hạn 3–4 dòng cho gọn.
+     đáy. Ví dụ trong khung kết quả giới hạn 5–6 dòng cho gọn.
   3. **Luyện tập: bỏ Multiple Choice, dọn giao diện**: màn luyện tập chỉ còn
      **gõ từ** (không còn chọn đáp án 4 lựa chọn / phím tắt 1–4). Bố cục gọn
      lại: thẻ chỉ còn mức ghi nhớ + nghĩa; đáp án/phát âm/ví dụ/SRS hiện một lần;
