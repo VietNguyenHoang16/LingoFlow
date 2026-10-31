@@ -133,13 +133,73 @@ class _ModeMigrationPageState extends State<ModeMigrationPage> {
       final updated = await _db.bulkClassifyWords(items.cast<Map<String, dynamic>>());
       WordChangeBus().notifyChanged('mode-classified');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã lưu $updated từ')),
-      );
       await _load();
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Đã lưu $updated từ · còn $_remaining từ chưa phân loại',
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: ${e.toString().replaceFirst('Exception: ', '')}'),
+        ),
+      );
+    }
+  }
+
+  /// Xoá hẳn từ khỏi bộ từ (không ưu tiên). Số từ còn lại giảm ngay.
+  Future<void> _deleteWord(Map<String, dynamic> word) async {
+    final id = word['id'] as int;
+    final name = (word['word'] ?? '').toString();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xoá từ này?'),
+        content: Text('"$name" sẽ bị xoá hẳn khỏi bộ từ (không ưu tiên).'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Xoá'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _db.deleteVocabularyWord(id);
+      if (!mounted) return;
+      setState(() {
+        _items.removeWhere((w) => w['id'] == id);
+        _selected.remove(id);
+        if (_remaining > 0) _remaining--;
+        if (_total > 0) _total--;
+      });
+      WordChangeBus().notifyChanged('delete-word');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã xoá "$name"')),
+        );
+      }
+      // Xoá hết lô hiện tại thì tải lô kế tiếp (nếu còn từ chưa phân loại).
+      if (_items.isEmpty && _remaining > 0) {
+        await _load();
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Lỗi: ${e.toString().replaceFirst('Exception: ', '')}'),
@@ -431,6 +491,20 @@ class _ModeMigrationPageState extends State<ModeMigrationPage> {
                           ),
                       ],
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    key: ValueKey('classify-delete-$id'),
+                    tooltip: 'Xoá (không ưu tiên)',
+                    onPressed: () => _deleteWord(word),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 19,
+                      color: theme.colorScheme.outline,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),

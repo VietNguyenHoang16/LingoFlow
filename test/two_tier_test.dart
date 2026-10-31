@@ -297,4 +297,79 @@ void main() {
       expect(tester.takeException(), isNull);
     }, () => client);
   });
+
+  testWidgets('phân loại: xoá từ (không ưu tiên) giảm số từ còn lại', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final batch = [
+      word(id: 1, word: 'deploy', meaning: 'triển khai', mode: ''),
+      word(id: 2, word: 'chancellor', meaning: 'thủ tướng', mode: ''),
+    ];
+    final requests = <Map<String, dynamic>>[];
+    var classified = false;
+
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      requests.add(body);
+      switch (body['action']) {
+        case 'getUnclassifiedWords':
+          return http.Response(
+            jsonEncode({
+              'data': classified
+                  ? {'items': [], 'remaining': 0, 'total': 1}
+                  : {'items': batch, 'remaining': 2, 'total': 2},
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        case 'deleteVocabularyWord':
+          return http.Response('{"data":null}', 200);
+        case 'bulkClassifyWords':
+          classified = true;
+          return http.Response(
+            jsonEncode({'data': {'updatedCount': 1}}),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+      }
+      return http.Response('{"data":null}', 200);
+    });
+
+    await http.runWithClient(() async {
+      await _pumpApp(tester, const ModeMigrationPage(userId: 1));
+      expect(find.text('Còn 2/2 từ chưa phân loại'), findsOneWidget);
+
+      // Xoá "deploy" (không ưu tiên) -> khỏi danh sách + giảm số còn lại.
+      await tester.tap(find.byKey(const ValueKey('classify-delete-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Xoá'));
+      await tester.pumpAndSettle();
+
+      final deletes = requests
+          .where((r) => r['action'] == 'deleteVocabularyWord')
+          .toList();
+      expect(deletes, hasLength(1));
+      expect(find.text('deploy'), findsNothing);
+      expect(find.text('Còn 1/1 từ chưa phân loại'), findsOneWidget);
+
+      // Cho SnackBar "Đã xoá" tự ẩn để không che nút Nộp.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      // Nộp từ còn lại -> báo còn 0 từ chưa phân loại.
+      await tester.tap(find.byKey(const ValueKey('classify-passive-2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('classify-submit')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('còn 0 từ chưa phân loại'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
 }

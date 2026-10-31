@@ -219,4 +219,6 @@ Trả thêm "collocations": 2-3 cụm hay dùng nhất (chỉ khi active; passiv
   bật khi chọn đủ lô.
 - Nộp qua `bulkClassifyWords` (chỉ đổi `learning_mode`, không reset lịch ôn); từ
   đã có trạng thái không xuất hiện ở lô sau.
+- Mỗi dòng có nút **xoá (không ưu tiên)**: xác nhận rồi xoá hẳn khỏi bộ từ, số từ
+  còn lại/tổng giảm ngay; snackbar sau khi nộp báo "còn N từ chưa phân loại".
 
