@@ -8,56 +8,65 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này sửa bước **import**: từ bạn bấm loại trừ không còn hiện/tick ở danh sách
-> đang lưu, và từ bị trùng hiện **nghĩa + loại từ đã lưu** ngay trong bảng import;
-> vẫn giữ các cải tiến trước (bỏ số thứ tự, chọn từ theo khoảng, Cài đặt → Cách AI
-> sinh ví dụ, bỏ khoá trình độ A2–B1).
+> Bản này đổi **ô tìm kiếm**: kết quả hiện trong panel riêng ngay dưới ô, **danh
+> sách từ bên dưới giữ nguyên** (không bị thay, không mất vị trí cuộn) để đối
+> chiếu xem từ đã tồn tại chưa; từ đã có hiện nghĩa + chip "Đã có", chưa có thì
+> có nút **Thêm từ**. Vẫn giữ các cải tiến trước (import loại trừ/trùng từ, bỏ số
+> thứ tự, chọn từ theo khoảng, Cài đặt → Cách AI sinh ví dụ, bỏ khoá A2–B1).
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,165,614 bytes` (20.2 MB)
-- SHA256: `ECA7BD9BE5B7F41BEDE2A21AF318FE8EE2B9BFBDF36B9F5E0A70E942C4AE4977`
+- Kích thước: `21,165,878 bytes` (20.2 MB)
+- SHA256: `B3806690422485B6F1F84D4B896ECF0373E2D629DF596571D5100BD1DFA21E6D`
 - Ngày build: `31/10/2026` — bản mới nhất:
-  0. **Import — loại trừ & trùng từ**:
+  0. **Tìm kiếm không thay danh sách**: gõ vào ô tìm kiếm thì kết quả nằm trong
+     panel riêng ngay dưới ô (cao tối đa ~38% màn hình, tự cuộn), còn danh sách
+     từ bên dưới **giữ nguyên từ và vị trí cuộn** — nhìn được cả 2 phần để kiểm
+     tra từ đã tồn tại chưa. Mỗi dòng kết quả có từ, loại từ, chip **"Đã có"**,
+     phát âm, nghĩa và nút loa; chạm để nghe, nhấn giữ để mở menu sửa/xoá.
+     Không có kết quả → hiện **"Chưa có từ này trong bộ từ của bạn"** + nút
+     **Thêm từ** (mở import với từ điền sẵn, AI lấy nghĩa/loại từ ngay, thêm
+     xong tự đóng).
+  1. **Import — loại trừ & trùng từ**:
      - Từ bạn bấm ⊘ loại trừ **không còn xuất hiện (và không bị tick)** ở danh sách
        đang lưu trong lúc import; danh sách chỉ còn đúng số từ sẽ được thêm.
      - Từ **trùng với bộ từ đã lưu** hiện luôn **nghĩa + loại từ** đã lưu ngay trong
        bảng import (dòng tô teal thay vì đỏ như lỗi); từ trùng ngay trong danh sách
        dán vào cũng hiện nghĩa của dòng đầu tiên.
-  1. **Bỏ số thứ tự khi import**: dán danh sách đánh số (`29. asset`,
+  2. **Bỏ số thứ tự khi import**: dán danh sách đánh số (`29. asset`,
      `3) give up`, `29 - take off`) thì số thứ tự bị bỏ, từ lưu vào chỉ còn
      `asset`; số không phải thứ tự (`8-bit`, `3.14`, `24/7`) giữ nguyên. Áp
      dụng cả ở màn Import hàng loạt lẫn dialog Thêm từ (nhập nhiều dòng).
-  2. **Chọn từ để luyện theo khoảng**: ở màn Gần đây bấm ▶ rồi chạm từ đầu,
+  3. **Chọn từ để luyện theo khoảng**: ở màn Gần đây bấm ▶ rồi chạm từ đầu,
      chạm từ cuối là chọn cả khoảng ở giữa; chạm lại một từ đã chọn để bỏ đúng
      từ đó. Dòng nhắc dưới tiêu đề hướng dẫn thao tác, áp dụng cả khi đang tìm
      kiếm.
-  3. **Loại trừ từ khi import hàng loạt**: ở bước xem trước, mỗi dòng hợp lệ có
+  4. **Loại trừ từ khi import hàng loạt**: ở bước xem trước, mỗi dòng hợp lệ có
      nút ⊘ để bỏ từ đó khỏi lần import. Từ bị loại vẫn hiện (mờ, gạch ngang) và
      bấm lại là hoàn tác; số trên nút Import và thống kê cập nhật theo, màn kết
      quả ghi rõ đã loại trừ bao nhiêu từ.
-  4. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
+  5. **Cài đặt → Cách AI sinh ví dụ**: chọn nghĩa phổ biến thay vì nghĩa hiếm
      (`concrete` → “cụ thể, rõ ràng”, `harness` → “tận dụng, khai thác”), chọn
      bối cảnh câu ví dụ (đời sống, công việc, IT, du lịch…), thêm yêu cầu riêng
      và xem trước đúng chỉ dẫn gửi AI. Lưu theo tài khoản, dùng ngay cho lần tạo
      nghĩa/ví dụ kế tiếp. Câu ví dụ không còn bị giới hạn trình độ A2–B1.
-  5. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
+  6. **Mất mạng không còn làm mất tiến độ ôn tập**: mỗi lượt chấm điểm chỉ
      chuyển sang từ tiếp theo sau khi server đã ghi xong SRS. Nếu lưu thất bại,
      app chặn lại bằng hộp thoại **"Mất kết nối mạng"** với hai lựa chọn
      **Thử lại** / **Thoát** — lượt ôn đó không bị đánh rơi âm thầm.
-  6. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
+  7. **Mở màn Ôn tập / Luyện tập khi offline** hiện đúng trạng thái
      **"Cần kết nối mạng"** + nút **Thử lại**, không còn hiện nhầm
      "All caught up!" / "No words to study".
-  7. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
+  8. **Sửa từ ở mọi màn** (Ôn tập, Luyện tập, Gần đây, danh mục, bộ từ, tìm
      kiếm) có lớp phủ mờ khoá thao tác **"Đang lưu…"**, xong đổi thành dấu tick
      **"Đã lưu" + tên từ** rồi tan dần (blur nhẹ, spring, rung haptic). Không
      còn bấm nhầm trong lúc chờ.
-  8. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
+  9. **Hết giật sau khi sửa từ**: màn danh mục / bộ từ cập nhật tại chỗ thay vì
      tải lại cả danh sách (nguyên nhân màn hình nhảy một cái).
-  9. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
+  10. Giữ nguyên các cải tiến trước: import dán từ ngăn cách dấu phẩy + AI lấy
      nghĩa/phân loại, sửa từ trong Ôn tập, tìm kiếm toàn bộ từ, thẻ học hiển thị
      trọn vẹn ví dụ dài, và TTS trên iPad Safari tự phục hồi sau khi chuyển app.
 - Yêu cầu: Android 7.0 (API 24) trở lên, CPU arm64-v8a
