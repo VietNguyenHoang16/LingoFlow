@@ -240,6 +240,17 @@ class _RecentPageState extends State<RecentPage> {
     try {
       await _db.deleteVocabularyWord(wordId);
       _flippedWords.remove(wordId);
+      // Bỏ NGAY khỏi cả danh sách bên dưới lẫn kết quả tìm kiếm: khi đang tìm
+      // kiếm, _refreshActiveList() chỉ chạy lại tìm kiếm nên từ vừa xoá vẫn
+      // nằm lại trong danh sách từ phía dưới.
+      if (mounted) {
+        setState(() {
+          _words.removeWhere((w) => w['id'] == wordId);
+          _searchResults.removeWhere((w) => w['id'] == wordId);
+          _selectedWords.remove(wordId);
+          if (_selectionAnchor == wordId) _selectionAnchor = null;
+        });
+      }
       WordChangeBus().notifyChanged('delete-word');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

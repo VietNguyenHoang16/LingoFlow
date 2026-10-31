@@ -131,6 +131,13 @@ void main() {
               .toList();
           return http.Response(jsonEncode({'data': matches}), 200,
               headers: {'content-type': 'application/json; charset=utf-8'});
+        case 'deleteVocabularyWord':
+          // Giả lập DB: xoá thật để lần search sau không trả về từ đã xoá.
+          final delId = data['wordId'] as int;
+          recent.removeWhere((w) => w['id'] == delId);
+          all.removeWhere((w) => w['id'] == delId);
+          return http.Response('{"data":null}', 200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
         case 'filterExistingWordsDetailed':
           return http.Response(
             jsonEncode({'data': []}),
@@ -379,6 +386,49 @@ void main() {
       await tester.tap(find.text('word1'));
       await tester.pumpAndSettle();
       expect(find.text('Luyện tập (2)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('xoá từ trong kết quả tìm: mất ngay ở cả panel lẫn danh sách', (
+    tester,
+  ) async {
+    await scenario(tester, (requests) async {
+      await typeSearch(tester, 'word1');
+
+      // 'word1' có id 2 (recent: word0 -> id 1, word1 -> id 2).
+      // Nó vừa nằm trong panel kết quả vừa nằm trong danh sách bên dưới.
+      expect(resultRow(2), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(FlipWordCard),
+          matching: find.text('word1'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.longPress(resultText(2, 'word1'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xoa tu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Xóa'));
+      await tester.pumpAndSettle();
+
+      expect(
+        requests.where((r) => r['action'] == 'deleteVocabularyWord'),
+        hasLength(1),
+      );
+
+      // Xoá xong phải biến mất NGAY ở cả hai chỗ (trước đây danh sách bên
+      // dưới vẫn giữ từ đã xoá vì chỉ chạy lại tìm kiếm).
+      expect(resultRow(2), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(FlipWordCard),
+          matching: find.text('word1'),
+        ),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     });
   });
