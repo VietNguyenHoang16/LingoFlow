@@ -73,7 +73,15 @@ void main() {
                       'error': 'AI không lấy được nghĩa cho từ này.',
                     }
                   else
-                    {'word': w, 'meaning': 'nghĩa của $w', 'wordType': 'noun'},
+                    {
+                      'word': w,
+                      'meaning': 'nghĩa của $w',
+                      'wordType': 'noun',
+                      'learningMode':
+                          w.toLowerCase() == 'resilient' ? 'passive' : 'active',
+                      'collocations':
+                          w.toLowerCase() == 'apple' ? 'an apple a day' : '',
+                    },
               ],
             }),
             200,
@@ -147,7 +155,7 @@ void main() {
     });
   });
 
-  testWidgets('loai tru tu o preview: khong import, bam lai thi hoan tac', (
+  testWidgets('AI gan Hoc ngay / Nen biet + cum tu, import gui dung loai', (
     tester,
   ) async {
     await scenario(tester, (requests) async {
@@ -155,26 +163,12 @@ void main() {
       await tester.tap(find.text('Phân tích bằng AI'));
       await _settle(tester);
 
+      expect(find.text('Học ngay: 1'), findsOneWidget);
+      expect(find.text('Nên biết: 1'), findsOneWidget);
+      expect(find.textContaining('Cụm: an apple a day'), findsOneWidget);
       expect(find.text('Import 2 từ'), findsOneWidget);
 
-      // Loại trừ "resilient" (dòng #2).
-      await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Import 1 từ'), findsOneWidget);
-      expect(find.text('Đã loại trừ: 1'), findsOneWidget);
-      // Dòng bị loại vẫn hiện để còn hoàn tác.
-      expect(find.text('resilient'), findsOneWidget);
-
-      // Bấm lại để hoàn tác.
-      await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
-      await tester.pumpAndSettle();
-      expect(find.text('Import 2 từ'), findsOneWidget);
-
-      // Loại trừ lần nữa rồi import: chỉ gửi "apple".
-      await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Import 1 từ'));
+      await tester.tap(find.text('Import 2 từ'));
       await tester.pumpAndSettle();
 
       final sent = requests
@@ -182,14 +176,59 @@ void main() {
           .expand((r) => ((r['data'] as Map)['words'] as List))
           .cast<Map<String, dynamic>>()
           .toList();
-      expect(sent.map((w) => w['word']), ['apple']);
-      expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
-      expect(
-        find.text('Đã loại trừ 1 từ bạn bỏ trước khi import.'),
-        findsOneWidget,
-      );
+      expect(sent.map((w) => w['word']), ['apple', 'resilient']);
+      expect(sent.map((w) => w['learningMode']), ['active', 'passive']);
+      expect(sent.first['collocations'], 'an apple a day');
+      expect(find.text('Đã thêm 2 từ.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  testWidgets('chuyen mot tu sang Bo qua: khong tinh vao Import, khong gui', (
+    tester,
+  ) async {
+    final hold = Completer<void>();
+    await scenario(
+      tester,
+      (requests) async {
+        await tester.enterText(find.byType(TextField), 'apple, resilient');
+        await tester.tap(find.text('Phân tích bằng AI'));
+        await _settle(tester);
+
+        expect(find.text('Import 2 từ'), findsOneWidget);
+
+        // resilient dang la "Nen biet" -> bam chip 1 lan thanh "Bo qua".
+        await tester.tap(find.byKey(const ValueKey('import-mode-2')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Import 1 từ'), findsOneWidget);
+        expect(find.text('Bỏ qua: 1'), findsOneWidget);
+
+        await tester.tap(find.text('Import 1 từ'));
+        await _settle(tester);
+
+        // Danh sach tick trong luc import chi co tu thuc su duoc luu.
+        expect(find.text('apple'), findsOneWidget);
+        expect(find.text('resilient'), findsNothing);
+
+        hold.complete();
+        await tester.pumpAndSettle();
+
+        final sent = requests
+            .where((r) => r['action'] == 'bulkAddWords')
+            .expand((r) => ((r['data'] as Map)['words'] as List))
+            .cast<Map<String, dynamic>>()
+            .toList();
+        expect(sent.map((w) => w['word']), ['apple']);
+        expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
+        expect(
+          find.text('Đã bỏ qua 1 từ mà AI xếp "không ưu tiên".'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      holdBulk: hold,
+    );
   });
 
   testWidgets('tu AI khong lay duoc nghia: bao ro va chi import tu hop le', (
@@ -259,7 +298,7 @@ void main() {
     );
   });
 
-  testWidgets('tu bi loai tru khong xuat hien trong danh sach tick khi import', (
+  testWidgets('tu bi Bo qua khong xuat hien trong danh sach tick khi import', (
     tester,
   ) async {
     final hold = Completer<void>();
@@ -270,14 +309,15 @@ void main() {
         await tester.tap(find.text('Phân tích bằng AI'));
         await _settle(tester);
 
-        await tester.tap(find.byKey(const ValueKey('import-exclude-2')));
+        // resilient: Nen biet -> Bo qua.
+        await tester.tap(find.byKey(const ValueKey('import-mode-2')));
         await tester.pumpAndSettle();
         expect(find.text('Import 1 từ'), findsOneWidget);
 
         await tester.tap(find.text('Import 1 từ'));
         await _settle(tester);
 
-        // "resilient" da bi loai tru -> khong con trong danh sach tick.
+        // "resilient" da bi bo qua -> khong con trong danh sach tick.
         expect(find.text('apple'), findsOneWidget);
         expect(find.text('resilient'), findsNothing);
 

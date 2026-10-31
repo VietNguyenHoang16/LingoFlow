@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lingoflow/services/bulk_word_importer.dart';
+import 'package:lingoflow/services/database_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -98,8 +99,118 @@ void main() {
     expect(enriched[0].meaning, 'quả táo');
     expect(enriched[0].wordType, 'noun');
     expect(enriched[0].isValid, isTrue);
+    // AI khong tra nhan loai -> mac dinh Hoc ngay.
+    expect(enriched[0].learningMode, 'active');
     expect(enriched[1].isValid, isFalse);
     expect(enriched[1].error, 'AI không lấy được nghĩa');
+  });
+
+  test('enrichMeanings giu learningMode + cum tu AI tra ve', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {
+              'word': 'comply',
+              'meaning': 'tuân thủ',
+              'wordType': 'verb',
+              'learningMode': 'active',
+              'collocations': 'comply with · be compliant with',
+            },
+            {
+              'word': 'auditor',
+              'meaning': 'kiểm toán viên',
+              'wordType': 'noun',
+              'learningMode': 'passive',
+              'collocations': 'security auditor',
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('comply, auditor');
+    final enriched = await http.runWithClient(
+      () => importer.enrichMeanings(1, lines),
+      () => client,
+    );
+
+    expect(enriched[0].learningMode, 'active');
+    expect(enriched[0].collocations, 'comply with · be compliant with');
+    expect(enriched[1].learningMode, 'passive');
+    // Cum tu chi co y nghia voi tu Hoc ngay -> passive khong giu.
+    expect(enriched[1].collocations, isEmpty);
+    expect(enriched.every((l) => l.isValid), isTrue);
+  });
+
+  test('dong "bo qua" khong hop le va khong gui len server', () async {
+    var bulkCalled = false;
+    final lines = [
+      ImportLine(
+        lineNumber: 1,
+        rawLine: 'bloc',
+        word: 'bloc',
+        meaning: 'khối (chính trị)',
+        wordType: 'noun',
+        learningMode: ImportLine.modeSkip,
+      ),
+    ];
+
+    final result = await importer.importBatch(
+      1,
+      lines,
+      pronunciationsOverride: const {'bloc': ''},
+      bulkAdd: (userId, category, words) async {
+        bulkCalled = true;
+        return const BulkAddResult(insertedCount: 0);
+      },
+    );
+
+    expect(result.insertedCount, 0);
+    expect(bulkCalled, isFalse);
+  });
+
+  test('payload gui kem learningMode + collocations', () async {
+    final capturedGroups = <List<Map<String, dynamic>>>[];
+    final lines = [
+      ImportLine(
+        lineNumber: 1,
+        rawLine: 'comply',
+        word: 'comply',
+        meaning: 'tuân thủ',
+        wordType: 'verb',
+        learningMode: ImportLine.modeActive,
+        collocations: 'comply with',
+      ),
+      ImportLine(
+        lineNumber: 2,
+        rawLine: 'auditor',
+        word: 'auditor',
+        meaning: 'kiểm toán viên',
+        wordType: 'noun',
+        learningMode: ImportLine.modePassive,
+      ),
+    ];
+
+    await importer.importBatch(
+      1,
+      lines,
+      pronunciationsOverride: const {'comply': '', 'auditor': ''},
+      bulkAdd: (userId, category, words) async {
+        capturedGroups.add(words);
+        return BulkAddResult(insertedCount: words.length);
+      },
+    );
+
+    final captured = capturedGroups.expand((g) => g).toList();
+    expect(captured, hasLength(2));
+    final byWord = {for (final w in captured) w['word']: w};
+    expect(byWord['comply']!['learningMode'], 'active');
+    expect(byWord['comply']!['collocations'], 'comply with');
+    expect(byWord['auditor']!['learningMode'], 'passive');
+    expect(byWord['auditor']!['collocations'], '');
   });
 
   test('enrichMeanings loi mang -> moi tu bi danh dau loi', () async {

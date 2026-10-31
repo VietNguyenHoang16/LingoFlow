@@ -26,18 +26,24 @@ class BulkAddResult {
   const BulkAddResult({required this.insertedCount, this.failed = const []});
 }
 
-/// Nghia tieng Viet + loai tu do AI lay cho mot tu. `error` khac rong khi AI
-/// khong tra ve duoc (client bo qua tu do va bao lai).
+/// Nghia tieng Viet + loai tu + loai hoc do AI lay cho mot tu. `error` khac
+/// rong khi AI khong tra ve duoc (client bo qua tu do va bao lai).
 class AiWordInfo {
   final String word;
   final String meaning;
   final String wordType;
+
+  /// 'active' = Hoc ngay, 'passive' = Nen biet, 'skip' = Khong uu tien.
+  final String learningMode;
+  final String collocations;
   final String error;
 
   const AiWordInfo({
     required this.word,
     required this.meaning,
     required this.wordType,
+    this.learningMode = 'active',
+    this.collocations = '',
     this.error = '',
   });
 
@@ -289,6 +295,8 @@ class DatabaseService {
         word: (row['word'] ?? '').toString(),
         meaning: (row['meaning'] ?? '').toString().trim(),
         wordType: (row['wordType'] ?? '').toString().trim(),
+        learningMode: (row['learningMode'] ?? '').toString().trim(),
+        collocations: (row['collocations'] ?? '').toString().trim(),
         error: (row['error'] ?? '').toString(),
       );
     }).toList();

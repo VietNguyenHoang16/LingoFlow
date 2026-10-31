@@ -67,6 +67,25 @@ async function ensureCanonicalList(userId) {
   return asInt(r[0].id);
 }
 
+/// 'active' = Hoc ngay, 'passive' = Nen biet. Gia tri la -> active.
+function normalizeLearningMode(value) {
+  return String(value || '').trim().toLowerCase() === 'passive' ? 'passive' : 'active';
+}
+
+/// Cum tu di kem: luu dang "comply with · be compliant with" (toi da 3 cum).
+function normalizeCollocations(value) {
+  const raw = Array.isArray(value) ? value : String(value || '').split(/[·;|,\n]+/);
+  const out = [];
+  for (const item of raw) {
+    const s = String(item || '').trim().slice(0, 80);
+    if (!s) continue;
+    if (out.some((x) => x.toLowerCase() === s.toLowerCase())) continue;
+    out.push(s);
+    if (out.length >= 3) break;
+  }
+  return out.join(' · ');
+}
+
 function mapWordRow(row) {
   return {
     id: asInt(row.id),
@@ -86,6 +105,8 @@ function mapWordRow(row) {
     lapse_count: asInt(row.lapse_count),
     word_type: row.word_type || '',
     topic_tag: row.topic_tag || '',
+    learning_mode: normalizeLearningMode(row.learning_mode),
+    collocations: normalizeCollocations(row.collocations),
     example_sentence: row.example_sentence || '',
     example_translation: row.example_translation || '',
     example_target: row.example_target || '',
@@ -247,6 +268,8 @@ async function ensureSchema() {
       await addColumnIfNotExists('vocabulary_words', 'example_translation', 'TEXT');
       await addColumnIfNotExists('vocabulary_words', 'example_target', 'VARCHAR(255)');
       await addColumnIfNotExists('vocabulary_words', 'common_synonyms', 'TEXT');
+      await addColumnIfNotExists('vocabulary_words', 'learning_mode', "VARCHAR(10) DEFAULT 'active'");
+      await addColumnIfNotExists('vocabulary_words', 'collocations', 'TEXT');
       // Gọn còn 3 từ common: xóa hẳn related/nuance + data (user xác nhận).
       await dropColumnIfExists('vocabulary_words', 'related_phrases');
       await dropColumnIfExists('vocabulary_words', 'nuance');
@@ -525,6 +548,8 @@ async function handleAction(action, data) {
       }
       const wordType = (data.wordType || '').trim() || data.category || '';
       const topicTag = String(data.topicTag || '').trim().slice(0, 100);
+      const learningMode = normalizeLearningMode(data.learningMode);
+      const collocations = normalizeCollocations(data.collocations);
       const aiConfigs = await getUserAiConfigs(data.userId);
       const style = await getUserAiExampleStyle(data.userId);
       // Sinh vi du truoc khi insert: AI loi -> khong luu tu, bao loi ro rang.
@@ -533,10 +558,10 @@ async function handleAction(action, data) {
         { timeoutMs: 10000, aiConfigs },
       );
       const rows = await query(
-        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, learning_mode, collocations)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING id`,
-        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag, (data.commonSynonyms || '').trim(), example.sentence, example.translation, example.target],
+        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag, (data.commonSynonyms || '').trim(), example.sentence, example.translation, example.target, learningMode, collocations],
       );
       return asInt(rows[0].id);
     }
@@ -545,7 +570,7 @@ async function handleAction(action, data) {
       const wordId = asInt(data.wordId);
       if (!wordId) throw new Error('Thieu wordId');
       const rows = await query(
-        `SELECT vw.word, vw.meaning, vw.word_type, vw.topic_tag
+        `SELECT vw.word, vw.meaning, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vw.id = $1 AND vl.user_id = $2
@@ -693,7 +718,13 @@ async function handleAction(action, data) {
               { word },
               { timeoutMs: BULK_AI_TIMEOUT_MS, deadline, style },
             );
-            results[index] = { word, meaning: info.meaning, wordType: info.wordType };
+            results[index] = {
+              word,
+              meaning: info.meaning,
+              wordType: info.wordType,
+              learningMode: info.learningMode,
+              collocations: info.collocations,
+            };
           } catch (error) {
             results[index] = { word, meaning: '', wordType: '', error: error.message };
           }
@@ -744,6 +775,8 @@ async function handleAction(action, data) {
           wordType: (it.wordType || '').trim(),
           topicTag: String(it.topicTag || '').trim().slice(0, 100),
           commonSynonyms: (it.commonSynonyms || '').trim(),
+          learningMode: normalizeLearningMode(it.learningMode),
+          collocations: normalizeCollocations(it.collocations),
         });
       }
       if (candidates.length === 0) return { insertedCount: 0, failed: [] };
@@ -801,12 +834,13 @@ async function handleAction(action, data) {
             it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType,
             it.topicTag, it.commonSynonyms,
             it.example.sentence, it.example.translation, it.example.target,
+            it.learningMode, it.collocations,
           );
-          return `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10})`;
+          return `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12})`;
         });
         try {
           const inserted = await query(
-            `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
+            `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, learning_mode, collocations)
              VALUES ${values.join(', ')}
              RETURNING id`,
             params,
@@ -817,9 +851,9 @@ async function handleAction(action, data) {
           for (const it of chunk) {
             try {
               await query(
-                `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [listId, it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType, it.topicTag, it.commonSynonyms, it.example.sentence, it.example.translation, it.example.target],
+                `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, learning_mode, collocations)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                [listId, it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType, it.topicTag, it.commonSynonyms, it.example.sentence, it.example.translation, it.example.target, it.learningMode, it.collocations],
               );
               insertedCount += 1;
             } catch (rowError) {
@@ -849,7 +883,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1
@@ -863,7 +897,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -880,7 +914,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vw.created_at,
                 vl.id AS list_id
          FROM vocabulary_words vw
@@ -995,6 +1029,13 @@ async function handleAction(action, data) {
       const wordType = (data.wordType || '').trim();
       const topicTag = String(data.topicTag || '').trim().slice(0, 100);
       const commonSynonyms = (data.commonSynonyms || '').trim();
+      // Cho phep doi loai + cum tu khi sua tu; khong gui -> giu nguyen.
+      const learningMode = data.learningMode === undefined
+        ? null
+        : normalizeLearningMode(data.learningMode);
+      const collocations = data.collocations === undefined
+        ? null
+        : normalizeCollocations(data.collocations);
       const example = await generateExample(
         { word, meaning, wordType, topicTag, style: await getUserAiExampleStyle(data.userId) },
         { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
@@ -1002,11 +1043,13 @@ async function handleAction(action, data) {
 
       const rows = await query(
         `UPDATE vocabulary_words SET word = $1, pronunciation = $2, meaning = $3, full_details = $4, word_type = $5, topic_tag = $6,
-         common_synonyms = $7, example_sentence = $8, example_translation = $9, example_target = $10
+         common_synonyms = $7, example_sentence = $8, example_translation = $9, example_target = $10,
+         learning_mode = COALESCE($13, learning_mode), collocations = COALESCE($14, collocations)
          WHERE id = $11 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $12)
          RETURNING id`,
         [word, pronunciation, meaning, fullDetails, wordType, topicTag, commonSynonyms,
-          example.sentence, example.translation, example.target, data.wordId, data.userId],
+          example.sentence, example.translation, example.target, data.wordId, data.userId,
+          learningMode, collocations],
       );
       if (rows.length === 0) throw new Error('Khong tim thay tu nay');
       return example;
@@ -1030,7 +1073,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
@@ -1045,7 +1088,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -1061,7 +1104,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -1080,7 +1123,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -1210,7 +1253,7 @@ async function handleAction(action, data) {
     // Toan bo tu cua user voi payload nhe -> client loc ngay tai may.
     case 'getWordIndex': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag,
+        `SELECT vw.id, vw.word, vw.meaning, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -1251,7 +1294,7 @@ async function handleAction(action, data) {
       const rows = await query(
         `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
-                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.learning_mode, vw.collocations,
                 vw.created_at, vl.id AS list_id
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
