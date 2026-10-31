@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +39,29 @@ Map<String, dynamic> _word({
       'example_target': 'amendment',
     };
 
+/// Nạp font thật của app: font test mặc định rộng 1em/ký tự nên chữ
+/// xuống dòng nhiều hơn thực tế, làm sai mọi phép đo bố cục.
+Future<void> _loadFonts() async {
+  final families = <String, List<String>>{
+    'Be Vietnam Pro': [
+      'assets/fonts/BeVietnamPro-Regular.ttf',
+      'assets/fonts/BeVietnamPro-Medium.ttf',
+      'assets/fonts/BeVietnamPro-SemiBold.ttf',
+      'assets/fonts/BeVietnamPro-Bold.ttf',
+    ],
+    'Plus Jakarta Sans': ['assets/fonts/PlusJakartaSans-Variable.ttf'],
+  };
+  for (final entry in families.entries) {
+    final loader = FontLoader(entry.key);
+    for (final path in entry.value) {
+      loader.addFont(
+        Future.value(ByteData.sublistView(File(path).readAsBytesSync())),
+      );
+    }
+    await loader.load();
+  }
+}
+
 void main() {
   Future<void> answer(
     WidgetTester tester, {
@@ -44,6 +69,7 @@ void main() {
     String typed = 'amendmant',
     bool studyMode = false,
   }) async {
+    await _loadFonts();
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -82,7 +108,7 @@ void main() {
   ) async {
     await answer(tester, size: const Size(390, 844));
 
-    expect(find.textContaining('Đáp án: amendment'), findsOneWidget);
+    expect(find.text('amendment'), findsOneWidget);
     expect(find.text('Bạn gõ: amendmant'), findsOneWidget);
     // Vi du dai bi gioi han 4 dong de khong day nut Tiep ra ngoai man hinh.
     expect(find.textContaining('legislative session'), findsOneWidget);
@@ -101,12 +127,12 @@ void main() {
   testWidgets('ket qua van gon tren man hinh nho (320x568)', (tester) async {
     await answer(tester, size: const Size(320, 568), studyMode: true);
 
-    expect(find.textContaining('Đáp án: amendment'), findsOneWidget);
+    expect(find.text('amendment'), findsOneWidget);
     final btn = tester.getRect(find.widgetWithText(ElevatedButton, 'Hoàn thành'));
     expect(btn.bottom, lessThanOrEqualTo(568));
     expect(btn.top, greaterThan(0));
-    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable).first);
-    expect(scrollable.position.maxScrollExtent, 0);
+    // Máy 320x568 + ví dụ rất dài: chỉ phần thân khung đáp án phải cuộn bên
+    // trong (vẫn nằm gọn trong màn hình), không tràn bố cục.
     expect(tester.takeException(), isNull);
   });
 

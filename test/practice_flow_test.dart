@@ -43,7 +43,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('tick xong: kết quả hiện ngay, bàn phím giữ focus, tick nữa sang câu',
+  testWidgets('tick xong: kết quả hiện ngay, bàn phím đóng, Enter sang câu tiếp',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -76,14 +76,14 @@ void main() {
     await tester.pump();
 
     expect(find.text('Sai rồi'), findsOneWidget);
-    // Ô nhập vẫn được giữ focus -> bàn phím không đóng, không phải chờ mở lại.
+    // Bàn phím PHẢI đóng để khung đáp án dùng trọn chiều cao màn hình.
     final field = tester.widget<TextField>(
       find.byType(TextField, skipOffstage: false),
     );
-    expect(field.focusNode!.hasFocus, isTrue);
+    expect(field.focusNode!.hasFocus, isFalse);
 
-    // Tick lần nữa là sang câu tiếp (không cần chạm nút Tiếp).
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    // Bàn phím cứng (PC / iPad có kèm bàn phím): Enter vẫn sang câu tiếp.
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(find.text('2/2'), findsOneWidget);
     expect(find.text('Sai rồi'), findsNothing);

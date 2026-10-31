@@ -55,11 +55,19 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   void _onSearchChanged() {
-    // Debounce de khong rebuild ca trang moi ky tu.
+    final query = _searchController.text.trim().toLowerCase();
     _searchDebounce?.cancel();
+    // Xoá bớt ký tự (nhất là xoá trắng ô tìm kiếm) phải cập nhật danh sách
+    // NGAY, không chờ debounce — nếu không những từ không còn khớp vẫn nằm
+    // lại ở danh sách bên dưới.
+    if (query.length < _searchQuery.length) {
+      if (query != _searchQuery) setState(() => _searchQuery = query);
+      return;
+    }
+    // Gõ thêm thì debounce để không rebuild cả trang mỗi ký tự.
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+      setState(() => _searchQuery = query);
     });
   }
 
@@ -346,6 +354,13 @@ class _CategoryPageState extends State<CategoryPage> {
                 decoration: InputDecoration(
                   hintText: 'Tim trong chu de...',
                   prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant, size: 20),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Xoa tim kiem',
+                          icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurfaceVariant, size: 18),
+                          onPressed: _searchController.clear,
+                        ),
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerLow,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),

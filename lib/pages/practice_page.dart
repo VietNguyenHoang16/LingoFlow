@@ -66,6 +66,9 @@ class _PracticePageState extends State<PracticePage> {
   final TextEditingController _spellController = TextEditingController();
   final FocusNode _spellFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  // Giữ nguyên ô nhập khi chuyển giữa màn nhập và màn đáp án để bàn phím
+  // không bị đóng/mở lại (GlobalKey giúp reparent mà không mất focus).
+  final GlobalKey _spellFieldKey = GlobalKey();
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _hintLevel = 0;
 
@@ -241,7 +244,9 @@ class _PracticePageState extends State<PracticePage> {
         _totalAnswered++;
         if (isCorrect) _score++;
       });
-      // Không unfocus: giữ bàn phím mở để tick lần nữa là sang câu tiếp.
+      // Đóng bàn phím khi hiện đáp án: khung đáp án chiếm trọn chiều cao màn
+      // hình từ trên xuống dưới (bàn phím mở làm nó bị bóp nhỏ, rất xấu).
+      _spellFocusNode.unfocus();
       _speakAfterFrame(correct);
       _scrollToTopAfterFrame();
       return;
@@ -278,6 +283,8 @@ class _PracticePageState extends State<PracticePage> {
       _totalAnswered++;
       if (isCorrect) _score++;
     });
+    // Đóng bàn phím để khung đáp án dùng trọn chiều cao màn hình.
+    _spellFocusNode.unfocus();
     _speakAfterFrame(correct);
     _scrollToTopAfterFrame();
     unawaited(_saveReviewGrade(word, result));
@@ -658,7 +665,9 @@ class _PracticePageState extends State<PracticePage> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final compact = keyboardOpen || constraints.maxHeight < 620;
+                  // Chỉ co gọn theo chiều cao thật của vùng nội dung (bàn phím
+                  // đã đóng khi hiện đáp án) để chữ không bị thu nhỏ vô cớ.
+                  final compact = constraints.maxHeight < 620;
                   final contentPadding = compact ? 18.0 : 24.0;
                   final sectionGap = compact ? 14.0 : 20.0;
                   final cardPadding = compact ? 18.0 : 24.0;
@@ -668,11 +677,28 @@ class _PracticePageState extends State<PracticePage> {
                       currentWord['word'].toString().toLowerCase();
                   final typedAnswer = _spellController.text.trim();
 
+                  if (_showResult) {
+                    return _buildResultView(
+                      theme: theme,
+                      currentWord: currentWord,
+                      isCorrect: isCorrectAnswer,
+                      typed: typedAnswer,
+                      example: practiceExample,
+                      translation: practiceTranslation,
+                      pos: practicePos,
+                      compact: compact,
+                      contentPadding: contentPadding,
+                    );
+                  }
+
                   final content = Padding(
                     padding: EdgeInsets.fromLTRB(contentPadding, keyboardOpen ? 8 : 12, contentPadding, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Khi có kết quả, thẻ nghĩa được thay bằng khung đáp án
+                        // lớn (bên dưới) để dùng hết chiều cao màn hình.
+                        if (!_showResult)
                         Container(
                           width: double.infinity,
                           padding: EdgeInsets.all(
@@ -773,33 +799,7 @@ class _PracticePageState extends State<PracticePage> {
                         const SizedBox(height: 6),
                         _buildPracticeHintButton(currentWord),
                         const SizedBox(height: 8),
-                        TextField(
-                          controller: _spellController,
-                          focusNode: _spellFocusNode,
-                          decoration: InputDecoration(
-                            hintText: 'Nhập từ bạn nhớ được...',
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: compact ? 12 : 14),
-                            filled: true,
-                            fillColor: theme.colorScheme.surfaceContainerLowest,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-                            ),
-                          ),
-                          textInputAction: TextInputAction.done,
-                          // Giữ bàn phím mở sau khi bấm ✓: mặc định Flutter sẽ
-                          // unfocus (bàn phím đóng rồi mở lại -> khựng). No-op
-                          // để tick lần nữa là sang câu tiếp ngay.
-                          onEditingComplete: () {},
-                          onSubmitted: _showResult
-                              ? (_) => _nextQuestion()
-                              : (_) => _checkSpell(),
-                        ),
+                          _spellField(compact),
                             ],
                           ),
                         ),
@@ -828,97 +828,26 @@ class _PracticePageState extends State<PracticePage> {
                               ],
                             ),
                           ),
-                        if (_showResult) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: compact ? 10 : 12,
-                              vertical: compact ? 8 : 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isCorrectAnswer
-                                  ? Colors.green.withAlpha(45)
-                                  : Colors.red.withAlpha(45),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isCorrectAnswer ? Icons.check_circle : Icons.cancel,
-                                      size: 18,
-                                      color: isCorrectAnswer ? Colors.green : Colors.red,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      isCorrectAnswer ? 'Đúng rồi!' : 'Sai rồi',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: isCorrectAnswer ? Colors.green : Colors.red,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Đáp án: ${currentWord['word']}',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if ((currentWord['pronunciation'] ?? '').isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      '/${currentWord['pronunciation']}/',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontStyle: FontStyle.italic,
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                if (!isCorrectAnswer && typedAnswer.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      'Bạn gõ: $typedAnswer',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                if (practiceExample.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  ExampleCard(
-                                    example: practiceExample,
-                                    pos: practicePos,
-                                    translation: practiceTranslation.isEmpty ? null : practiceTranslation,
-                                    maxLines: compact ? 3 : 4,
-                                  ),
-                                ],
-                              ],
+                        if (_showResult)
+                          Expanded(
+                            child: _buildAnswerPanel(
+                              theme: theme,
+                              word: currentWord,
+                              isCorrect: isCorrectAnswer,
+                              typed: typedAnswer,
+                              example: practiceExample,
+                              translation: practiceTranslation,
+                              pos: practicePos,
+                              compact: compact,
                             ),
                           ),
-                          if (!widget.studyMode && _sessionResults.isNotEmpty) ...[
-                            SizedBox(height: compact ? 8 : 10),
-                            _buildSrsFeedback(_sessionResults.last),
-                          ],
+                        if (_showResult &&
+                            !widget.studyMode &&
+                            _sessionResults.isNotEmpty) ...[
+                          SizedBox(height: compact ? 8 : 10),
+                          _buildSrsFeedback(_sessionResults.last),
                         ],
-                        const Spacer(),
+                        if (!_showResult) const Spacer(),
                         if (_showResult) ...[
                           SizedBox(
                             width: double.infinity,
@@ -980,6 +909,235 @@ class _PracticePageState extends State<PracticePage> {
       ),
     ),
     ),
+    );
+  }
+
+  /// Ô nhập dùng chung cho màn nhập và màn đáp án (GlobalKey giữ focus/IME).
+  Widget _spellField(bool compact) {
+    final theme = Theme.of(context);
+    return TextField(
+      key: _spellFieldKey,
+      controller: _spellController,
+      focusNode: _spellFocusNode,
+      decoration: InputDecoration(
+        hintText: 'Nhập từ bạn nhớ được...',
+        isDense: true,
+        contentPadding:
+            EdgeInsets.symmetric(horizontal: 14, vertical: compact ? 12 : 14),
+        filled: true,
+        fillColor: theme.colorScheme.surfaceContainerLowest,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+        ),
+      ),
+      textInputAction: TextInputAction.done,
+      // Giữ bàn phím mở sau khi bấm ✓ (mặc định Flutter unfocus -> đóng/mở lại).
+      onEditingComplete: () {},
+      onSubmitted: _showResult ? (_) => _nextQuestion() : (_) => _checkSpell(),
+    );
+  }
+
+  /// Màn đáp án: khung đáp án chiếm trọn chiều cao còn lại, nút Tiếp luôn ở đáy.
+  Widget _buildResultView({
+    required ThemeData theme,
+    required Map<String, dynamic> currentWord,
+    required bool isCorrect,
+    required String typed,
+    required String example,
+    required String translation,
+    required String? pos,
+    required bool compact,
+    required double contentPadding,
+  }) {
+    final isLast = _currentIndex >= _words.length - 1;
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        contentPadding,
+        keyboardOpen ? 8 : 12,
+        contentPadding,
+        16,
+      ),
+      child: Column(
+        children: [
+          // Giữ ô nhập trong cây nhưng ẩn: bàn phím không đóng giữa các câu.
+          Offstage(offstage: true, child: _spellField(compact)),
+          Expanded(
+            child: _buildAnswerPanel(
+              theme: theme,
+              word: currentWord,
+              isCorrect: isCorrect,
+              typed: typed,
+              example: example,
+              translation: translation,
+              pos: pos,
+              compact: compact,
+            ),
+          ),
+          if (!widget.studyMode && _sessionResults.isNotEmpty) ...[
+            SizedBox(height: compact ? 8 : 10),
+            _buildSrsFeedback(_sessionResults.last),
+          ],
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _nextQuestion,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                padding: EdgeInsets.symmetric(vertical: compact ? 14 : 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isLast ? 'Hoàn thành' : 'Tiếp',
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _buildKeyChip(),
+                ],
+              ),
+            ),
+          ),
+          if (!compact) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'Nhấn Enter để tiếp tục',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Khung đáp án chiếm trọn phần còn lại của màn hình (giữa thanh tiến độ và
+  /// nút Tiếp): chữ to, canh giữa, có ví dụ; nội dung dài thì tự cuộn bên trong.
+  Widget _buildAnswerPanel({
+    required ThemeData theme,
+    required Map<String, dynamic> word,
+    required bool isCorrect,
+    required String typed,
+    required String example,
+    required String translation,
+    required String? pos,
+    required bool compact,
+  }) {
+    final wordText = (word['word'] ?? '').toString();
+    final pronunciation = (word['pronunciation'] ?? '').toString();
+    final meaning = (word['meaning'] ?? '').toString();
+    final color = isCorrect ? Colors.green : Colors.red;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: color.withAlpha(38),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Align(
+        // Canh giữa theo chiều dọc: nội dung ngắn nằm giữa khung thay vì dồn
+        // lên trên rồi để trống cả khoảng phía dưới; dài quá thì tự cuộn.
+        alignment: Alignment.center,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 20 : 26,
+            vertical: compact ? 16 : 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                size: compact ? 46 : 58,
+                color: color,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isCorrect ? 'Đúng rồi!' : 'Sai rồi',
+                style: TextStyle(
+                  fontSize: compact ? 22 : 24,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                wordText,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: compact ? 38 : 48,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              if (pronunciation.isNotEmpty)
+                Text(
+                  '/$pronunciation/',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: compact ? 16 : 18,
+                    fontStyle: FontStyle.italic,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (meaning.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  meaning,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: compact ? 17 : 20,
+                    height: 1.4,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (!isCorrect && typed.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Bạn gõ: $typed',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (example.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ExampleCard(
+                  example: example,
+                  pos: pos,
+                  translation: translation.isEmpty ? null : translation,
+                  maxLines: compact ? 5 : 6,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
