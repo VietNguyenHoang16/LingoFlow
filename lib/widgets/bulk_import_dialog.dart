@@ -9,16 +9,32 @@ class BulkImportDialog extends StatefulWidget {
   final int userId;
   final String? defaultWordType;
 
+  /// Text điền sẵn vào ô dán từ (dùng khi bấm "Thêm từ" từ ô tìm kiếm).
+  final String initialText;
+
+  /// Tự chạy bước "Phân tích bằng AI" ngay khi mở dialog.
+  final bool autoAnalyze;
+
+  /// Import xong (không lỗi, không huỷ) thì tự đóng dialog — dùng cho luồng
+  /// "Thêm từ" nhanh từ ô tìm kiếm.
+  final bool closeOnSuccess;
+
   const BulkImportDialog({
     super.key,
     required this.userId,
     this.defaultWordType,
+    this.initialText = '',
+    this.autoAnalyze = false,
+    this.closeOnSuccess = false,
   });
 
   static Future<int> show(
     BuildContext context, {
     required int userId,
     String? defaultWordType,
+    String initialText = '',
+    bool autoAnalyze = false,
+    bool closeOnSuccess = false,
   }) async {
     final n = await showDialog<int>(
       context: context,
@@ -26,6 +42,9 @@ class BulkImportDialog extends StatefulWidget {
       builder: (_) => BulkImportDialog(
         userId: userId,
         defaultWordType: defaultWordType,
+        initialText: initialText,
+        autoAnalyze: autoAnalyze,
+        closeOnSuccess: closeOnSuccess,
       ),
     );
     return n ?? 0;
@@ -70,6 +89,21 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   String? _retryLabel;
   String? _fatalError;
   DateTime _lastProgressTick = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialText.trim();
+    if (initial.isNotEmpty) {
+      _controller.text = initial;
+    }
+    // Mo tu o tim kiem: phan tich AI ngay de thay nghia/loai tu truoc khi them.
+    if (widget.autoAnalyze && initial.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _goPreview();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -211,6 +245,14 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       _stage = 3;
       _isProcessing = false;
     });
+    // Luong them nhanh tu o tim kiem: them xong thi dong luon, khong bat
+    // nguoi dung bam them "Dong".
+    if (widget.closeOnSuccess &&
+        !result.cancelled &&
+        result.failedWords.isEmpty &&
+        result.insertedCount > 0) {
+      Navigator.of(context).pop(result.insertedCount);
+    }
   }
 
   void _cancel() {

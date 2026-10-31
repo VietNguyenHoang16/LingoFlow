@@ -7,6 +7,7 @@ import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/word_type_badge.dart';
 import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import '../services/word_enrichment_service.dart';
@@ -74,6 +75,15 @@ class _RecentPageState extends State<RecentPage> {
       });
       return;
     }
+    // Mở panel kết quả ngay khi gõ (danh sách bên dưới không đổi), xoá kết quả
+    // cũ để không hiện nhầm kết quả của từ khoá trước.
+    _searchSeq++;
+    setState(() {
+      _searchQuery = query;
+      _searchResults = [];
+      _isSearching = true;
+      _searchError = null;
+    });
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       _runSearch(query);
@@ -122,8 +132,11 @@ class _RecentPageState extends State<RecentPage> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredWords =>
-      _searchQuery.isEmpty ? _words : _searchResults;
+  /// Danh sách từ hiện tại LUÔN giữ nguyên — kết quả tìm kiếm hiển thị ở panel
+  /// riêng ngay dưới ô tìm kiếm, không thay thế danh sách này. Nhờ vậy người
+  /// dùng vừa thấy kết quả vừa thấy danh sách (và giữ nguyên vị trí cuộn) để
+  /// đối chiếu xem từ đã tồn tại chưa.
+  List<Map<String, dynamic>> get _visibleWords => _words;
 
   Future<void> _speak(String text) async {
     try {
@@ -461,7 +474,7 @@ class _RecentPageState extends State<RecentPage> {
 
   /// Chạm thân thẻ: từ đầu tiên làm mốc, chạm từ khác chọn cả khoảng giữa hai từ.
   void _handleWordTap(int index) {
-    final filtered = _filteredWords;
+    final filtered = _visibleWords;
     if (index < 0 || index >= filtered.length) return;
     final wordId = filtered[index]['id'] as int;
     final anchorIndex = _selectionAnchor == null
@@ -494,7 +507,7 @@ class _RecentPageState extends State<RecentPage> {
   void _startPractice() {
     if (_selectedWords.isEmpty) return;
     final selected =
-        _filteredWords.where((w) => _selectedWords.contains(w['id'] as int)).toList();
+        _visibleWords.where((w) => _selectedWords.contains(w['id'] as int)).toList();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -731,7 +744,7 @@ class _RecentPageState extends State<RecentPage> {
                           ? (_selectedWords.isEmpty
                               ? 'Chạm từ đầu, rồi chạm từ cuối để chọn cả khoảng'
                               : 'Đã chọn ${_selectedWords.length} từ · chạm từ khác để mở rộng')
-                          : '${_filteredWords.length} từ gần đây',
+                          : '${_visibleWords.length} từ gần đây',
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: 12,
@@ -840,7 +853,7 @@ class _RecentPageState extends State<RecentPage> {
               color: theme.colorScheme.onSurface,
             ),
             decoration: InputDecoration(
-              hintText: 'Tìm kiếm từ vựng...',
+              hintText: 'Tìm nhanh từ đã lưu (để kiểm tra từ đã có chưa)...',
               prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant, size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
@@ -850,9 +863,234 @@ class _RecentPageState extends State<RecentPage> {
                   : null,
             ),
           ),
+          // Panel kết quả nằm ngay dưới ô tìm kiếm; danh sách từ bên dưới giữ
+          // nguyên (không lọc, không đổi vị trí cuộn) để đối chiếu cả 2 phần.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _searchQuery.isEmpty
+                ? const SizedBox(width: double.infinity)
+                : _buildSearchPanel(theme),
+          ),
         ],
       ),
     );
+  }
+
+  /// Panel kết quả tìm kiếm (giới hạn chiều cao, tự cuộn) — không thay thế
+  /// danh sách từ hiện tại.
+  Widget _buildSearchPanel(ThemeData theme) {
+    final maxHeight =
+        (MediaQuery.sizeOf(context).height * 0.38).clamp(150.0, 380.0);
+    final showCount = !_isSearching && _searchError == null && _searchResults.isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 2, 6),
+            child: Row(
+              children: [
+                Icon(Icons.manage_search_rounded,
+                    size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Kết quả cho “${_searchController.text.trim()}”',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Be Vietnam Pro',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                if (showCount)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withAlpha(24),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_searchResults.length}',
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Xóa tìm kiếm',
+                  onPressed: () => _searchController.clear(),
+                  icon: Icon(Icons.close_rounded,
+                      size: 16, color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: _buildSearchPanelBody(theme),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchPanelBody(ThemeData theme) {
+    if (_searchError != null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _searchError!,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 12,
+                color: theme.colorScheme.error,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => _runSearch(_searchQuery),
+                child: const Text('Thử lại'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_isSearching && _searchResults.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Đang tìm trong toàn bộ từ đã lưu…',
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_searchResults.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.search_off_rounded,
+                    size: 18, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Chưa có từ này trong bộ từ của bạn',
+                    style: TextStyle(
+                      fontFamily: 'Be Vietnam Pro',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: FilledButton.icon(
+                onPressed: _addSearchedWord,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Thêm từ'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      shrinkWrap: true,
+      itemCount: _searchResults.length,
+      separatorBuilder: (context, index) => Divider(
+        height: 1,
+        indent: 14,
+        endIndent: 14,
+        color: theme.colorScheme.outlineVariant.withAlpha(120),
+      ),
+      itemBuilder: (ctx, i) {
+        final word = _searchResults[i];
+        return _SearchResultRow(
+          key: ValueKey('search-result-${word['id']}'),
+          word: (word['word'] ?? '').toString(),
+          meaning: (word['meaning'] ?? '').toString(),
+          pronunciation: (word['pronunciation'] ?? '').toString(),
+          wordType: (word['word_type'] ?? '').toString(),
+          onTap: () => _speak((word['word'] ?? '').toString()),
+          onLongPress: () => _showWordOptions(word),
+        );
+      },
+    );
+  }
+
+  /// Chưa có từ trong bộ từ: mở dialog import với từ đã điền sẵn + AI phân tích
+  /// ngay để lấy nghĩa/loại từ, rồi thêm.
+  Future<void> _addSearchedWord() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    final inserted = await BulkImportDialog.show(
+      context,
+      userId: widget.userId,
+      initialText: query,
+      autoAnalyze: true,
+      closeOnSuccess: true,
+    );
+    if (!mounted || inserted <= 0) return;
+    _searchController.clear();
+    await _loadRecent();
+    WordChangeBus().notifyChanged('add-word-from-search');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã thêm $inserted từ')),
+      );
+    }
   }
 
   Widget _buildErrorState(ThemeData theme, String error) {
@@ -946,63 +1184,9 @@ class _RecentPageState extends State<RecentPage> {
   }
 
   Widget _buildList(ThemeData theme) {
-    final filtered = _filteredWords;
-    if (_searchError != null) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 100),
-          Center(
-            child: Text(_searchError!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Be Vietnam Pro',
-                color: theme.colorScheme.error, fontSize: 15,
-              )),
-          ),
-          Center(
-            child: TextButton(
-              onPressed: () => _runSearch(_searchQuery),
-              child: const Text('Thử lại'),
-            ),
-          ),
-        ],
-      );
-    }
-    if (filtered.isEmpty && _isSearching) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 80),
-          Center(
-            child: CircularProgressIndicator(color: theme.colorScheme.primary),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text('Đang tìm trong toàn bộ từ đã lưu…',
-              style: TextStyle(
-                fontFamily: 'Be Vietnam Pro',
-                color: theme.colorScheme.onSurfaceVariant, fontSize: 14,
-              )),
-          ),
-        ],
-      );
-    }
-    if (filtered.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 100),
-          Center(
-            child: Text('Không tìm thấy từ nào',
-              style: TextStyle(
-                fontFamily: 'Be Vietnam Pro',
-                color: theme.colorScheme.onSurfaceVariant, fontSize: 15,
-              )),
-          ),
-        ],
-      );
-    }
+    // Danh sách luôn là danh sách từ hiện tại; trạng thái tìm kiếm (đang tải /
+    // lỗi / không thấy) đã chuyển lên panel dưới ô tìm kiếm.
+    final filtered = _visibleWords;
     return ListView.builder(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
@@ -1161,5 +1345,130 @@ class _RecentPageState extends State<RecentPage> {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${months[then.month - 1]} ${then.day}';
+  }
+}
+
+/// Mot dong ket qua tim kiem trong panel duoi o tim kiem.
+///
+/// Muc dich chinh: cho biet tu DA TON TAI (chip "Da co") + nghia + loai tu de
+/// doi chieu voi danh sach ben duoi, va phat am nhanh khi cham.
+class _SearchResultRow extends StatelessWidget {
+  const _SearchResultRow({
+    super.key,
+    required this.word,
+    required this.meaning,
+    required this.pronunciation,
+    required this.wordType,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final String word;
+  final String meaning;
+  final String pronunciation;
+  final String wordType;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final type = wordType.trim();
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 2,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        word,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      if (type.isNotEmpty)
+                        WordTypeBadge(typeKey: type, compact: true),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.tertiary.withAlpha(24),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: theme.colorScheme.tertiary.withAlpha(90),
+                          ),
+                        ),
+                        child: Text(
+                          'Đã có',
+                          style: TextStyle(
+                            fontFamily: 'Be Vietnam Pro',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.tertiary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (pronunciation.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(
+                        '/${pronunciation.trim()}/',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  if (meaning.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(
+                        meaning.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Nghe phát âm',
+              visualDensity: VisualDensity.compact,
+              onPressed: onTap,
+              icon: Icon(Icons.volume_up_rounded,
+                  size: 18, color: theme.colorScheme.primary),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -45,19 +45,31 @@ Map<String, dynamic> wordRow({
 
 const _recentLimit = 20;
 
+/// Bước AI phân tích có progress bar chạy vô hạn nên không dùng pumpAndSettle.
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 30; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   /// Danh sách "gần nhất" chỉ có 20 từ, còn searchWord quét toàn bộ (có zebra).
   Future<void> scenario(
     WidgetTester tester,
-    Future<void> Function(List<Map<String, dynamic>> requests) check,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
+    Future<void> Function(List<Map<String, dynamic>> requests) check, {
+    List<MethodCall>? ttsCalls,
+    Map<String, Object> prefs = const {},
+  }) async {
+    SharedPreferences.setMockInitialValues(Map<String, Object>.from(prefs));
     tester.view.physicalSize = const Size(900, 1500);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('flutter_tts'),
-      (call) async => 1,
+      (call) async {
+        ttsCalls?.add(call);
+        return 1;
+      },
     );
 
     final recent = [
@@ -119,6 +131,12 @@ void main() {
               .toList();
           return http.Response(jsonEncode({'data': matches}), 200,
               headers: {'content-type': 'application/json; charset=utf-8'});
+        case 'filterExistingWordsDetailed':
+          return http.Response(
+            jsonEncode({'data': []}),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
         case 'enrichWords':
           final words = (data['words'] as List).cast<String>();
           return http.Response(
@@ -127,6 +145,15 @@ void main() {
                 for (final w in words)
                   {'word': w, 'meaning': 'nghĩa AI của $w', 'wordType': 'verb'},
               ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        case 'bulkAddWords':
+          final words = data['words'] as List;
+          return http.Response(
+            jsonEncode({
+              'data': {'insertedCount': words.length, 'failed': []},
             }),
             200,
             headers: {'content-type': 'application/json; charset=utf-8'},
@@ -171,11 +198,11 @@ void main() {
     }, () => client);
   }
 
-  /// Text trong card kết quả (ô tìm kiếm cũng chứa cùng chữ nên phải giới hạn).
-  Finder cardWith(String text) => find.descendant(
-        of: find.byType(FlipWordCard),
-        matching: find.text(text),
-      );
+  /// Dòng kết quả trong panel tìm kiếm (không phải thẻ trong danh sách).
+  Finder resultRow(int id) => find.byKey(ValueKey('search-result-$id'));
+
+  Finder resultText(int id, String text) =>
+      find.descendant(of: resultRow(id), matching: find.text(text));
 
   Future<void> typeSearch(WidgetTester tester, String query) async {
     await tester.enterText(find.byType(TextField).first, query);
@@ -183,7 +210,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('tìm kiếm quét toàn bộ từ đã lưu, không chỉ 20 từ gần nhất', (
+  testWidgets('tìm kiếm không thay danh sách: thấy cả kết quả lẫn danh sách', (
     tester,
   ) async {
     await scenario(tester, (requests) async {
@@ -192,7 +219,24 @@ void main() {
 
       await typeSearch(tester, 'zebra');
 
-      expect(cardWith('zebra'), findsOneWidget);
+      // Kết quả nằm ở panel riêng...
+      expect(resultRow(99), findsOneWidget);
+      expect(resultText(99, 'zebra'), findsOneWidget);
+      expect(resultText(99, 'ngựa vằn'), findsOneWidget);
+      expect(resultText(99, 'Đã có'), findsOneWidget);
+      // ...đồng thời danh sách hiện tại vẫn còn nguyên (không bị thay).
+      expect(find.text('word0'), findsOneWidget);
+      expect(find.text('word2'), findsOneWidget);
+      expect(find.byType(FlipWordCard), findsWidgets);
+      // Không có thẻ nào của zebra bị chèn vào danh sách.
+      expect(
+        find.descendant(
+          of: find.byType(FlipWordCard),
+          matching: find.text('zebra'),
+        ),
+        findsNothing,
+      );
+
       final search =
           requests.where((r) => r['action'] == 'searchWord').toList();
       expect(search, isNotEmpty);
@@ -207,9 +251,35 @@ void main() {
     await scenario(tester, (requests) async {
       await typeSearch(tester, 'ngựa');
 
-      expect(cardWith('zebra'), findsOneWidget);
+      expect(resultText(99, 'zebra'), findsOneWidget);
+      expect(find.text('word0'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  testWidgets('chạm kết quả tìm kiếm để nghe phát âm, không rời màn hình', (
+    tester,
+  ) async {
+    final ttsCalls = <MethodCall>[];
+    await scenario(tester, (requests) async {
+      await typeSearch(tester, 'zebra');
+
+      await tester.tap(resultText(99, 'zebra'));
+      await tester.pumpAndSettle();
+
+      final spoken = ttsCalls
+          .where((c) => c.method == 'speak')
+          .map((c) => c.arguments)
+          .toList();
+      expect(spoken, contains('zebra'));
+      // Vẫn ở màn chính, panel kết quả vẫn mở.
+      expect(resultRow(99), findsOneWidget);
+      expect(find.text('word0'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        ttsCalls: ttsCalls,
+        // Chọn giọng hệ thống để đi thẳng vào TTS (không qua Google audio).
+        prefs: const {'tts_voice_id': 'en-US-female'});
   });
 
   testWidgets('sửa từ ngay trong kết quả tìm: AI lấy nghĩa + loại từ', (
@@ -217,9 +287,9 @@ void main() {
   ) async {
     await scenario(tester, (requests) async {
       await typeSearch(tester, 'zebra');
-      expect(cardWith('zebra'), findsOneWidget);
+      expect(resultText(99, 'zebra'), findsOneWidget);
 
-      await tester.longPress(cardWith('zebra'), warnIfMissed: false);
+      await tester.longPress(resultText(99, 'zebra'), warnIfMissed: false);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Chinh sua / them nhan'));
       await tester.pumpAndSettle();
@@ -247,10 +317,45 @@ void main() {
       expect(data['wordType'], 'verb');
       expect(data['pronunciation'], 'ˈziː.brə');
 
-      // Mặt trước card chỉ có từ; lật card mới thấy nghĩa mới.
-      await tester.tap(cardWith('zebras'));
+      // Panel cập nhật tại chỗ: thấy nghĩa mới + phát âm, không cần lật gì.
+      expect(resultText(99, 'zebras'), findsOneWidget);
+      expect(resultText(99, 'nghĩa AI của zebras'), findsOneWidget);
+      expect(resultText(99, '/ˈziː.brə/'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('không có từ khớp: hiện "Chưa có" + nút Thêm từ', (tester) async {
+    await scenario(tester, (requests) async {
+      await typeSearch(tester, 'nothing');
+
+      expect(find.text('Chưa có từ này trong bộ từ của bạn'), findsOneWidget);
+      expect(find.text('Thêm từ'), findsOneWidget);
+      // Danh sách vẫn nguyên.
+      expect(find.text('word0'), findsOneWidget);
+
+      await tester.tap(find.text('Thêm từ'));
+      await _settle(tester);
+
+      // Dialog mở với từ đã điền sẵn và AI đã phân tích xong.
+      expect(find.text('Import từ hàng loạt'), findsOneWidget);
+      expect(find.text('nghĩa AI của nothing'), findsOneWidget);
+      expect(find.text('Import 1 từ'), findsOneWidget);
+
+      await tester.tap(find.text('Import 1 từ'));
       await tester.pumpAndSettle();
-      expect(find.text('nghĩa AI của zebras'), findsOneWidget);
+
+      final bulk =
+          requests.where((r) => r['action'] == 'bulkAddWords').toList();
+      expect(bulk, isNotEmpty);
+      final sent = bulk
+          .expand((r) => ((r['data'] as Map)['words'] as List))
+          .cast<Map<String, dynamic>>()
+          .toList();
+      expect(sent.map((w) => w['word']), ['nothing']);
+
+      // Thêm xong: ô tìm kiếm được xoá -> panel đóng.
+      expect(find.text('Chưa có từ này trong bộ từ của bạn'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
