@@ -49,19 +49,19 @@ class SrsService {
   /// Kiểm tra từ có phải là Leech không
   static bool isLeech(int lapseCount) => lapseCount >= leechThreshold;
 
-  /// Tên hiển thị cho mastery levels
+  /// Tên hiển thị cho mastery levels (tiếng Việt, dùng chung toàn app)
   static String masteryName(int level) {
     switch (level) {
       case masteryNew:
-        return 'New';
+        return 'Mới';
       case masteryLearning:
-        return 'Learning';
+        return 'Đang học';
       case masteryReviewing:
-        return 'Reviewing';
+        return 'Đang ôn';
       case masteryMastered:
-        return 'Mastered';
+        return 'Đã thuộc';
       default:
-        return 'Unknown';
+        return 'Không rõ';
     }
   }
 

@@ -175,7 +175,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('apple').last);
+      await tester.enterText(find.byType(TextField), 'apple');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
       expect(find.text('Mất kết nối mạng'), findsOneWidget);
