@@ -16,7 +16,7 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,166,118 bytes` (20.2 MB)
-- SHA256: `BE13630F5F8382C8B304BF61A26D9540C17345097C39E12DBD162D13D9FDFCB9`
+- SHA256: `57CFC3D6041B7743F03DBCB73EB589AC367FFA70DAE4174E6BD5548616B2908C`
 - Ngày build: `01/11/2026` — bản mới nhất:
   0. **Flashcard: nút loa to, đặt dưới thẻ** — loa không còn nằm cạnh từ; giờ là
      nút tròn lớn căn giữa, nằm giữa khung thẻ và 2 nút **Chưa biết / Đã biết**,
