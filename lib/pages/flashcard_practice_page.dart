@@ -390,23 +390,27 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  GestureDetector(
-                    onTap: () => unawaited(_speak(wordText)),
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withAlpha(20),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: theme.colorScheme.primary.withAlpha(90),
-                          width: 2,
+                  Semantics(
+                    button: true,
+                    label: 'Nghe phát âm',
+                    child: GestureDetector(
+                      onTap: () => unawaited(_speak(wordText)),
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withAlpha(20),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withAlpha(90),
+                            width: 2,
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        Icons.volume_up_rounded,
-                        color: theme.colorScheme.primary,
-                        size: 32,
+                        child: Icon(
+                          Icons.volume_up_rounded,
+                          color: theme.colorScheme.primary,
+                          size: 32,
+                        ),
                       ),
                     ),
                   ),
