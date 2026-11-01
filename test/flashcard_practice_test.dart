@@ -112,10 +112,15 @@ void main() {
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
   });
 
-  testWidgets('phím 1 = chưa biết, Enter = tiếp, 2 = đã biết', (tester) async {
+  testWidgets('phím 1 = chưa biết, 2 = đã biết, 3 = nghe, Enter = tiếp',
+      (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('flutter_tts'),
+      (call) async => 1,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -128,6 +133,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
+    await tester.pump();
+    expect(find.text('deploy'), findsOneWidget);
+    expect(find.text('triển khai'), findsNothing);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.pumpAndSettle();

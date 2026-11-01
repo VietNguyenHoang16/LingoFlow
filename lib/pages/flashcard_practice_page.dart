@@ -72,6 +72,14 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
       if (!_revealed) _markKnown();
       return true;
     }
+    if (key == LogicalKeyboardKey.digit3 ||
+        key == LogicalKeyboardKey.numpad3) {
+      final word = _queue?.current;
+      if (word != null) {
+        unawaited(_speak((word['word'] ?? '').toString()));
+      }
+      return true;
+    }
     if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
       if (_revealed) _advance();
@@ -442,25 +450,51 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   Semantics(
                     button: true,
                     label: 'Nghe phát âm',
-                    child: GestureDetector(
-                      onTap: () => unawaited(_speak(wordText)),
-                      child: Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withAlpha(20),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withAlpha(90),
-                            width: 2,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onTap: () => unawaited(_speak(wordText)),
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withAlpha(20),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: theme.colorScheme.primary.withAlpha(90),
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.volume_up_rounded,
+                              color: theme.colorScheme.primary,
+                              size: 32,
+                            ),
                           ),
                         ),
-                        child: Icon(
-                          Icons.volume_up_rounded,
-                          color: theme.colorScheme.primary,
-                          size: 32,
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '3',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -552,7 +586,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   if (!_revealed) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Bấm 1 = Chưa biết, 2 = Đã biết',
+                      'Bấm 1 = Chưa biết, 2 = Đã biết, 3 = Nghe từ',
                       style: TextStyle(
                         fontSize: 11,
                         color: theme.colorScheme.onSurfaceVariant,
