@@ -16,11 +16,11 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,166,118 bytes` (20.2 MB)
-- SHA256: `816667DCFC2A1FFE7DC7571E7B8D6033C174A1B33C88FF7DFE5DEBC08BF4FCE8`
+- SHA256: `CC3573FCD5739F6FB7624F226F02EF61AF5F2A63D1C5E29D861401426D07ECDC`
 - Ngày build: `01/11/2026` — bản mới nhất:
-  0. **Flashcard: phím tắt 1 / 2 / Enter** — bản web và máy có bàn phím cứng:
-     bấm **1** = Chưa biết, **2** = Đã biết, **Enter** = Tiếp. Có dòng gợi ý phím
-     ngay dưới 2 nút.
+  0. **Flashcard: phím tắt 1 / 2 / 3 / Enter** — bản web và máy có bàn phím cứng:
+     bấm **1** = Chưa biết, **2** = Đã biết, **3** = Nghe từ, **Enter** = Tiếp.
+     Nút loa có chip **3**; dòng gợi ý phím nằm ngay dưới 2 nút.
   1. **Flashcard: nút loa to, đặt dưới thẻ** — loa không còn nằm cạnh từ; giờ là
      nút tròn lớn căn giữa, nằm giữa khung thẻ và 2 nút **Chưa biết / Đã biết**,
      bấm là đọc từ ngay. Hai nút to rõ hơn, bố cục kín, không còn khoảng trống.
