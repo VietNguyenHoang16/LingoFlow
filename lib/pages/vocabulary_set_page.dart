@@ -19,6 +19,8 @@ import '../widgets/quick_meaning_edit.dart';
 import '../widgets/save_feedback.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/practice_mode_sheet.dart';
+import 'flashcard_practice_page.dart';
 import 'practice_page.dart';
 import 'review_page.dart';
 import 'profile_page.dart';
@@ -1393,17 +1395,28 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           color: theme.colorScheme.secondary,
                           textColor: theme.colorScheme.onSecondary,
                           onTap: () async {
+                            final mode = await showPracticeModeSheet(context);
+                            if (!context.mounted || mode == null) return;
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => PracticePage(
-                                  listId: widget.listId,
-                                  listName: widget.listName,
-                                  userId: widget.userId,
-                                ),
+                                builder: (context) =>
+                                    mode == PracticeMode.flashcard
+                                        ? FlashcardPracticePage(
+                                            listId: widget.listId,
+                                            listName: widget.listName,
+                                            userId: widget.userId,
+                                          )
+                                        : PracticePage(
+                                            listId: widget.listId,
+                                            listName: widget.listName,
+                                            userId: widget.userId,
+                                          ),
                               ),
                             );
-                            if (result == true) await _loadWords(persistProgress: true);
+                            if (result == true && mounted) {
+                              await _loadWords(persistProgress: true);
+                            }
                           },
                         ),
                       ),

@@ -26,6 +26,7 @@ class FlipWordCard extends StatefulWidget {
   final String collocations;
   final Color accent;
   final bool isDifficult;
+  final bool showFlipHint;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onSpeak;
@@ -47,6 +48,7 @@ class FlipWordCard extends StatefulWidget {
     this.collocations = '',
     required this.accent,
     this.isDifficult = false,
+    this.showFlipHint = true,
     required this.onTap,
     required this.onLongPress,
     required this.onSpeak,
@@ -126,6 +128,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                         collocations: widget.collocations,
                         accent: widget.accent,
                         theme: theme,
+                        showFlipHint: widget.showFlipHint,
                         onSpeak: widget.onSpeak,
                       ),
                     )
@@ -139,6 +142,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                       isDifficult: widget.isDifficult,
                       accent: widget.accent,
                       theme: theme,
+                      showFlipHint: widget.showFlipHint,
                       onSpeak: widget.onSpeak,
                     ),
             ),
@@ -159,6 +163,7 @@ class _CardFront extends StatelessWidget {
   final bool isDifficult;
   final Color accent;
   final ThemeData theme;
+  final bool showFlipHint;
   final VoidCallback onSpeak;
 
   const _CardFront({
@@ -171,6 +176,7 @@ class _CardFront extends StatelessWidget {
     required this.isDifficult,
     required this.accent,
     required this.theme,
+    required this.showFlipHint,
     required this.onSpeak,
   });
 
@@ -271,57 +277,62 @@ class _CardFront extends StatelessWidget {
               ],
             ),
           ),
-          Row(
-            children: [
-              if (isDifficult)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Từ khó',
+          if (isDifficult ||
+              (metaLabel != null && metaLabel!.isNotEmpty) ||
+              showFlipHint)
+            Row(
+              children: [
+                if (isDifficult)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Từ khó',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (metaLabel != null && metaLabel!.isNotEmpty)
+                  Flexible(
+                    child: Text(
+                      metaLabel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Colors.orange,
+                        color: accent,
                       ),
                     ),
-                  ],
-                )
-              else if (metaLabel != null && metaLabel!.isNotEmpty)
-                Flexible(
-                  child: Text(
-                    metaLabel!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: accent,
-                    ),
-                  ),
-                )
-              else
-                const Spacer(),
-              const SizedBox(width: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.flip_rounded, size: 15, color: theme.colorScheme.outline),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Chạm để lật',
-                    style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro',
-                      fontSize: 12,
-                      color: theme.colorScheme.outline,
-                    ),
+                  )
+                else if (showFlipHint)
+                  const Spacer(),
+                if (showFlipHint) ...[
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flip_rounded, size: 15, color: theme.colorScheme.outline),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Chạm để lật',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
             ],
           ),
         ],
@@ -341,6 +352,7 @@ class _CardBack extends StatelessWidget {
   final String collocations;
   final Color accent;
   final ThemeData theme;
+  final bool showFlipHint;
   final VoidCallback onSpeak;
 
   const _CardBack({
@@ -354,6 +366,7 @@ class _CardBack extends StatelessWidget {
     this.collocations = '',
     required this.accent,
     required this.theme,
+    required this.showFlipHint,
     required this.onSpeak,
   });
 
@@ -562,22 +575,24 @@ class _CardBack extends StatelessWidget {
                   child: Icon(Icons.volume_up_rounded, color: accent, size: 22),
                 ),
               ),
-              const Spacer(),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.flip_rounded, size: 15, color: theme.colorScheme.outline),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Chạm để lật lại',
-                    style: TextStyle(
-                      fontFamily: 'Be Vietnam Pro',
-                      fontSize: 12,
-                      color: theme.colorScheme.outline,
+              if (showFlipHint) ...[
+                const Spacer(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.flip_rounded, size: 15, color: theme.colorScheme.outline),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Chạm để lật lại',
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 12,
+                        color: theme.colorScheme.outline,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],

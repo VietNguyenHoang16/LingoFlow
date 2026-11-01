@@ -11,6 +11,8 @@ import '../widgets/word_type_badge.dart';
 import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import '../services/word_enrichment_service.dart';
+import '../widgets/practice_mode_sheet.dart';
+import 'flashcard_practice_page.dart';
 import 'practice_page.dart';
 import 'profile_page.dart';
 import 'review_page.dart';
@@ -511,28 +513,34 @@ class _RecentPageState extends State<RecentPage> {
     });
   }
 
-  void _startPractice() {
+  Future<void> _startPractice() async {
     if (_selectedWords.isEmpty) return;
     final selected =
         _visibleWords.where((w) => _selectedWords.contains(w['id'] as int)).toList();
-    Navigator.push(
+    final mode = await showPracticeModeSheet(context);
+    if (!mounted || mode == null) return;
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PracticePage(
-          userId: widget.userId,
-          listName: 'Recent (${selected.length} từ)',
-          preloadedWords: selected,
-        ),
+        builder: (context) => mode == PracticeMode.flashcard
+            ? FlashcardPracticePage(
+                userId: widget.userId,
+                listName: 'Recent (${selected.length} từ)',
+                preloadedWords: selected,
+              )
+            : PracticePage(
+                userId: widget.userId,
+                listName: 'Recent (${selected.length} từ)',
+                preloadedWords: selected,
+              ),
       ),
-    ).then((_) {
-      if (mounted) {
-        setState(() {
-          _isSelectionMode = false;
-          _selectionAnchor = null;
-        });
-        _selectedWords.clear();
-      }
+    );
+    if (!mounted) return;
+    setState(() {
+      _isSelectionMode = false;
+      _selectionAnchor = null;
     });
+    _selectedWords.clear();
   }
 
   @override

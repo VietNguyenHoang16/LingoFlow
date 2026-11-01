@@ -8,7 +8,9 @@ import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/flip_word_card.dart';
 import '../widgets/save_feedback.dart';
+import '../widgets/practice_mode_sheet.dart';
 import '../services/word_details_parser.dart';
+import 'flashcard_practice_page.dart';
 import 'review_page.dart';
 import 'practice_page.dart';
 
@@ -309,18 +311,27 @@ class _CategoryPageState extends State<CategoryPage> {
                             const Spacer(),
                             GestureDetector(
                               onTap: () async {
+                                final mode = await showPracticeModeSheet(context);
+                                if (!context.mounted || mode == null) return;
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => PracticePage(
-                                      userId: widget.userId,
-                                      listName: _categoryLabel,
-                                      category: widget.category,
-                                      studyMode: true,
-                                    ),
+                                    builder: (context) =>
+                                        mode == PracticeMode.flashcard
+                                            ? FlashcardPracticePage(
+                                                userId: widget.userId,
+                                                listName: _categoryLabel,
+                                                category: widget.category,
+                                              )
+                                            : PracticePage(
+                                                userId: widget.userId,
+                                                listName: _categoryLabel,
+                                                category: widget.category,
+                                                studyMode: true,
+                                              ),
                                   ),
                                 );
-                                _loadWords();
+                                if (mounted) _loadWords();
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
