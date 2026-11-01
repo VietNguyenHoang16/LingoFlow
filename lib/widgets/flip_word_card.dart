@@ -27,6 +27,7 @@ class FlipWordCard extends StatefulWidget {
   final Color accent;
   final bool isDifficult;
   final bool showFlipHint;
+  final bool showSpeakButton;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onSpeak;
@@ -49,6 +50,7 @@ class FlipWordCard extends StatefulWidget {
     required this.accent,
     this.isDifficult = false,
     this.showFlipHint = true,
+    this.showSpeakButton = true,
     required this.onTap,
     required this.onLongPress,
     required this.onSpeak,
@@ -129,6 +131,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                         accent: widget.accent,
                         theme: theme,
                         showFlipHint: widget.showFlipHint,
+                        showSpeakButton: widget.showSpeakButton,
                         onSpeak: widget.onSpeak,
                       ),
                     )
@@ -143,6 +146,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                       accent: widget.accent,
                       theme: theme,
                       showFlipHint: widget.showFlipHint,
+                      showSpeakButton: widget.showSpeakButton,
                       onSpeak: widget.onSpeak,
                     ),
             ),
@@ -164,6 +168,7 @@ class _CardFront extends StatelessWidget {
   final Color accent;
   final ThemeData theme;
   final bool showFlipHint;
+  final bool showSpeakButton;
   final VoidCallback onSpeak;
 
   const _CardFront({
@@ -177,6 +182,7 @@ class _CardFront extends StatelessWidget {
     required this.accent,
     required this.theme,
     required this.showFlipHint,
+    required this.showSpeakButton,
     required this.onSpeak,
   });
 
@@ -246,18 +252,24 @@ class _CardFront extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: onSpeak,
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: accent.withAlpha(25),
-                          shape: BoxShape.circle,
+                    if (showSpeakButton) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: onSpeak,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: accent.withAlpha(25),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.volume_up_rounded,
+                            color: accent,
+                            size: 22,
+                          ),
                         ),
-                        child: Icon(Icons.volume_up_rounded, color: accent, size: 22),
                       ),
-                    ),
+                    ],
                   ],
                 ),
                 if (pronunciation.isNotEmpty) ...[
@@ -353,6 +365,7 @@ class _CardBack extends StatelessWidget {
   final Color accent;
   final ThemeData theme;
   final bool showFlipHint;
+  final bool showSpeakButton;
   final VoidCallback onSpeak;
 
   const _CardBack({
@@ -367,6 +380,7 @@ class _CardBack extends StatelessWidget {
     required this.accent,
     required this.theme,
     required this.showFlipHint,
+    required this.showSpeakButton,
     required this.onSpeak,
   });
 
@@ -561,40 +575,47 @@ class _CardBack extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: onSpeak,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: accent.withAlpha(25),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.volume_up_rounded, color: accent, size: 22),
-                ),
-              ),
-              if (showFlipHint) ...[
-                const Spacer(),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.flip_rounded, size: 15, color: theme.colorScheme.outline),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Chạm để lật lại',
-                      style: TextStyle(
-                        fontFamily: 'Be Vietnam Pro',
-                        fontSize: 12,
-                        color: theme.colorScheme.outline,
+          if (showSpeakButton || showFlipHint) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (showSpeakButton)
+                  GestureDetector(
+                    onTap: onSpeak,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: accent.withAlpha(25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.volume_up_rounded,
+                        color: accent,
+                        size: 22,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                if (showFlipHint) ...[
+                  const Spacer(),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flip_rounded, size: 15, color: theme.colorScheme.outline),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Chạm để lật lại',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );

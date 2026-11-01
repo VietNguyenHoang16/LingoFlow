@@ -83,4 +83,31 @@ void main() {
     expect(find.text('Đã biết hết 1 từ!'), findsOneWidget);
     expect(find.text('Làm lại'), findsOneWidget);
   });
+
+  testWidgets('không overflow ở màn hình nhỏ 320x568', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: FlashcardPracticePage(
+          userId: 1,
+          listName: 'Test',
+          preloadedWords: [_word(1, 'deploy', 'triển khai')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+
+    await tester.tap(find.text('Chưa biết'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+  });
 }

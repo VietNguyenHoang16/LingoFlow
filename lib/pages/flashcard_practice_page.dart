@@ -378,6 +378,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   isDifficult: word['is_difficult'] == true ||
                       word['is_difficult'] == 1,
                   showFlipHint: false,
+                  showSpeakButton: false,
                   onTap: () {},
                   onLongPress: () {},
                   onSpeak: () => unawaited(_speak(wordText)),
@@ -386,10 +387,34 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: _revealed
-                  ? SizedBox(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () => unawaited(_speak(wordText)),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withAlpha(20),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withAlpha(90),
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.volume_up_rounded,
+                        color: theme.colorScheme.primary,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_revealed)
+                    SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: 54,
                       child: ElevatedButton(
                         onPressed: _advance,
                         style: ElevatedButton.styleFrom(
@@ -408,11 +433,12 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                         ),
                       ),
                     )
-                  : Row(
+                  else
+                    Row(
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 52,
+                            height: 54,
                             child: OutlinedButton.icon(
                               onPressed: _markUnknown,
                               icon: const Icon(Icons.close_rounded, size: 20),
@@ -439,7 +465,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: SizedBox(
-                            height: 52,
+                            height: 54,
                             child: ElevatedButton.icon(
                               onPressed: _markKnown,
                               icon: const Icon(Icons.check_rounded, size: 20),
@@ -462,6 +488,8 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                         ),
                       ],
                     ),
+                ],
+              ),
             ),
           ],
         ),
