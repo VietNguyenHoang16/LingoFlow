@@ -6,7 +6,7 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **20.3 MB** | arm64-v8a | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
 > Bản này **gỡ mô hình 2 loại từ** (theo yêu cầu): mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
 
@@ -15,10 +15,11 @@ Link tải nhanh:
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,166,118 bytes` (20.2 MB)
-- SHA256: `CC3573FCD5739F6FB7624F226F02EF61AF5F2A63D1C5E29D861401426D07ECDC`
-- Ngày build: `01/11/2026` — bản mới nhất:
-  0. **Flashcard: phím tắt 1 / 2 / 3 / Enter** — bản web và máy có bàn phím cứng:
+- Kích thước: `21,231,754 bytes` (20.3 MB)
+- SHA256: `166C08AB564205CE3F53992CCC914FCF1E2D20FDAE8196B60DBE966840774B0E`
+- Ngày build: `02/11/2026` — bản mới nhất:
+  0. **Từ yêu thích** — chạm tim ở danh sách trang chủ, kết quả tìm kiếm, thẻ ôn tập, chủ đề, bộ từ, flashcard và luyện tập. Nút tim ở header trang chủ mở trang **Từ yêu thích** (có số lượng) và luyện đúng các từ đó. Cột "từ khó" cũ được bỏ, dữ liệu đánh dấu khó được reset.
+  1. **Flashcard: phím tắt 1 / 2 / 3 / Enter** — bản web và máy có bàn phím cứng:
      bấm **1** = Chưa biết, **2** = Đã biết, **3** = Nghe từ, **Enter** = Tiếp.
      Nút loa có chip **3**; dòng gợi ý phím nằm ngay dưới 2 nút.
   1. **Flashcard: nút loa to, đặt dưới thẻ** — loa không còn nằm cạnh từ; giờ là

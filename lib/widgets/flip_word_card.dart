@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'favorite_button.dart';
 import 'synonym_block.dart';
 import 'topic_tag_badge.dart';
 import 'word_type_badge.dart';
@@ -25,7 +26,8 @@ class FlipWordCard extends StatefulWidget {
   final String commonSynonyms;
   final String collocations;
   final Color accent;
-  final bool isDifficult;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
   final bool showFlipHint;
   final bool showSpeakButton;
   final VoidCallback onTap;
@@ -48,7 +50,8 @@ class FlipWordCard extends StatefulWidget {
     this.commonSynonyms = '',
     this.collocations = '',
     required this.accent,
-    this.isDifficult = false,
+    this.isFavorite = false,
+    this.onToggleFavorite,
     this.showFlipHint = true,
     this.showSpeakButton = true,
     required this.onTap,
@@ -100,7 +103,9 @@ class _FlipWordCardState extends State<FlipWordCard>
     return GestureDetector(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
-      child: AnimatedBuilder(
+      child: Stack(
+        children: [
+          AnimatedBuilder(
         animation: _animation,
         builder: (context, _) {
           final showBack = _animation.value >= 0.5;
@@ -142,7 +147,6 @@ class _FlipWordCardState extends State<FlipWordCard>
                       topicTag: widget.topicTag,
                       metaLabel: widget.metaLabel,
                       createdLabel: widget.createdLabel,
-                      isDifficult: widget.isDifficult,
                       accent: widget.accent,
                       theme: theme,
                       showFlipHint: widget.showFlipHint,
@@ -152,6 +156,18 @@ class _FlipWordCardState extends State<FlipWordCard>
             ),
           );
         },
+      ),
+          if (widget.onToggleFavorite != null)
+            Positioned(
+              top: 6,
+              right: 6,
+              child: FavoriteButton(
+                isFavorite: widget.isFavorite,
+                tooltip: widget.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích',
+                onTap: widget.onToggleFavorite,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -164,7 +180,6 @@ class _CardFront extends StatelessWidget {
   final String topicTag;
   final String? metaLabel;
   final String? createdLabel;
-  final bool isDifficult;
   final Color accent;
   final ThemeData theme;
   final bool showFlipHint;
@@ -178,7 +193,6 @@ class _CardFront extends StatelessWidget {
     required this.topicTag,
     this.metaLabel,
     this.createdLabel,
-    required this.isDifficult,
     required this.accent,
     required this.theme,
     required this.showFlipHint,
@@ -202,7 +216,9 @@ class _CardFront extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
+          Padding(
+            padding: const EdgeInsets.only(right: 28),
+            child: Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
@@ -227,6 +243,7 @@ class _CardFront extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
           ),
           Container(
             width: double.infinity,
@@ -289,29 +306,10 @@ class _CardFront extends StatelessWidget {
               ],
             ),
           ),
-          if (isDifficult ||
-              (metaLabel != null && metaLabel!.isNotEmpty) ||
-              showFlipHint)
+          if ((metaLabel != null && metaLabel!.isNotEmpty) || showFlipHint)
             Row(
               children: [
-                if (isDifficult)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Từ khó',
-                        style: TextStyle(
-                          fontFamily: 'Be Vietnam Pro',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.orange,
-                        ),
-                      ),
-                    ],
-                  )
-                else if (metaLabel != null && metaLabel!.isNotEmpty)
+                if (metaLabel != null && metaLabel!.isNotEmpty)
                   Flexible(
                     child: Text(
                       metaLabel!,

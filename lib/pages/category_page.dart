@@ -497,6 +497,26 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  Future<void> _toggleFavorite(Map<String, dynamic> word) async {
+    final id = word['id'] as int;
+    final next = word['is_favorite'] != true;
+    setState(() {
+      final i = _words.indexWhere((w) => w['id'] == id);
+      if (i != -1) _words[i] = {..._words[i], 'is_favorite': next};
+    });
+    try {
+      await _db.updateWordFavorite(id, next);
+      WordChangeBus().notifyChanged('favorite');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        final i = _words.indexWhere((w) => w['id'] == id);
+        if (i != -1) _words[i] = word;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
+  }
+
   void _showWordOptions(Map<String, dynamic> word) {
     final theme = Theme.of(context);
     final wordText = (word['word'] ?? '').toString();
@@ -546,6 +566,20 @@ class _CategoryPageState extends State<CategoryPage> {
             ],
             const Divider(),
             ListTile(
+              leading: Icon(
+                word['is_favorite'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: const Color(0xFFE11D48),
+              ),
+              title: Text(
+                word['is_favorite'] == true ? 'Bỏ yêu thích' : 'Thêm yêu thích',
+                style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleFavorite(word);
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
               title: const Text('Chinh sua',
                   style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600)),
@@ -594,7 +628,8 @@ class _CategoryPageState extends State<CategoryPage> {
       exampleTarget: exampleTarget.isEmpty ? null : exampleTarget,
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       accent: catColor,
-      isDifficult: word['is_difficult'] == true,
+      isFavorite: word['is_favorite'] == true,
+      onToggleFavorite: () => _toggleFavorite(word),
       onTap: () {
         if (isFlipped) {
           _flippedWords.remove(wordId);

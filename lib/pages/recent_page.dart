@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
 import '../widgets/word_type_badge.dart';
@@ -12,6 +13,7 @@ import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import '../services/word_enrichment_service.dart';
 import '../widgets/practice_mode_sheet.dart';
+import 'favorites_page.dart';
 import 'flashcard_practice_page.dart';
 import 'practice_page.dart';
 import 'profile_page.dart';
@@ -184,6 +186,38 @@ class _RecentPageState extends State<RecentPage> {
 
   int get _dueWords => (_reviewStats['dueToday'] as int?) ?? 0;
   int get _dueGrammar => (_reviewStats['grammarDue'] as int?) ?? 0;
+  int get _favoriteCount => (_reviewStats['favoriteCount'] as int?) ?? 0;
+
+  Future<void> _openFavorites() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => FavoritesPage(userId: widget.userId)),
+    );
+    if (!mounted) return;
+    await _loadRecent(background: true);
+    await _loadReviewStats();
+  }
+
+  Future<void> _toggleFavorite(Map<String, dynamic> word) async {
+    final id = word['id'] as int;
+    final next = word['is_favorite'] != true;
+    setState(() {
+      _patchWord(id, {...word, 'is_favorite': next});
+      final count = _favoriteCount + (next ? 1 : -1);
+      _reviewStats = {..._reviewStats, 'favoriteCount': count < 0 ? 0 : count};
+    });
+    try {
+      await _db.updateWordFavorite(id, next);
+      WordChangeBus().notifyChanged('favorite');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _patchWord(id, word);
+        _reviewStats = {..._reviewStats, 'favoriteCount': _favoriteCount + (next ? -1 : 1)};
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
+  }
 
   Future<void> _openReview({bool grammar = false}) async {
     await Navigator.push(
@@ -317,6 +351,20 @@ class _RecentPageState extends State<RecentPage> {
               ),
             ],
             const Divider(),
+            ListTile(
+              leading: Icon(
+                word['is_favorite'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: const Color(0xFFE11D48),
+              ),
+              title: Text(
+                word['is_favorite'] == true ? 'Bỏ yêu thích' : 'Thêm yêu thích',
+                style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleFavorite(word);
+              },
+            ),
             ListTile(
               leading: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
               title: const Text('Chinh sua / them nhan',
@@ -771,6 +819,28 @@ class _RecentPageState extends State<RecentPage> {
                 ),
               ),
               if (!_isSelectionMode) ...[
+                Tooltip(
+                  message: 'Từ yêu thích',
+                  child: GestureDetector(
+                    onTap: _openFavorites,
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                      ),
+                      child: FavoriteButton(
+                        isFavorite: _favoriteCount > 0,
+                        count: _favoriteCount,
+                        size: 18,
+                        onTap: _openFavorites,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: _bulkImport,
                   child: Container(
@@ -1078,6 +1148,8 @@ class _RecentPageState extends State<RecentPage> {
           meaning: (word['meaning'] ?? '').toString(),
           pronunciation: (word['pronunciation'] ?? '').toString(),
           wordType: (word['word_type'] ?? '').toString(),
+          isFavorite: word['is_favorite'] == true,
+          onFavorite: () => _toggleFavorite(word),
           onTap: () => _speak((word['word'] ?? '').toString()),
           onLongPress: () => _showWordOptions(word),
         );
@@ -1296,6 +1368,10 @@ class _RecentPageState extends State<RecentPage> {
                   ],
                 ),
               ),
+              FavoriteButton(
+                isFavorite: word['is_favorite'] == true,
+                onTap: () => _toggleFavorite(word),
+              ),
               GestureDetector(
                 onTap: () => _speak(wordText),
                 child: Container(
@@ -1333,7 +1409,8 @@ class _RecentPageState extends State<RecentPage> {
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       collocations: (word['collocations'] ?? '').toString(),
       accent: theme.colorScheme.primary,
-      isDifficult: word['is_difficult'] == true,
+      isFavorite: word['is_favorite'] == true,
+      onToggleFavorite: () => _toggleFavorite(word),
       onTap: () {
         setState(() {
           if (isFlipped) {
@@ -1375,6 +1452,8 @@ class _SearchResultRow extends StatelessWidget {
     required this.meaning,
     required this.pronunciation,
     required this.wordType,
+    required this.isFavorite,
+    required this.onFavorite,
     required this.onTap,
     required this.onLongPress,
   });
@@ -1383,6 +1462,8 @@ class _SearchResultRow extends StatelessWidget {
   final String meaning;
   final String pronunciation;
   final String wordType;
+  final bool isFavorite;
+  final VoidCallback onFavorite;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -1474,6 +1555,11 @@ class _SearchResultRow extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
+            FavoriteButton(
+              isFavorite: isFavorite,
+              tooltip: isFavorite ? 'Bỏ yêu thích' : 'Yêu thích',
+              onTap: onFavorite,
             ),
             IconButton(
               tooltip: 'Nghe phát âm',

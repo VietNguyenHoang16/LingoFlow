@@ -54,7 +54,7 @@ Map<String, dynamic> normalizeWord(Map<String, dynamic> raw) {
   }
   word['ease_factor'] = _safeDouble(word['ease_factor']);
   word['is_mastered'] = _safeBool(word['is_mastered']);
-  word['is_difficult'] = _safeBool(word['is_difficult']);
+  word['is_favorite'] = _safeBool(word['is_favorite'] ?? word['is_difficult']);
   word['pronunciation'] = _safeString(word['pronunciation']);
   word['meaning'] = _safeString(word['meaning']);
   word['full_details'] = _safeString(word['full_details']);

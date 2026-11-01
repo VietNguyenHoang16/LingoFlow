@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/flashcard_queue.dart';
 import '../services/tts_settings_service.dart';
+import '../services/word_change_bus.dart';
 import '../services/word_details_parser.dart';
 import '../widgets/confetti_overlay.dart';
 import '../widgets/flip_word_card.dart';
@@ -86,6 +87,20 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
       return true;
     }
     return false;
+  }
+
+  Future<void> _toggleFavorite(Map<String, dynamic> word) async {
+    final id = word['id'] as int;
+    final next = word['is_favorite'] != true;
+    setState(() => word['is_favorite'] = next);
+    try {
+      await _db.updateWordFavorite(id, next);
+      WordChangeBus().notifyChanged('favorite');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => word['is_favorite'] = !next);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
   }
 
   Future<void> _speak(String text) async {
@@ -432,8 +447,8 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                       (word['common_synonyms'] ?? '').toString(),
                   collocations: (word['collocations'] ?? '').toString(),
                   accent: theme.colorScheme.primary,
-                  isDifficult: word['is_difficult'] == true ||
-                      word['is_difficult'] == 1,
+                  isFavorite: word['is_favorite'] == true,
+                  onToggleFavorite: () => _toggleFavorite(word),
                   showFlipHint: false,
                   showSpeakButton: false,
                   onTap: () {},

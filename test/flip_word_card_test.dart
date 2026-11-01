@@ -47,7 +47,7 @@ Widget _card({
             exampleTranslation: exampleTranslation,
             exampleTarget: 'example',
             accent: const Color(0xFF6366F1),
-            isDifficult: true,
+            isFavorite: true,
             onTap: () {},
             onLongPress: () {},
             onSpeak: () {},
@@ -138,5 +138,33 @@ void main() {
       isFalse,
       reason: 'Nghia dai phai hien thi du, khong bi ellipsis.',
     );
+  });
+
+  testWidgets('tim yeu thich khong lat the', (tester) async {
+    var toggled = 0;
+    var tapped = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FlipWordCard(
+          isFlipped: false,
+          word: 'apple',
+          pronunciation: 'a',
+          meaning: 'tao',
+          wordType: 'noun',
+          topicTag: '',
+          example: '',
+          accent: const Color(0xFF6366F1),
+          isFavorite: false,
+          onToggleFavorite: () => toggled++,
+          onTap: () => tapped++,
+          onLongPress: () {},
+          onSpeak: () {},
+        ),
+      ),
+    ));
+    await tester.tap(find.byIcon(Icons.favorite_border_rounded));
+    await tester.pump();
+    expect(toggled, 1);
+    expect(tapped, 0);
   });
 }

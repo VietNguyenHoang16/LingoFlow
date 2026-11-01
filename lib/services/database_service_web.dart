@@ -77,6 +77,8 @@ class DatabaseService {
     'updateVocabularyWord',
     'updateVocabularyWordDetails',
     'deleteList',
+    'updateWordFavorite',
+    'updateWordDifficult',
   };
 
   static const String _mobileApiBaseUrl = String.fromEnvironment(
@@ -458,6 +460,11 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getFavoriteWords(int userId) async {
+    final rows = await _request<List<dynamic>>('getFavoriteWords', data: {'userId': userId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
   Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20}) async {
     final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
@@ -482,8 +489,12 @@ class DatabaseService {
     await _request<void>('updateWordMastered', data: {'wordId': wordId, 'isMastered': isMastered});
   }
 
+  Future<void> updateWordFavorite(int wordId, bool isFavorite) async {
+    await _request<void>('updateWordFavorite', data: {'wordId': wordId, 'isFavorite': isFavorite});
+  }
+
   Future<void> updateWordDifficult(int wordId, bool isDifficult) async {
-    await _request<void>('updateWordDifficult', data: {'wordId': wordId, 'isDifficult': isDifficult});
+    await updateWordFavorite(wordId, isDifficult);
   }
 
   Future<void> deleteVocabularyWord(int wordId) async {

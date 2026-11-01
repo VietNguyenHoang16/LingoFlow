@@ -85,13 +85,14 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
 
   Future<void> _toggleHardWord(int wordId, bool currentStatus) async {
     try {
-      await _db.updateWordDifficult(wordId, !currentStatus);
+      await _db.updateWordFavorite(wordId, !currentStatus);
       setState(() {
         final index = _words.indexWhere((w) => w['id'] == wordId);
         if (index != -1) {
-          _words[index] = {..._words[index], 'is_difficult': !currentStatus};
+          _words[index] = {..._words[index], 'is_favorite': !currentStatus};
         }
       });
+      WordChangeBus().notifyChanged('favorite');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -204,17 +205,17 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
               leading: Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
-                  color: (isDifficult ? Colors.green : Colors.orange).withAlpha(20),
+                  color: const Color(0xFFE11D48).withAlpha(28),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  isDifficult ? Icons.flag : Icons.flag_outlined,
-                  color: isDifficult ? Colors.green : Colors.orange,
+                  isDifficult ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: const Color(0xFFE11D48),
                   size: 18,
                 ),
               ),
               title: Text(
-                isDifficult ? 'Bỏ đánh dấu khó' : 'Đánh dấu khó',
+                isDifficult ? 'Bỏ yêu thích' : 'Thêm yêu thích',
                 style: const TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
               ),
               onTap: () {
@@ -1547,7 +1548,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         wordType: word['word_type'] ?? '',
                         topicTag: word['topic_tag'] ?? '',
                         isMastered: word['is_mastered'] ?? false,
-                        isDifficult: word['is_difficult'] ?? false,
+                        isDifficult: word['is_favorite'] == true,
                         masteryLevel: word['mastery_level'] ?? 0,
                         nextReviewDate: word['next_review_date'],
                         intervalDays: word['interval_days'] ?? 0,

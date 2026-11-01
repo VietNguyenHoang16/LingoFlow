@@ -20,7 +20,7 @@ Map<String, dynamic> _word(int id, String word, String meaning) => {
       'topic_tag': '',
       'common_synonyms': '',
       'is_mastered': false,
-      'is_difficult': false,
+      'is_favorite': false,
       'review_count': 0,
       'correct_streak': 0,
       'ease_factor': 2.5,

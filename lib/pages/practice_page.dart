@@ -6,6 +6,7 @@ import '../services/database_service.dart';
 import '../services/srs_service.dart';
 import '../services/word_change_bus.dart';
 import '../services/tts_settings_service.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
 import '../widgets/quick_meaning_edit.dart';
@@ -77,6 +78,26 @@ class _PracticePageState extends State<PracticePage> {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     _loadWords();
+  }
+
+  Future<void> _toggleFavorite(Map<String, dynamic> word) async {
+    final id = word['id'] as int;
+    final next = word['is_favorite'] != true;
+    setState(() {
+      final i = _words.indexWhere((w) => w['id'] == id);
+      if (i != -1) _words[i] = {..._words[i], 'is_favorite': next};
+    });
+    try {
+      await _db.updateWordFavorite(id, next);
+      WordChangeBus().notifyChanged('favorite');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        final i = _words.indexWhere((w) => w['id'] == id);
+        if (i != -1) _words[i] = word;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
   }
 
   Future<void> _speak(String text) async {
@@ -626,6 +647,11 @@ class _PracticePageState extends State<PracticePage> {
         ),
         title: Text(widget.listName, style: TextStyle(color: theme.colorScheme.onSurface)),
         actions: [
+          FavoriteButton(
+            isFavorite: currentWord['is_favorite'] == true,
+            tooltip: currentWord['is_favorite'] == true ? 'Bỏ yêu thích' : 'Yêu thích',
+            onTap: () => _toggleFavorite(currentWord),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(

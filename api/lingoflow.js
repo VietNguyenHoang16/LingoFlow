@@ -89,7 +89,9 @@ function mapWordRow(row) {
     meaning: row.meaning || '',
     full_details: row.full_details || '',
     is_mastered: Boolean(row.is_mastered),
-    is_difficult: Boolean(row.is_difficult),
+    is_favorite: Boolean(row.is_favorite),
+    // Alias cho APK cu chua cap nhat (truong nay gio mang nghia yeu thich).
+    is_difficult: Boolean(row.is_favorite),
     review_count: asInt(row.review_count),
     correct_streak: asInt(row.correct_streak),
     ease_factor: Number(row.ease_factor ?? 2.5),
@@ -189,7 +191,7 @@ async function getUserAiExampleStyle(userId) {
 }
 
 // Tang len moi khi them migration trong ensureSchema, neu khong se bi gate bo qua.
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 // Cột bắt buộc của mô hình 2 loại từ. Luôn kiểm tra (idempotent) vì DB cũ có
 // thể đã ở version mới nhất TRƯỚC khi 2 cột này tồn tại -> không thể chỉ dựa
@@ -199,6 +201,9 @@ async function ensureRequiredColumns() {
   if (requiredColumnsReady) return;
   await addColumnIfNotExists('vocabulary_words', 'learning_mode', "VARCHAR(10) DEFAULT 'active'");
   await addColumnIfNotExists('vocabulary_words', 'collocations', 'TEXT');
+  // v8: "tu kho" -> "yeu thich". Reset trang (user chon) roi bo cot cu.
+  await addColumnIfNotExists('vocabulary_words', 'is_favorite', 'BOOLEAN DEFAULT FALSE');
+  await dropColumnIfExists('vocabulary_words', 'is_difficult');
   requiredColumnsReady = true;
 }
 
@@ -262,7 +267,7 @@ async function ensureSchema() {
 
       // Add columns that might be missing (legacy migration)
       await addColumnIfNotExists('vocabulary_words', 'full_details', 'TEXT');
-      await addColumnIfNotExists('vocabulary_words', 'is_difficult', 'BOOLEAN DEFAULT FALSE');
+      await addColumnIfNotExists('vocabulary_words', 'is_favorite', 'BOOLEAN DEFAULT FALSE');
       await addColumnIfNotExists('vocabulary_words', 'review_count', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'correct_streak', 'INTEGER DEFAULT 0');
       await addColumnIfNotExists('vocabulary_words', 'ease_factor', 'REAL DEFAULT 2.5');
@@ -519,7 +524,8 @@ async function handleAction(action, data) {
                 COUNT(*) FILTER (WHERE vw.last_reviewed_at IS NOT NULL AND vw.last_reviewed_at >= CURRENT_DATE
                                       AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS reviewed_today,
                 COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
-                                      AND COALESCE(vw.word_type, '') LIKE '%grammar%') AS grammar_due
+                                      AND COALESCE(vw.word_type, '') LIKE '%grammar%') AS grammar_due,
+                COUNT(*) FILTER (WHERE vw.is_favorite IS TRUE) AS favorite_count
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1`,
@@ -543,6 +549,7 @@ async function handleAction(action, data) {
           totalWords: asInt(reviewRows[0].total_words),
           reviewedToday: asInt(reviewRows[0].reviewed_today),
           grammarDue: asInt(reviewRows[0].grammar_due),
+          favoriteCount: asInt(reviewRows[0].favorite_count),
           breakdown,
         },
       };
@@ -894,7 +901,7 @@ async function handleAction(action, data) {
 
     case 'getVocabularyWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations
          FROM vocabulary_words vw
@@ -908,7 +915,7 @@ async function handleAction(action, data) {
 
     case 'getWordsByCategory': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vl.id AS list_id
@@ -925,7 +932,7 @@ async function handleAction(action, data) {
     case 'getRecentWords': {
       const limit = Math.min(Math.max(asInt(data.limit) || 20, 1), 100);
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.created_at,
@@ -936,6 +943,22 @@ async function handleAction(action, data) {
          ORDER BY vw.created_at DESC
          LIMIT $2`,
         [data.userId, limit],
+      );
+      return rows.map(mapWordRow);
+    }
+
+    case 'getFavoriteWords': {
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+                vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
+                vw.created_at,
+                vl.id AS list_id
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND vw.is_favorite IS TRUE
+         ORDER BY vw.created_at DESC, vw.id DESC`,
+        [data.userId],
       );
       return rows.map(mapWordRow);
     }
@@ -970,11 +993,14 @@ async function handleAction(action, data) {
         [data.pronunciation || '', data.wordId, data.userId]);
       return null;
 
-    case 'updateWordDifficult':
+    case 'updateWordFavorite':
+    case 'updateWordDifficult': {
+      const isFavorite = data.isFavorite !== undefined ? Boolean(data.isFavorite) : Boolean(data.isDifficult);
       await query(
-        'UPDATE vocabulary_words SET is_difficult = $1 WHERE id = $2 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $3)',
-        [data.isDifficult, data.wordId, data.userId]);
+        'UPDATE vocabulary_words SET is_favorite = $1 WHERE id = $2 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $3)',
+        [isFavorite, data.wordId, data.userId]);
       return null;
+    }
 
     case 'updateWordMastered':
       await query(
@@ -1081,7 +1107,7 @@ async function handleAction(action, data) {
     // ---- Review ----
     case 'getWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations
          FROM vocabulary_words vw
@@ -1096,7 +1122,7 @@ async function handleAction(action, data) {
 
     case 'getAllWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vl.id AS list_id
@@ -1112,7 +1138,7 @@ async function handleAction(action, data) {
 
     case 'getWordsDueForReviewByCategory': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vl.id AS list_id
@@ -1131,7 +1157,7 @@ async function handleAction(action, data) {
       // ON tap cau truc: lay cac tu co 'grammar' trong word_type (bao gom tu lai loai
       // nhu 'noun,grammar' - nhung tu nay da bi loai khoi on tap tu vung).
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vl.id AS list_id
@@ -1303,7 +1329,7 @@ async function handleAction(action, data) {
       const q = String(data.query || '').trim().toLowerCase();
       if (!q) return [];
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_difficult,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.created_at, vl.id AS list_id

@@ -43,7 +43,7 @@ async function run() {
   // 1. Export
   const exportResult = await pool.query(
     `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details,
-            vw.is_mastered, vw.is_difficult, vw.review_count, vw.correct_streak,
+            vw.is_mastered, vw.is_favorite, vw.review_count, vw.correct_streak,
             vw.ease_factor, vw.interval_days, vw.next_review_date, vw.last_reviewed_at,
             vw.mastery_level, vw.lapse_count, vw.word_type, vw.created_at,
             vl.name AS list_name, vl.id AS list_id, vl.category AS list_category

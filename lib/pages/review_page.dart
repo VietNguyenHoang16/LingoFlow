@@ -8,6 +8,7 @@ import '../services/database_service.dart';
 import '../services/review_word_utils.dart';
 import '../services/word_change_bus.dart';
 import '../widgets/answer_diff_text.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/review_example_panel.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
@@ -27,7 +28,7 @@ import '../widgets/topic_tag_badge.dart';
 const Color _answerMismatchColor = Color(0xFFDC2626);
 
 /// Hanh dong trong menu an cua the cau hoi (nhan giu the / Shift+F10).
-enum _WordMenuAction { edit, delete }
+enum _WordMenuAction { edit, delete, favorite }
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -310,6 +311,21 @@ class _ReviewPageState extends State<ReviewPage>
   /// Tu hien tai - null neu index ngoai pham vi (khong bao gio RangeError).
   Map<String, dynamic>? get _currentWordSafe => wordAt(_dueWords, _currentIndex);
 
+  Future<void> _toggleFavorite(Map<String, dynamic> word) async {
+    final wordId = word['id'] as int;
+    final next = word['is_favorite'] != true;
+    final updated = Map<String, dynamic>.from(word)..['is_favorite'] = next;
+    setState(() => _replaceWordInSession(wordId, updated));
+    try {
+      await _db.updateWordFavorite(wordId, next);
+      WordChangeBus().notifyChanged('favorite');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _replaceWordInSession(wordId, word));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
+  }
+
   /// Menu an cua the cau hoi (nhan giu the / Shift+F10): `Chinh sua tu`
   /// (sua Tu + Nghia, cac field khac lay tu dong tu tu dien) va `Xoa tu`.
   Future<void> _showWordOptions() async {
@@ -339,6 +355,14 @@ class _ReviewPageState extends State<ReviewPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
+                  leading: Icon(
+                    word['is_favorite'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: const Color(0xFFE11D48),
+                  ),
+                  title: Text(word['is_favorite'] == true ? 'Bỏ yêu thích' : 'Thêm yêu thích'),
+                  onTap: () => Navigator.pop(ctx, _WordMenuAction.favorite),
+                ),
+                ListTile(
                   leading: Icon(Icons.edit_rounded, color: Theme.of(ctx).colorScheme.primary),
                   title: const Text('Chỉnh sửa từ'),
                   onTap: () => Navigator.pop(ctx, _WordMenuAction.edit),
@@ -354,6 +378,10 @@ class _ReviewPageState extends State<ReviewPage>
         ),
       );
       if (!mounted) return;
+      if (action == _WordMenuAction.favorite) {
+        await _toggleFavorite(word);
+        return;
+      }
       if (action == _WordMenuAction.edit) {
         await _editCurrentWord(word);
         return;
@@ -1080,19 +1108,29 @@ class _ReviewPageState extends State<ReviewPage>
                         Positioned(
                           top: 4,
                           right: 4,
-                          child: IconButton(
-                            tooltip: 'Tùy chọn',
-                            onPressed: _showWordOptions,
-                            icon: Icon(
-                              Icons.more_horiz_rounded,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              size: 22,
-                            ),
-                            style: IconButton.styleFrom(
-                              backgroundColor: theme.colorScheme.surfaceContainerLow,
-                              minimumSize: const Size(36, 36),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              FavoriteButton(
+                                isFavorite: currentWord['is_favorite'] == true,
+                                tooltip: currentWord['is_favorite'] == true ? 'Bỏ yêu thích' : 'Yêu thích',
+                                onTap: () => _toggleFavorite(currentWord),
+                              ),
+                              IconButton(
+                                tooltip: 'Tùy chọn',
+                                onPressed: _showWordOptions,
+                                icon: Icon(
+                                  Icons.more_horiz_rounded,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  size: 22,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.surfaceContainerLow,
+                                  minimumSize: const Size(36, 36),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

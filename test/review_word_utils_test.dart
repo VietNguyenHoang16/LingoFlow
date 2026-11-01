@@ -47,7 +47,7 @@ void main() {
         'word': 'run',
         'meaning': 'chay',
         'is_mastered': 1,
-        'is_difficult': 0,
+        'is_favorite': 0,
         'ease_factor': '2.8',
       });
 
@@ -55,7 +55,7 @@ void main() {
       expect(word['word'], 'run');
       expect(word['meaning'], 'chay');
       expect(word['is_mastered'], true);
-      expect(word['is_difficult'], false);
+      expect(word['is_favorite'], false);
       expect(word['ease_factor'], 2.8);
       expect(word['pronunciation'], '');
       expect(word['full_details'], '');
