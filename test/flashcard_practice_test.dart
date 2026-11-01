@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lingoflow/pages/flashcard_practice_page.dart';
 import 'package:lingoflow/theme/app_theme.dart';
@@ -109,5 +110,36 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+  });
+
+  testWidgets('phím 1 = chưa biết, Enter = tiếp, 2 = đã biết', (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: FlashcardPracticePage(
+          userId: 1,
+          listName: 'Test',
+          preloadedWords: [_word(1, 'deploy', 'triển khai')],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+    await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Đã biết hết 1 từ!'), findsOneWidget);
   });
 }

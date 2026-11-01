@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/database_service.dart';
 import '../services/flashcard_queue.dart';
@@ -47,7 +48,36 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     _loadWords();
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
+    super.dispose();
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.digit1 ||
+        key == LogicalKeyboardKey.numpad1) {
+      if (!_revealed) _markUnknown();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.digit2 ||
+        key == LogicalKeyboardKey.numpad2) {
+      if (!_revealed) _markKnown();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      if (_revealed) _advance();
+      return true;
+    }
+    return false;
   }
 
   Future<void> _speak(String text) async {
@@ -141,6 +171,25 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
     final navigator = Navigator.of(context);
     if (!navigator.canPop()) return;
     navigator.pop(false);
+  }
+
+  Widget _keyChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        border: Border.all(color: color.withAlpha(150), width: 1.2),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
   }
 
   @override
@@ -427,13 +476,21 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: Text(
-                          'Tiếp',
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Tiếp',
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _keyChip('Enter', theme.colorScheme.onPrimary),
+                          ],
                         ),
                       ),
                     )
@@ -492,6 +549,16 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                         ),
                       ],
                     ),
+                  if (!_revealed) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Bấm 1 = Chưa biết, 2 = Đã biết',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
