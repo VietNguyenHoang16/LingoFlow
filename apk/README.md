@@ -8,17 +8,22 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.3 MB** | arm64-v8a (+ armeabi-v7a, x86_64) | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này thêm **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
+> Bản này thêm mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,233,834 bytes` (20.3 MB)
-- SHA256: `2B60F265BAF2DFCA6B1DB5A198B927D391F10DDCAA62385CEF6F1A1C11815279`
+- Kích thước: `21,233,910 bytes` (20.3 MB)
+- SHA256: `B8500712B3387B275F67B25727507C8244B98BD7319D86BBDB4E1FFDA10720DC`
 - Ngày build: `02/11/2026` — bản mới nhất:
-  0. **Widget "Từ cần ôn" ngoài màn hình chính** (chỉ Android): thêm widget hiện
+  0. **Cỡ chữ trong Settings** — mở bánh răng → mục **Cỡ chữ**, chọn
+     **Chuẩn / Lớn / Rất lớn / Tối đa** (có ô xem trước chữ Aa). Áp dụng ngay
+     cho toàn app, lưu lại cho lần mở sau. Trên iPad / web màn hình rộng chữ
+     mặc định là **Rất lớn** và cột app nới rộng theo, nên không còn cảnh chữ
+     nhỏ xíu giữa màn hình; điện thoại giữ nguyên cỡ cũ.
+  1. **Widget "Từ cần ôn" ngoài màn hình chính** (chỉ Android): thêm widget hiện
      **số từ đến hạn** ngay trên màn hình chính, không cần mở app. Số to ở giữa,
      dòng chữ "từ cần ôn"; 0 từ thì ghi "Hôm nay xong hết 🎉"; chưa cập nhật lần
      nào thì hiện `--` + "Mở app để cập nhật"; chạm widget là mở app. Số tự cập

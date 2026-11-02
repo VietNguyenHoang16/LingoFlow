@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/pronunciation_service.dart';
 import '../services/ai_settings_service.dart';
+import '../services/display_settings_service.dart';
 import '../services/tts_settings_service.dart';
 import '../widgets/ai_api_settings_sheet.dart';
 import '../widgets/ai_example_style_sheet.dart';
@@ -295,6 +296,53 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Text size card
+                _buildCard(
+                  theme: theme,
+                  isDark: isDark,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle(
+                          'Cỡ chữ', Icons.format_size_rounded, theme),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Chỉnh cỡ chữ cho dễ đọc. Dùng iPad nên chọn "Lớn" hoặc hơn.',
+                        style: TextStyle(
+                          fontFamily: 'Be Vietnam Pro',
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ValueListenableBuilder<double>(
+                        valueListenable:
+                            DisplaySettingsService.instance.textScale,
+                        builder: (context, scale, _) {
+                          final options = DisplaySettingsService.options;
+                          return Row(
+                            children: [
+                              for (var i = 0; i < options.length; i++)
+                                Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                        left: i == 0 ? 0 : 8),
+                                    child: _buildTextSizeOption(
+                                      options[i],
+                                      theme,
+                                      (options[i].scale - scale).abs() < 0.01,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -681,6 +729,61 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTextSizeOption(
+      TextSizeOption option, ThemeData theme, bool selected) {
+    final color =
+        selected ? theme.colorScheme.primary : theme.colorScheme.onSurface;
+    final subtleColor = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+    return GestureDetector(
+      onTap: () => DisplaySettingsService.instance.setScale(option.scale),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primary.withAlpha(20)
+              : theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary.withAlpha(120)
+                : theme.colorScheme.outlineVariant,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Aa',
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontWeight: FontWeight.w800,
+                fontSize: 13 + (option.scale - 1.0) * 20,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              option.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Be Vietnam Pro',
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: subtleColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

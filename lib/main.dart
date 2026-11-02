@@ -1,15 +1,21 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'pages/intro_page.dart';
 import 'services/database_service.dart';
 import 'services/auth_service.dart';
+import 'services/display_settings_service.dart';
 import 'services/notification_service.dart';
 import 'services/word_type_classifier.dart';
 import 'widgets/tts_audio_unlocker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Nap co chu da luu truoc khung hinh dau tien de chu khong bi nhay co.
+  await DisplaySettingsService.instance.load(
+    screenWidth: _initialScreenWidth(),
+  );
   unawaited(
     DatabaseService().init().catchError((e) {
       debugPrint('Database connection failed: $e');
@@ -24,6 +30,16 @@ void main() async {
   // Delayed long enough that the first screens finish their network loads first.
   scheduleMicrotask(_backgroundClassify);
   runApp(const MyApp());
+}
+
+double _initialScreenWidth() {
+  try {
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    if (view.devicePixelRatio <= 0) return 0;
+    return view.physicalSize.width / view.devicePixelRatio;
+  } catch (_) {
+    return 0;
+  }
 }
 
 void _backgroundClassify() {
@@ -57,8 +73,13 @@ class MyApp extends StatelessWidget {
         themeMode: ThemeMode.system,
         // Boc toan app de bat lai audio doc sau khi iOS suspend (xem
         // TtsAudioUnlocker): chi can cham bat ky dau la tieng doc hoat dong lai.
-        builder: (context, child) =>
-            TtsAudioUnlocker(child: _buildAppShell(context, child)),
+        builder: (context, child) => TtsAudioUnlocker(
+          child: ValueListenableBuilder<double>(
+            valueListenable: DisplaySettingsService.instance.textScale,
+            builder: (context, textScale, _) =>
+                _buildAppShell(context, child, textScale),
+          ),
+        ),
         home: const IntroPage(),
       ),
     );
@@ -69,15 +90,29 @@ class MyApp extends StatelessWidget {
 const double _kDesktopBreakpoint = 600;
 const double _kAppMaxWidth = 430;
 
-/// Tren web desktop, giu app trong mot cot ~430dp giua man hinh de giao dien
-/// giong het ban mobile (card khong bi keo ngang, bottom CTA khong dai ngoang).
+/// Tren web desktop, giu app trong mot cot giua man hinh de giao dien giong
+/// het ban mobile (card khong bi keo ngang, bottom CTA khong dai ngoang).
 /// Mobile / man hinh hep (<=600dp) tra ve nguyen ven.
-Widget _buildAppShell(BuildContext context, Widget? child) {
+///
+/// Co chu `textScale` (Settings > Co chu) duoc ap cho toan app. Tren iPad, cung
+/// mot co chu se hien nho hon nhieu so voi dien thoai nen mac dinh o day la
+/// 1.3x; cot app duoc no rong tuong ung de chu to ma khong bi tran.
+Widget _buildAppShell(BuildContext context, Widget? child, double textScale) {
   final media = MediaQuery.of(context);
-  if (child == null || media.size.width <= _kDesktopBreakpoint) {
-    return child ?? const SizedBox.shrink();
+  if (child == null) return const SizedBox.shrink();
+
+  final scaler =
+      TextScaler.linear(media.textScaler.scale(1.0) * textScale);
+
+  if (media.size.width <= _kDesktopBreakpoint) {
+    return MediaQuery(
+      data: media.copyWith(textScaler: scaler),
+      child: child,
+    );
   }
 
+  final columnWidth =
+      math.min(_kAppMaxWidth * textScale, media.size.width);
   final theme = Theme.of(context);
   final isDark = theme.brightness == Brightness.dark;
 
@@ -93,7 +128,7 @@ Widget _buildAppShell(BuildContext context, Widget? child) {
     ),
     child: Center(
       child: Container(
-        width: _kAppMaxWidth,
+        width: columnWidth,
         height: media.size.height,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
@@ -113,8 +148,11 @@ Widget _buildAppShell(BuildContext context, Widget? child) {
           ],
         ),
         child: MediaQuery(
-          // De widget ben trong thay dung be ngang 430dp nhu tren dien thoai.
-          data: media.copyWith(size: Size(_kAppMaxWidth, media.size.height)),
+          // De widget ben trong thay dung be ngang cot app nhu tren dien thoai.
+          data: media.copyWith(
+            size: Size(columnWidth, media.size.height),
+            textScaler: scaler,
+          ),
           child: child,
         ),
       ),
