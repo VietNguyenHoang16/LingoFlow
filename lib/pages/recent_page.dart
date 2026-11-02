@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import '../services/due_widget_service.dart';
 import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
@@ -179,6 +180,9 @@ class _RecentPageState extends State<RecentPage> {
       final data = await _db.getDashboardStats(widget.userId);
       if (!mounted) return;
       setState(() => _reviewStats = data.reviewStats);
+      // Widget màn hình chính Android: chỉ cập nhật khi ta vừa có số mới,
+      // vì widget không tự tính được khi app không chạy.
+      unawaited(DueWidgetService().updateDueCount(_dueWords));
     } catch (e) {
       debugPrint('Review stats load failed: $e');
     }
