@@ -8,7 +8,7 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.3 MB** | arm64-v8a (+ armeabi-v7a, x86_64) | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này thêm mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
+> Bản này **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi — không còn cảnh sửa xong mà thẻ không đổi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
@@ -16,8 +16,17 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,233,910 bytes` (20.3 MB)
-- SHA256: `B8500712B3387B275F67B25727507C8244B98BD7319D86BBDB4E1FFDA10720DC`
-- Ngày build: `02/11/2026` — bản mới nhất:
+- SHA256: `5A7388925D73063BC9ACCBC40633114F7DEA138DCAFB280DF3118B4B1705632C`
+- Ngày build: `03/11/2026` — bản mới nhất:
+  - **Gộp từ đồng nghĩa khi import** — viết `verbose/wordy` (hoặc `verbose = wordy`)
+    trên cùng một dòng là ra **1 card**: `verbose` là từ chính, `wordy` vào
+    **Common synonyms**. Không viết gì đặc biệt thì AI vẫn tự gộp: hai từ cùng
+    nghĩa (AI báo là đồng nghĩa, hoặc nghĩa tiếng Việt giống nhau) thành 1 card.
+    Ở bước xem trước, dòng bị gộp tô màu riêng và ghi **Gộp vào "verbose"**,
+    thống kê có ô **Gộp nghĩa**; mỗi nhóm tối đa 4 từ (1 từ chính + 3 synonyms).
+  - **Sửa từ không còn thất bại vì câu ví dụ** — trước đây AI trả câu ví dụ thiếu
+    từ khoá là cả lần sửa bị huỷ, thẻ giữ nguyên từ cũ. Giờ từ vẫn được lưu; câu
+    ví dụ lỗi thì dùng câu mẫu an toàn, và vẫn bấm tạo lại ví dụ được như thường.
   0. **Cỡ chữ trong Settings** — mở bánh răng → mục **Cỡ chữ**, chọn
      **Chuẩn / Lớn / Rất lớn / Tối đa** (có ô xem trước chữ Aa). Áp dụng ngay
      cho toàn app, lưu lại cho lần mở sau. Trên iPad / web màn hình rộng chữ
