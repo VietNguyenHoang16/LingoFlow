@@ -289,4 +289,43 @@ void main() {
       holdBulk: hold,
     );
   });
+
+  testWidgets('nhap thu cong POS :: tu :: nghia: khong goi AI, luu dung', (
+    tester,
+  ) async {
+    await scenario(tester, (requests) async {
+      await tester.enterText(
+        find.byType(TextField),
+        '2 :: give up :: từ bỏ :: quit · abandon',
+      );
+      await tester.pumpAndSettle();
+
+      // Co dong thu cong -> nut doi nhan.
+      expect(find.text('Kiểm tra'), findsOneWidget);
+      await tester.tap(find.text('Kiểm tra'));
+      await _settle(tester);
+
+      expect(find.text('give up'), findsOneWidget);
+      expect(find.text('từ bỏ'), findsOneWidget);
+      expect(find.text('Import 1 từ'), findsOneWidget);
+      // Khong dong nao can AI.
+      expect(requests.any((r) => r['action'] == 'enrichWords'), isFalse);
+
+      await tester.tap(find.text('Import 1 từ'));
+      await tester.pumpAndSettle();
+
+      final sent = requests
+          .where((r) => r['action'] == 'bulkAddWords')
+          .expand((r) => ((r['data'] as Map)['words'] as List))
+          .cast<Map<String, dynamic>>()
+          .toList();
+      expect(sent, hasLength(1));
+      expect(sent.single['word'], 'give up');
+      expect(sent.single['meaning'], 'từ bỏ');
+      expect(sent.single['wordType'], 'verb');
+      expect(sent.single['commonSynonyms'], 'quit · abandon');
+      expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

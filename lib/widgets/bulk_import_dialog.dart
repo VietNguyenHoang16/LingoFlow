@@ -56,7 +56,7 @@ class BulkImportDialog extends StatefulWidget {
 
 class _BulkImportDialogState extends State<BulkImportDialog> {
   static const _example =
-      'serendipity, resilient, verbose/wordy, break the ice';
+      'serendipity, resilient\n2 :: give up :: từ bỏ :: quit · abandon';
 
   // Bước AI lấy nghĩa + loại từ (stage 4) - hiện trước preview.
   static const int _stageAnalyzing = 4;
@@ -68,6 +68,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   int _stage = 0;
   bool _cancelled = false;
   bool _isProcessing = false;
+  // Ô dán có dòng nhập thủ công -> nút đổi nhãn thành "Kiểm tra".
+  bool _manualInput = false;
 
   List<ImportLine> _lines = const [];
   // Số dòng (theo lineNumber) người dùng đã bấm loại trừ ở bước preview.
@@ -99,6 +101,11 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     if (initial.isNotEmpty) {
       _controller.text = initial;
     }
+    _manualInput = _detectManual(_controller.text);
+    _controller.addListener(() {
+      final manual = _detectManual(_controller.text);
+      if (manual != _manualInput) setState(() => _manualInput = manual);
+    });
     // Mo tu o tim kiem: phan tich AI ngay de thay nghia/loai tu truoc khi them.
     if (widget.autoAnalyze && initial.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -106,6 +113,12 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       });
     }
   }
+
+  /// Có ít nhất 1 dòng viết theo quy tắc nhập thủ công (POS :: từ :: nghĩa).
+  bool _detectManual(String text) => text
+      .split('\n')
+      .any((l) => l.trim().isNotEmpty && !l.trim().startsWith('#') &&
+          BulkWordImporter.manualSegments(l.trim()) != null);
 
   @override
   void dispose() {
@@ -128,8 +141,10 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       if (!mounted) return;
       setState(() {
         _lines = checked;
-        _analyzeTotal =
-            checked.where((l) => l.error == null).length;
+        // Chỉ đếm từ cần AI (dòng thủ công đã có nghĩa + loại từ).
+        _analyzeTotal = checked
+            .where((l) => l.error == null && (l.wordType ?? '').isEmpty)
+            .length;
         _applyCounts(checked);
       });
       // 2. AI lay nghia tieng Viet + loai tu cho tung tu con lai.
@@ -365,9 +380,23 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       key: key,
       children: [
         Text(
-          'Dán danh sách từ, ngăn cách bằng dấu phẩy. Viết verbose/wordy (hoặc verbose = wordy) để gộp các từ cùng nghĩa vào 1 card – từ đầu là từ chính, các từ sau vào Common synonyms. AI tự lấy nghĩa tiếng Việt, phân loại từ và gộp luôn các từ cùng nghĩa còn lại. Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
+          'Mỗi dòng một từ. Chỉ ghi từ (vd serendipity) thì AI tự lấy nghĩa, phân '
+          'loại và gộp từ đồng nghĩa. Viết theo quy tắc POS :: từ :: nghĩa :: common '
+          'để nhập thủ công, vd 2 :: give up :: từ bỏ :: quit · abandon (không cần AI). '
+          'Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withAlpha(150),
+            fontFamily: 'Be Vietnam Pro',
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Số POS: 1 Danh từ · 2 Động từ · 3 Tính từ · 4 Trạng từ · 5 Giới từ · '
+          '6 Liên từ · 7 Đại từ · 8 Thán từ · 9 Cụm động từ · 10 Thành ngữ · '
+          '11 Collocation · 12 Ngữ pháp. Nghĩa thêm - chủ đề để gắn nhãn; common '
+          'tối đa 3 từ, ngăn cách bởi · , ; | /',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha(120),
             fontFamily: 'Be Vietnam Pro',
           ),
         ),
@@ -776,7 +805,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             FilledButton.icon(
               onPressed: _isProcessing ? null : _goPreview,
               icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-              label: const Text('Phân tích bằng AI'),
+              label: Text(_manualInput ? 'Kiểm tra' : 'Phân tích bằng AI'),
             ),
           ],
         );

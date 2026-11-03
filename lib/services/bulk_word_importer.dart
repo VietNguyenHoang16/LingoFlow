@@ -1,5 +1,7 @@
+import '../widgets/word_type_utils.dart';
 import 'database_service.dart';
 import 'dictionary_service.dart';
+import 'topic_tag_utils.dart';
 
 /// Một từ người dùng dán vào. Chỉ có `word` lúc parse; `meaning` / `wordType`
 /// do AI điền sau khi phân tích.
@@ -17,11 +19,23 @@ class ImportLine {
   /// Tên từ đã "nuốt" dòng này khi gộp từ đồng nghĩa ('' nếu không bị gộp).
   String mergedInto;
 
+  /// Nhãn chủ đề tách từ cuối nghĩa (sau ` - `). '' nếu không có.
+  String topicTag;
+
+  /// Dòng nhập thủ công theo quy tắc `POS :: từ :: nghĩa [:: common]`: nghĩa và
+  /// loại từ do người dùng gõ nên không qua AI, không bị gộp đồng nghĩa.
+  final bool manual;
+
   String? error; // null = hợp lệ.
 
   static const String errorDuplicateInDb = 'Trùng từ';
   static const String errorDuplicateInList = 'Trùng trong danh sách';
   static const String errorAiMissing = 'AI không lấy được nghĩa';
+  static const String errorBadFormat = 'Sai định dạng';
+  static const String errorMissingWord = 'Thiếu từ';
+  static const String errorMissingMeaning = 'Thiếu nghĩa';
+  static const String errorBadPos = 'Số POS không hợp lệ';
+  static const String errorTooManySynonyms = 'Common tối đa 3 từ';
 
   /// Dòng bị gộp vào một từ khác cùng nghĩa (vd `verbose/wordy`). Không phải
   /// lỗi nhập liệu: UI tô màu riêng và vẫn hiện nghĩa.
@@ -36,6 +50,8 @@ class ImportLine {
     this.collocations = '',
     List<String>? synonyms,
     this.mergedInto = '',
+    this.topicTag = '',
+    this.manual = false,
     this.error,
   }) : synonyms = synonyms ?? <String>[];
 
@@ -60,6 +76,7 @@ class ImportLine {
     String? collocations,
     List<String>? synonyms,
     String? mergedInto,
+    String? topicTag,
     String? error,
   }) {
     return ImportLine(
@@ -71,6 +88,8 @@ class ImportLine {
       collocations: collocations ?? this.collocations,
       synonyms: synonyms ?? this.synonyms,
       mergedInto: mergedInto ?? this.mergedInto,
+      topicTag: topicTag ?? this.topicTag,
+      manual: manual,
       error: error ?? this.error,
     );
   }
@@ -100,55 +119,137 @@ class BulkWordImporter {
   final DatabaseService _db = DatabaseService();
   final DictionaryService _dict = DictionaryService();
 
-  /// Tách text người dùng dán thành từng từ: ngăn cách bằng dấu phẩy (chấp nhận
-  /// cả dấu chấm phẩy và xuống dòng). Dòng bắt đầu `#` là comment.
-  /// KHÔNG gọi API - nghĩa / loại từ do [enrichMeanings] điền.
+  /// Tách text người dùng dán thành từng dòng. Mỗi dòng chỉ ghi từ (ngăn cách
+  /// bằng dấu phẩy / chấm phẩy) thì AI điền nghĩa; dòng viết theo quy tắc nhập
+  /// thủ công `POS :: từ :: nghĩa [:: common]` (hoặc `||`, hoặc format cũ
+  /// `từ / POS / nghĩa`) thì lấy luôn nghĩa + loại từ người dùng gõ, không qua
+  /// AI. Dòng bắt đầu `#` là comment.
+  /// KHÔNG gọi API - nghĩa / loại từ dòng AI do [enrichMeanings] điền.
   List<ImportLine> parseWords(String text) {
     final lines = <ImportLine>[];
     final seen = <String>{};
     int lineNumber = 0;
 
-    for (final raw in text.split(RegExp(r'[,;\n]+'))) {
+    for (final raw in text.split('\n')) {
       final trimmed = raw.trim();
       if (trimmed.isEmpty) continue;
       if (trimmed.startsWith('#')) continue;
 
-      final parts = _splitGroup(_cleanWord(trimmed));
-      if (parts.isEmpty) continue;
-      final word = parts.first;
-      final synonyms = parts.skip(1).toList(growable: false);
-      if (word.isEmpty) continue;
-      lineNumber++;
+      // Cùng 1 khung: dòng theo quy tắc import -> thủ công, còn lại -> AI.
+      if (manualSegments(trimmed) != null) {
+        lineNumber += 1;
+        var line = _parseManual(lineNumber, trimmed);
+        final key = line.word.toLowerCase();
+        if (key.isNotEmpty && !seen.add(key)) {
+          line = line.copyWith(error: ImportLine.errorDuplicateInList);
+        }
+        lines.add(line);
+        continue;
+      }
 
-      final key = word.toLowerCase();
-      if (!seen.add(key)) {
+      for (final token in trimmed.split(RegExp(r'[,;]+'))) {
+        final raw2 = token.trim();
+        if (raw2.isEmpty) continue;
+        final parts = _splitGroup(_cleanWord(raw2));
+        if (parts.isEmpty) continue;
+        final word = parts.first;
+        final synonyms = parts.skip(1).toList(growable: false);
+        if (word.isEmpty) continue;
+        lineNumber += 1;
+
+        final key = word.toLowerCase();
+        if (!seen.add(key)) {
+          lines.add(ImportLine(
+            lineNumber: lineNumber,
+            rawLine: raw2,
+            word: word,
+            synonyms: synonyms,
+            error: ImportLine.errorDuplicateInList,
+          ));
+          continue;
+        }
+        if (word.length > 60) {
+          lines.add(ImportLine(
+            lineNumber: lineNumber,
+            rawLine: raw2,
+            word: word,
+            synonyms: synonyms,
+            error: 'Từ quá dài',
+          ));
+          continue;
+        }
         lines.add(ImportLine(
           lineNumber: lineNumber,
-          rawLine: trimmed,
+          rawLine: raw2,
           word: word,
           synonyms: synonyms,
-          error: ImportLine.errorDuplicateInList,
         ));
-        continue;
       }
-      if (word.length > 60) {
-        lines.add(ImportLine(
-          lineNumber: lineNumber,
-          rawLine: trimmed,
-          word: word,
-          synonyms: synonyms,
-          error: 'Từ quá dài',
-        ));
-        continue;
-      }
-      lines.add(ImportLine(
-        lineNumber: lineNumber,
-        rawLine: trimmed,
-        word: word,
-        synonyms: synonyms,
-      ));
     }
     return lines;
+  }
+
+  /// Tách dòng nhập thủ công thành các segment theo thứ tự chuẩn
+  /// `POS :: từ :: nghĩa [:: common]`. Nhận `::`, `||` hoặc format cũ
+  /// `từ / POS / nghĩa` (đảo lại thành POS trước). Trả về null khi dòng chỉ là
+  /// từ đơn (nhánh AI xử lý): `verbose/wordy`, `24/7/365`, `8-bit`... không bị
+  /// nhận nhầm là thủ công.
+  static List<String>? manualSegments(String line) {
+    if (line.contains('::')) return line.split('::');
+    if (line.contains('||')) return line.split('||');
+    final parts = line.split('/');
+    if (parts.length == 3 &&
+        _isWordLike(parts[0].trim()) &&
+        parsePosNumber(parts[1].trim()) != null) {
+      return [parts[1], parts[0], parts[2]];
+    }
+    return null;
+  }
+
+  /// Parse 1 dòng thủ công: `POS :: từ :: nghĩa [:: common]`. Nghĩa được tách
+  /// nhãn chủ đề (sau ` - ` cuối); common là segment thứ 4, tối đa 3 từ.
+  ImportLine _parseManual(int lineNumber, String rawLine) {
+    final parts =
+        manualSegments(rawLine)!.map((s) => s.trim()).toList(growable: false);
+    final posRaw = parts.isNotEmpty ? parts[0] : '';
+    final word = parts.length > 1 ? parts[1] : '';
+    final meaningRaw = parts.length > 2 ? parts[2] : '';
+    final commonRaw = parts.length > 3 ? parts[3] : '';
+    final wordType = parsePosNumber(posRaw);
+
+    String? error;
+    if (parts.length < 3 || parts.length > 4) {
+      error = ImportLine.errorBadFormat;
+    } else if (wordType == null) {
+      error = ImportLine.errorBadPos;
+    } else if (word.isEmpty) {
+      error = ImportLine.errorMissingWord;
+    } else if (meaningRaw.isEmpty) {
+      error = ImportLine.errorMissingMeaning;
+    }
+
+    final split = splitTopicTag(meaningRaw);
+    final synonyms = <String>[];
+    for (final s in commonRaw.split(RegExp(r'[·,;|/\n]'))) {
+      final value = s.trim();
+      if (value.isEmpty || _hasWord(synonyms, value)) continue;
+      synonyms.add(value);
+    }
+    if (error == null && synonyms.length > _maxSynonyms) {
+      error = ImportLine.errorTooManySynonyms;
+    }
+
+    return ImportLine(
+      lineNumber: lineNumber,
+      rawLine: rawLine,
+      word: word,
+      meaning: split.meaning,
+      wordType: wordType,
+      topicTag: split.topicTag,
+      synonyms: synonyms,
+      manual: true,
+      error: error,
+    );
   }
 
   /// Bỏ dấu nháy và gạch đầu dòng thường gặp khi copy-paste.
@@ -230,8 +331,13 @@ class BulkWordImporter {
     int userId,
     List<ImportLine> lines,
   ) async {
-    final candidates =
-        lines.where((l) => l.error == null && l.word.isNotEmpty).toList();
+    // Dòng thủ công đã có nghĩa + loại từ người dùng gõ -> không nhờ AI.
+    final candidates = lines
+        .where((l) =>
+            l.error == null &&
+            l.word.isNotEmpty &&
+            (l.wordType ?? '').isEmpty)
+        .toList();
     if (candidates.isEmpty) return _fillListDuplicates(lines);
 
     // Lo nho: 1 request AI dai bi Windows cat socket
@@ -255,6 +361,8 @@ class BulkWordImporter {
 
     final enriched = lines.map((l) {
       if (l.error != null) return l;
+      // Dòng đã có loại từ (thủ công) không bị AI ghi đè.
+      if ((l.wordType ?? '').isNotEmpty) return l;
       if (failed.contains(l.word.toLowerCase())) {
         return l.copyWith(error: batchError);
       }
@@ -314,9 +422,10 @@ class BulkWordImporter {
   /// các từ còn lại vào `common_synonyms` và bị đánh dấu đã gộp; nhóm quá 4 từ
   /// thì các từ dư vẫn thành card riêng.
   List<ImportLine> _mergeSynonymGroups(List<ImportLine> lines) {
+    // Dòng thủ công giữ nguyên input người dùng gõ, không gộp.
     final indexes = [
       for (var i = 0; i < lines.length; i++)
-        if (lines[i].isValid) i,
+        if (lines[i].isValid && !lines[i].manual) i,
     ];
     if (indexes.length < 2) return lines;
 
@@ -676,14 +785,15 @@ class BulkWordImporter {
     }
   }
 
-  /// Chỉ gửi dữ liệu AI đã điền; nhãn chủ đề để trống, từ đồng nghĩa gộp lấy
-  /// từ nhóm người dùng gõ (`verbose/wordy`) hoặc AI gợi ý.
+  /// Chỉ gửi dữ liệu AI đã điền (hoặc người dùng gõ ở dòng thủ công); nhãn chủ
+  /// đề lấy từ dòng thủ công, từ đồng nghĩa gộp lấy từ nhóm người dùng gõ
+  /// (`verbose/wordy`) hoặc AI gợi ý.
   List<Map<String, dynamic>> _payload(List<ImportLine> chunk) => chunk.map((l) => {
         'word': l.word,
         'pronunciation': pronunciations[l.word.toLowerCase()] ?? '',
         'meaning': l.meaning,
         'wordType': l.wordType,
-        'topicTag': '',
+        'topicTag': l.topicTag,
         'commonSynonyms': l.commonSynonyms,
         'collocations': l.collocations,
       }).toList();

@@ -363,4 +363,125 @@ void main() {
     expect(sent.single['word'], 'verbose');
     expect(sent.single['commonSynonyms'], 'wordy');
   });
+
+  group('import thu cong POS :: tu :: nghia', () {
+    test('parse du POS, tu, nghia, common va khong can AI', () {
+      final lines = importer.parseWords('3 :: solid :: ổn :: good · reliable · decent');
+      expect(lines, hasLength(1));
+      final l = lines.single;
+      expect(l.manual, isTrue);
+      expect(l.word, 'solid');
+      expect(l.wordType, 'adjective');
+      expect(l.meaning, 'ổn');
+      expect(l.synonyms, ['good', 'reliable', 'decent']);
+      expect(l.commonSynonyms, 'good · reliable · decent');
+      expect(l.isValid, isTrue);
+    });
+
+    test('nhan bien the || va format cu tu / POS / nghia', () {
+      final byPipe = importer.parseWords('2 || give up || từ bỏ');
+      expect(byPipe.single.wordType, 'verb');
+      expect(byPipe.single.meaning, 'từ bỏ');
+      expect(byPipe.single.manual, isTrue);
+
+      final old = importer.parseWords('solid / 3 / ổn');
+      expect(old.single.word, 'solid');
+      expect(old.single.wordType, 'adjective');
+      expect(old.single.manual, isTrue);
+    });
+
+    test('tach nhan chu de sau dau - cuoi cung', () {
+      final l = importer
+          .parseWords('11 :: Work under pressure :: Làm việc dưới áp lực - work')
+          .single;
+      expect(l.meaning, 'Làm việc dưới áp lực');
+      expect(l.topicTag, 'work');
+      expect(l.wordType, 'collocation');
+    });
+
+    test('loi dinh dang: thieu tu, thieu nghia, sai POS, sai format, qua 3 common',
+        () {
+      expect(importer.parseWords('1 :: :: quả táo').single.error, 'Thiếu từ');
+      expect(importer.parseWords('1 :: apple ::').single.error, 'Thiếu nghĩa');
+      expect(
+        importer.parseWords('13 :: apple :: quả táo').single.error,
+        'Số POS không hợp lệ',
+      );
+      expect(importer.parseWords('1 :: apple').single.error, 'Sai định dạng');
+      expect(
+        importer.parseWords('1 :: apple :: quả táo :: a · b · c · d').single.error,
+        'Common tối đa 3 từ',
+      );
+    });
+
+    test('khong nhan nham so kieu 24/7/365 la format cu', () {
+      final lines = importer.parseWords('24/7/365');
+      expect(lines.single.manual, isFalse);
+      expect(lines.single.word, '24/7/365');
+    });
+
+    test('dung chung 1 khung: dong thu cong khong bi AI ghi de', () async {
+      final asked = <List<String>>[];
+      final client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['action'], 'enrichWords');
+        asked.add((body['data'] as Map)['words'].cast<String>());
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'word': 'apple', 'meaning': 'quả táo', 'wordType': 'noun'},
+              {'word': 'give up', 'meaning': 'SAI', 'wordType': 'noun'},
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final lines = importer.parseWords('2 :: give up :: từ bỏ\napple');
+      final enriched = await http.runWithClient(
+        () => importer.enrichMeanings(1, lines),
+        () => client,
+      );
+
+      // AI chỉ được hỏi đúng từ không viết theo quy tắc thủ công.
+      expect(asked.single, ['apple']);
+      expect(enriched[0].word, 'give up');
+      expect(enriched[0].meaning, 'từ bỏ');
+      expect(enriched[0].wordType, 'verb');
+      expect(enriched[0].isValid, isTrue);
+      expect(enriched[1].meaning, 'quả táo');
+    });
+
+    test('trung tu trong danh sach van bi danh dau', () {
+      final lines = importer.parseWords('1 :: apple :: quả táo\n1 :: Apple :: táo');
+      expect(lines[1].error, 'Trùng trong danh sách');
+    });
+
+    test('importBatch luu topicTag cua dong thu cong', () async {
+      final sent = <Map<String, dynamic>>[];
+      await importer.importBatch(
+        1,
+        [
+          ImportLine(
+            lineNumber: 1,
+            rawLine: '3 :: solid :: ổn - gym',
+            word: 'solid',
+            meaning: 'ổn',
+            wordType: 'adjective',
+            topicTag: 'gym',
+            manual: true,
+          ),
+        ],
+        pronunciationsOverride: const <String, String>{'solid': ''},
+        bulkAdd: (userId, category, words) async {
+          sent.addAll(words);
+          return BulkAddResult(insertedCount: 1, failed: const []);
+        },
+      );
+
+      expect(sent.single['topicTag'], 'gym');
+      expect(sent.single['wordType'], 'adjective');
+    });
+  });
 }
