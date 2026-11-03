@@ -8,7 +8,7 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.3 MB** | arm64-v8a (+ armeabi-v7a, x86_64) | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi — không còn cảnh sửa xong mà thẻ không đổi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
+> Bản này **import không còn bị cắt kết nối** (`Software caused connection abort`): gửi từng lô nhỏ và tự thử lại. Vẫn **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
@@ -16,8 +16,11 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,233,910 bytes` (20.3 MB)
-- SHA256: `5A7388925D73063BC9ACCBC40633114F7DEA138DCAFB280DF3118B4B1705632C`
-- Ngày build: `03/11/2026` — bản mới nhất:
+- SHA256: `C58385E439F12235AAC386721B19437A79CB2D5E1549A1385B8EA8FB85FE409B`
+- Ngày build: `04/11/2026` — bản mới nhất:
+  - **Import không còn bị cắt kết nối** — trước đây import nhiều từ bị lỗi
+    `Software caused connection abort` và cả danh sách hỏng. Giờ gửi từng lô
+    nhỏ và tự thử lại khi mạng/socket bị cắt.
   - **Gộp từ đồng nghĩa khi import** — viết `verbose/wordy` (hoặc `verbose = wordy`)
     trên cùng một dòng là ra **1 card**: `verbose` là từ chính, `wordy` vào
     **Common synonyms**. Không viết gì đặc biệt thì AI vẫn tự gộp: hai từ cùng
