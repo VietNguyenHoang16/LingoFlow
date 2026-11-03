@@ -8,7 +8,7 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 |---|---|---|---|
 | **`vocab-arm64-release.apk`** | **20.3 MB** | arm64-v8a (+ armeabi-v7a, x86_64) | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này **import không còn bị cắt kết nối** (`Software caused connection abort`): gửi từng lô nhỏ và tự thử lại. Vẫn **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
+> Bản này có thêm **nhập thủ công khi AI lỗi**: dán chung một khung, dòng chỉ ghi từ thì AI tự lấy nghĩa như cũ; dòng viết theo quy tắc `POS :: từ :: nghĩa :: common` (hoặc `||`, hoặc format cũ `từ / POS / nghĩa`) thì lấy luôn nghĩa + loại từ bạn gõ, **không cần AI**. Vẫn **import không còn bị cắt kết nối** (`Software caused connection abort`): gửi từng lô nhỏ và tự thử lại. Vẫn **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
@@ -16,8 +16,19 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,233,910 bytes` (20.3 MB)
-- SHA256: `C58385E439F12235AAC386721B19437A79CB2D5E1549A1385B8EA8FB85FE409B`
+- SHA256: `2A90DE4D03EC4BC9C91D845E356517838E6AA8AE44C9547613FC7911C27441B8`
 - Ngày build: `04/11/2026` — bản mới nhất:
+  - **Nhập thủ công khi AI lỗi** — cùng một khung dán, dòng chỉ ghi từ vẫn nhờ
+    AI lấy nghĩa như cũ; dòng viết theo quy tắc `POS :: từ :: nghĩa :: common`
+    (hoặc `||`, hoặc format cũ `từ / POS / nghĩa`) thì lấy luôn nghĩa + loại từ
+    bạn gõ và **không gọi AI**, phòng khi AI hỏng. Số POS 1–12 (1 Danh từ,
+    2 Động từ, 3 Tính từ, 4 Trạng từ, 5 Giới từ, 6 Liên từ, 7 Đại từ, 8 Thán từ,
+    9 Cụm động từ, 10 Thành ngữ, 11 Collocation, 12 Ngữ pháp) hiện ngay trong
+    dialog. Nghĩa thêm `- chủ đề` để gắn nhãn; `common` tối đa 3 từ (ngăn cách
+    bởi `·` `,` `;` `|` `/`). Dòng lỗi được báo rõ: Sai định dạng, Thiếu từ,
+    Thiếu nghĩa, Số POS không hợp lệ, Common tối đa 3 từ, Trùng từ. Khi có dòng
+    thủ công, nút đổi thành **Kiểm tra**; dòng thủ công không bị AI ghi đè và
+    không bị gộp đồng nghĩa.
   - **Import không còn bị cắt kết nối** — trước đây import nhiều từ bị lỗi
     `Software caused connection abort` và cả danh sách hỏng. Giờ gửi từng lô
     nhỏ và tự thử lại khi mạng/socket bị cắt.
