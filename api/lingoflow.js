@@ -8,10 +8,10 @@ const {
   testAiProvider,
 } = require('./_lib/xai');
 
-// Tong ngan sach sinh vi du AI cho 1 request bulk. Het budget -> cac tu con
-// lai duoc bao loi thay vi luu khong co vi du.
-const BULK_AI_BUDGET_MS = 35000;
-const BULK_AI_TIMEOUT_MS = 15000;
+// Phai tra JSON truoc khi Windows/Vercel cat socket im (loi client:
+// "Software caused connection abort"). Het budget -> tu con lai retryable.
+const BULK_AI_BUDGET_MS = 8000;
+const BULK_AI_TIMEOUT_MS = 8000;
 const BULK_AI_CONCURRENCY = 4;
 
 // Loi tam thoi -> client tu dong thu lai qua request moi.

@@ -103,6 +103,38 @@ void main() {
     expect(enriched[1].error, 'AI không lấy được nghĩa');
   });
 
+  test('enrichMeanings thu lai khi connection abort', () async {
+    var calls = 0;
+    final client = MockClient((request) async {
+      calls++;
+      if (calls == 1) {
+        throw http.ClientException(
+          'Software caused connection abort',
+          request.url,
+        );
+      }
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {'word': 'apple', 'meaning': 'quả táo', 'wordType': 'noun'},
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('apple');
+    final enriched = await http.runWithClient(
+      () => importer.enrichMeanings(1, lines),
+      () => client,
+    );
+
+    expect(calls, 2);
+    expect(enriched.single.meaning, 'quả táo');
+    expect(enriched.single.isValid, isTrue);
+  });
+
   test('enrichMeanings loi mang -> moi tu bi danh dau loi', () async {
     final client = MockClient(
       (request) async => http.Response('{"error":"hỏng"}', 500),

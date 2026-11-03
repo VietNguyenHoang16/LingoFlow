@@ -13,6 +13,8 @@ bool isNetworkError(Object error) {
       message.contains('connection refused') ||
       message.contains('connection closed') ||
       message.contains('connection reset') ||
+      message.contains('connection abort') ||
+      message.contains('software caused') ||
       message.contains('network is unreachable') ||
       message.contains('networkerror') ||
       message.contains('xmlhttprequest error') ||

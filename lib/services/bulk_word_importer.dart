@@ -234,22 +234,30 @@ class BulkWordImporter {
         lines.where((l) => l.error == null && l.word.isNotEmpty).toList();
     if (candidates.isEmpty) return _fillListDuplicates(lines);
 
-    Map<String, AiWordInfo> byWord;
-    try {
-      final infos =
-          await _db.enrichWords(candidates.map((l) => l.word).toList());
-      byWord = {for (final info in infos) info.word.toLowerCase(): info};
-    } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
-      return _fillListDuplicates(
-        lines
-            .map((l) => l.error == null ? l.copyWith(error: message) : l)
-            .toList(),
-      );
+    // Lo nho: 1 request AI dai bi Windows cat socket
+    // ("Software caused connection abort") lam hong ca danh sach.
+    const batchSize = 4;
+    final infos = <AiWordInfo>[];
+    final failed = <String>{};
+    String? batchError;
+    final words = candidates.map((l) => l.word).toList();
+    for (var i = 0; i < words.length; i += batchSize) {
+      final end = (i + batchSize).clamp(0, words.length);
+      try {
+        infos.addAll(await _db.enrichWords(words.sublist(i, end)));
+      } catch (e) {
+        batchError = e.toString().replaceFirst('Exception: ', '');
+        failed.addAll(words.sublist(i).map((w) => w.toLowerCase()));
+        break;
+      }
     }
+    final byWord = {for (final info in infos) info.word.toLowerCase(): info};
 
     final enriched = lines.map((l) {
       if (l.error != null) return l;
+      if (failed.contains(l.word.toLowerCase())) {
+        return l.copyWith(error: batchError);
+      }
       final info = byWord[l.word.toLowerCase()];
       if (info == null || !info.isUsable) {
         return l.copyWith(error: ImportLine.errorAiMissing);
@@ -559,7 +567,8 @@ class BulkWordImporter {
       for (final line in remaining) {
         groups.putIfAbsent(line.wordType!, () => []).add(line);
       }
-      final chunkSize = round == 0 ? 100 : 25;
+      // Lo nho de request tra loi truoc khi socket bi cat.
+      const chunkSize = 4;
       var cancelled = false;
 
       for (final entry in groups.entries) {

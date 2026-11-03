@@ -99,35 +99,60 @@ class DatabaseService {
     _isInitialized = true;
   }
 
+  static bool _isAbort(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('connection abort') ||
+        msg.contains('software caused') ||
+        msg.contains('connection reset') ||
+        msg.contains('connection closed');
+  }
+
   Future<T> _request<T>(
     String action, {
     Map<String, dynamic> data = const {},
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final token = await AuthService().getToken();
-    late http.Response response;
-    try {
-      response = await http
-          .post(
-            Uri.parse(_endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              if (token != null) 'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({'action': action, 'data': data}),
-          )
-          .timeout(timeout);
-    } on Exception catch (e) {
-      final msg = e.toString();
-      if (msg.contains('SocketException') ||
-          msg.contains('Connection refused') ||
-          msg.contains('NetworkException') ||
-          msg.contains('TimeoutException') ||
-          msg.contains('HandshakeException')) {
-        throw Exception('Khong co ket noi mang. Kiem tra WiFi / mobile data va thu lai.');
+    Object? last;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await _requestOnce<T>(action, data: data, timeout: timeout);
+      } on Exception catch (e) {
+        last = e;
+        if (attempt == 2 || !_isAbort(e)) break;
+        await Future.delayed(Duration(milliseconds: 400 * (attempt + 1)));
       }
-      rethrow;
     }
+    final msg = last.toString();
+    if (_isAbort(last!) ||
+        msg.contains('SocketException') ||
+        msg.contains('Connection refused') ||
+        msg.contains('NetworkException') ||
+        msg.contains('TimeoutException') ||
+        msg.contains('HandshakeException')) {
+      throw Exception('Khong co ket noi mang. Kiem tra WiFi / mobile data va thu lai.');
+    }
+    if (last is Exception) throw last;
+    throw Exception(msg);
+  }
+
+  Future<T> _requestOnce<T>(
+    String action, {
+    Map<String, dynamic> data = const {},
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final token = await AuthService().getToken();
+    final http.Response response;
+    response = await http
+        .post(
+          Uri.parse(_endpoint),
+          headers: {
+            'Content-Type': 'application/json',
+            if (!kIsWeb) 'Connection': 'close',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'action': action, 'data': data}),
+        )
+        .timeout(timeout);
 
     if (response.statusCode == 401) {
       await AuthService().clearSession();
