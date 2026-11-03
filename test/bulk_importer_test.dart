@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lingoflow/services/bulk_word_importer.dart';
+import 'package:lingoflow/services/database_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -222,5 +223,112 @@ void main() {
     expect(enriched[1].meaning, 'quả táo');
     expect(enriched[1].wordType, 'noun');
     expect(enriched[1].isValid, isFalse);
+  });
+
+  test('gop nhom dong nghia viet tren cung dong: verbose/wordy', () {
+    final lines = importer.parseWords('verbose/wordy, 24/7, resilient');
+    expect(lines, hasLength(3));
+    expect(lines[0].word, 'verbose');
+    expect(lines[0].synonyms, ['wordy']);
+    expect(lines[0].commonSynonyms, 'wordy');
+    // So khong bi tach thanh nhom.
+    expect(lines[1].word, '24/7');
+    expect(lines[1].synonyms, isEmpty);
+    expect(lines[2].word, 'resilient');
+  });
+
+  test('nhom dong nghia dung dau = va toi da 3 tu phu', () {
+    final lines = importer.parseWords('verbose = wordy = long-winded = windy');
+    expect(lines, hasLength(1));
+    expect(lines[0].word, 'verbose');
+    expect(lines[0].synonyms, ['wordy', 'long-winded', 'windy']);
+  });
+
+  test('AI bao cung nghia -> gop thanh 1 card', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {
+              'word': 'verbose',
+              'meaning': 'dai dong',
+              'wordType': 'adjective',
+              'synonyms': ['wordy'],
+            },
+            {
+              'word': 'wordy',
+              'meaning': 'nhieu loi',
+              'wordType': 'adjective',
+              'synonyms': ['verbose'],
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('verbose, wordy');
+    final enriched = await http.runWithClient(
+      () => importer.enrichMeanings(1, lines),
+      () => client,
+    );
+
+    expect(enriched[0].isValid, isTrue);
+    expect(enriched[0].synonyms, ['wordy']);
+    expect(enriched[1].isMerged, isTrue);
+    expect(enriched[1].mergedInto, 'verbose');
+    expect(enriched[1].error, 'Gộp vào "verbose"');
+    expect(enriched[1].isValid, isFalse);
+  });
+
+  test('trung nghia tieng Viet cung duoc gop', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {'word': 'verbose', 'meaning': 'dài dòng', 'wordType': 'adjective'},
+            {'word': 'wordy', 'meaning': 'dài dòng', 'wordType': 'adjective'},
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final lines = importer.parseWords('verbose, wordy');
+    final enriched = await http.runWithClient(
+      () => importer.enrichMeanings(1, lines),
+      () => client,
+    );
+
+    expect(enriched[0].synonyms, ['wordy']);
+    expect(enriched[1].isMerged, isTrue);
+  });
+
+  test('importBatch gui commonSynonyms cua nhom gop', () async {
+    final sent = <Map<String, dynamic>>[];
+    final result = await importer.importBatch(
+      1,
+      [
+        ImportLine(
+          lineNumber: 1,
+          rawLine: 'verbose/wordy',
+          word: 'verbose',
+          meaning: 'dài dòng',
+          wordType: 'adjective',
+          synonyms: const ['wordy'],
+        ),
+      ],
+      pronunciationsOverride: const <String, String>{'verbose': '/ˈvɜː.bəl/'},
+      bulkAdd: (userId, category, words) async {
+        sent.addAll(words);
+        return BulkAddResult(insertedCount: 1, failed: const []);
+      },
+    );
+
+    expect(result.insertedCount, 1);
+    expect(sent.single['word'], 'verbose');
+    expect(sent.single['commonSynonyms'], 'wordy');
   });
 }

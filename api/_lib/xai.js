@@ -576,10 +576,13 @@ Rules:
 - "collocations": 2-3 most useful collocations/short phrases the learner should
   know (<= 60 characters each, e.g. "comply with", "raise an alert").
 - Pick the meaning a learner most needs first; do not list several senses.
+- "synonyms": up to 3 single English words that carry the SAME meaning and could
+  replace this word in the same sentence (verbose -> wordy). Empty array when
+  there is none. Never repeat the word itself, no multi-word phrases.
 
 ${buildStylePrompt(style, { contexts: false })}Word: ${w}
 
-Reply with JSON only: {"meaning":"...","wordType":"...","collocations":["..."]}`;
+Reply with JSON only: {"meaning":"...","wordType":"...","collocations":["..."],"synonyms":["..."]}`;
 }
 
 function normalizeGeneratedWordInfo(parsed, word) {
@@ -602,11 +605,25 @@ function normalizeGeneratedWordInfo(parsed, word) {
     collocations.push(value);
     if (collocations.length >= 3) break;
   }
+  // Tu dong nghia (tieng Anh) de app gop cac tu cung nghia khi import.
+  const rawSynonyms = Array.isArray(parsed?.synonyms) ? parsed.synonyms : [];
+  const synonyms = [];
+  const selfKey = String(word || '').trim().toLowerCase();
+  for (const item of rawSynonyms) {
+    const value = clean(item, 40);
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (key === selfKey) continue;
+    if (synonyms.some((x) => x.toLowerCase() === key)) continue;
+    synonyms.push(value);
+    if (synonyms.length >= 3) break;
+  }
   return {
     word: String(word || '').trim(),
     meaning,
     wordType,
     collocations: collocations.join(' · '),
+    synonyms,
   };
 }
 

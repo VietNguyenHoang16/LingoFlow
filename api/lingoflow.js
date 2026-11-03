@@ -23,6 +23,17 @@ function isRetryableAiFailure(message) {
   return /quá chậm|quá tải|Không kết nối|Không tạo được|HTTP 5\d\d|không hợp lệ/i.test(text);
 }
 
+// Sinh vi du cho 1 tu. AI loi / cau thieu tu khoa / het thoi gian -> dung mau
+// tinh (templateExample) thay vi nem loi, de thao tac luu tu khong bi chan:
+// nguoi dung van sua duoc tu, chi la cau vi du kem tu nhien hon mot chut.
+async function generateExampleOrFallback(input, options) {
+  try {
+    return await generateExample(input, options);
+  } catch (error) {
+    return templateExample(input);
+  }
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -574,8 +585,8 @@ async function handleAction(action, data) {
       const collocations = normalizeCollocations(data.collocations);
       const aiConfigs = await getUserAiConfigs(data.userId);
       const style = await getUserAiExampleStyle(data.userId);
-      // Sinh vi du truoc khi insert: AI loi -> khong luu tu, bao loi ro rang.
-      const example = await generateExample(
+      // Sinh vi du truoc khi insert: AI loi -> dung mau tinh, tu van duoc luu.
+      const example = await generateExampleOrFallback(
         { word: data.word, meaning: data.meaning || '', wordType, topicTag, style },
         { timeoutMs: 10000, aiConfigs },
       );
@@ -745,6 +756,7 @@ async function handleAction(action, data) {
               meaning: info.meaning,
               wordType: info.wordType,
               collocations: info.collocations,
+              synonyms: Array.isArray(info.synonyms) ? info.synonyms : [],
             };
           } catch (error) {
             results[index] = { word, meaning: '', wordType: '', error: error.message };
@@ -1034,7 +1046,7 @@ async function handleAction(action, data) {
       const commonSynonyms = (data.commonSynonyms || '').trim();
       const refreshExample = data.refreshExample === true;
       const example = refreshExample
-        ? await generateExample(
+        ? await generateExampleOrFallback(
             {
               word: current[0].word,
               meaning,
@@ -1072,7 +1084,7 @@ async function handleAction(action, data) {
       const collocations = data.collocations === undefined
         ? null
         : normalizeCollocations(data.collocations);
-      const example = await generateExample(
+      const example = await generateExampleOrFallback(
         { word, meaning, wordType, topicTag, style: await getUserAiExampleStyle(data.userId) },
         { timeoutMs: 10000, aiConfigs: await getUserAiConfigs(data.userId) },
       );

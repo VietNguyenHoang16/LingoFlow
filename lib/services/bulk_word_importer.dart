@@ -10,11 +10,22 @@ class ImportLine {
   final String meaning;
   String? wordType; // resolved key (noun/verb/...). null khi AI chưa phân loại.
   String collocations; // cụm từ đi kèm do AI gợi ý ('' nếu không có).
+
+  /// Các từ cùng nghĩa được gộp vào từ này (tối đa 3) -> `common_synonyms`.
+  List<String> synonyms;
+
+  /// Tên từ đã "nuốt" dòng này khi gộp từ đồng nghĩa ('' nếu không bị gộp).
+  String mergedInto;
+
   String? error; // null = hợp lệ.
 
   static const String errorDuplicateInDb = 'Trùng từ';
   static const String errorDuplicateInList = 'Trùng trong danh sách';
   static const String errorAiMissing = 'AI không lấy được nghĩa';
+
+  /// Dòng bị gộp vào một từ khác cùng nghĩa (vd `verbose/wordy`). Không phải
+  /// lỗi nhập liệu: UI tô màu riêng và vẫn hiện nghĩa.
+  static const String errorMergedPrefix = 'Gộp vào ';
 
   ImportLine({
     required this.lineNumber,
@@ -23,8 +34,10 @@ class ImportLine {
     this.meaning = '',
     this.wordType,
     this.collocations = '',
+    List<String>? synonyms,
+    this.mergedInto = '',
     this.error,
-  });
+  }) : synonyms = synonyms ?? <String>[];
 
   /// Hợp lệ = đã có nghĩa + loại từ (AI điền) và không có lỗi.
   bool get isValid =>
@@ -35,7 +48,20 @@ class ImportLine {
   bool get isDuplicate =>
       error == errorDuplicateInDb || error == errorDuplicateInList;
 
-  ImportLine copyWith({String? meaning, String? wordType, String? collocations, String? error}) {
+  /// Dòng đã bị gộp vào từ khác cùng nghĩa trong lần import này.
+  bool get isMerged => mergedInto.isNotEmpty;
+
+  /// Chuỗi hiển thị/lưu vào `common_synonyms`.
+  String get commonSynonyms => synonyms.join(' · ');
+
+  ImportLine copyWith({
+    String? meaning,
+    String? wordType,
+    String? collocations,
+    List<String>? synonyms,
+    String? mergedInto,
+    String? error,
+  }) {
     return ImportLine(
       lineNumber: lineNumber,
       rawLine: rawLine,
@@ -43,6 +69,8 @@ class ImportLine {
       meaning: meaning ?? this.meaning,
       wordType: wordType ?? this.wordType,
       collocations: collocations ?? this.collocations,
+      synonyms: synonyms ?? this.synonyms,
+      mergedInto: mergedInto ?? this.mergedInto,
       error: error ?? this.error,
     );
   }
@@ -85,7 +113,10 @@ class BulkWordImporter {
       if (trimmed.isEmpty) continue;
       if (trimmed.startsWith('#')) continue;
 
-      final word = _cleanWord(trimmed);
+      final parts = _splitGroup(_cleanWord(trimmed));
+      if (parts.isEmpty) continue;
+      final word = parts.first;
+      final synonyms = parts.skip(1).toList(growable: false);
       if (word.isEmpty) continue;
       lineNumber++;
 
@@ -95,6 +126,7 @@ class BulkWordImporter {
           lineNumber: lineNumber,
           rawLine: trimmed,
           word: word,
+          synonyms: synonyms,
           error: ImportLine.errorDuplicateInList,
         ));
         continue;
@@ -104,6 +136,7 @@ class BulkWordImporter {
           lineNumber: lineNumber,
           rawLine: trimmed,
           word: word,
+          synonyms: synonyms,
           error: 'Từ quá dài',
         ));
         continue;
@@ -112,6 +145,7 @@ class BulkWordImporter {
         lineNumber: lineNumber,
         rawLine: trimmed,
         word: word,
+        synonyms: synonyms,
       ));
     }
     return lines;
@@ -124,6 +158,40 @@ class BulkWordImporter {
     word = word.replaceAll(RegExp(r'''^["'“”]+|["'“”]+$'''), '');
     word = stripLeadingNumber(word);
     return word.trim();
+  }
+
+  /// Tách nhóm từ đồng nghĩa viết trên cùng một dòng: `verbose/wordy`,
+  /// `verbose = wordy`, `verbose / wordy / long-winded`. Từ đầu là từ chính,
+  /// các từ còn lại vào `common_synonyms` (tối đa 3). Trả về đúng 1 phần tử
+  /// khi dòng không phải nhóm (hoặc không nên tách, vd `24/7`).
+  List<String> _splitGroup(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return const [];
+    final parts = text
+        .split(RegExp(r'\s*[=/]\s*'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.length == 1) return parts;
+    // Chỉ tách khi cả hai vế đều là cụm chữ (24/7, 8/10 giữ nguyên).
+    if (!parts.every(_isWordLike)) return [text];
+    final head = parts.first;
+    final extras = <String>[];
+    for (final part in parts.skip(1)) {
+      if (_hasWord(extras, part) || part.toLowerCase() == head.toLowerCase()) {
+        continue;
+      }
+      extras.add(part);
+      if (extras.length >= _maxSynonyms) break;
+    }
+    return [head, ...extras];
+  }
+
+  /// Một vế chỉ gồm chữ cái, khoảng trắng, gạch nối, nháy đơn.
+  static bool _isWordLike(String value) {
+    final v = value.trim();
+    if (v.isEmpty || v.length > 60) return false;
+    return RegExp(r"^[A-Za-z][A-Za-z'’,.\- ]*$").hasMatch(v);
   }
 
   /// Bỏ số thứ tự ở đầu dòng khi user dán danh sách đánh số:
@@ -190,9 +258,11 @@ class BulkWordImporter {
         meaning: info.meaning,
         wordType: info.wordType,
         collocations: info.collocations,
+        synonyms: _mergeSynonyms(l.synonyms, info.synonyms),
       );
     }).toList();
-    return _fillListDuplicates(enriched);
+    // Gộp từ cùng nghĩa (verbose + wordy) thành 1 card trước khi import.
+    return _fillListDuplicates(_mergeSynonymGroups(enriched));
   }
 
   /// Dòng trùng trong danh sách dán vào không được AI phân tích; lấy nghĩa của
@@ -215,6 +285,109 @@ class BulkWordImporter {
       );
     }).toList();
   }
+
+  static const int _maxSynonyms = 3;
+
+  /// Ghép từ đồng nghĩa AI trả về vào nhóm người dùng đã gõ, giữ tối đa 3.
+  List<String> _mergeSynonyms(List<String> base, List<String> fromAi) {
+    final result = <String>[];
+    for (final item in [...base, ...fromAi]) {
+      final value = item.trim();
+      if (value.isEmpty || _hasWord(result, value)) continue;
+      result.add(value);
+      if (result.length >= _maxSynonyms) break;
+    }
+    return result;
+  }
+
+  /// Gộp các từ cùng nghĩa thành 1 card trước khi import. Hai dòng là cùng
+  /// nghĩa khi từ của dòng này nằm trong danh sách đồng nghĩa của dòng kia (AI
+  /// trả về) hoặc nghĩa tiếng Việt giống hệt nhau. Dòng đầu tiên làm từ chính,
+  /// các từ còn lại vào `common_synonyms` và bị đánh dấu đã gộp; nhóm quá 4 từ
+  /// thì các từ dư vẫn thành card riêng.
+  List<ImportLine> _mergeSynonymGroups(List<ImportLine> lines) {
+    final indexes = [
+      for (var i = 0; i < lines.length; i++)
+        if (lines[i].isValid) i,
+    ];
+    if (indexes.length < 2) return lines;
+
+    final parent = <int, int>{for (final i in indexes) i: i};
+    int find(int i) {
+      var root = i;
+      while (parent[root] != root) {
+        root = parent[root]!;
+      }
+      while (parent[i] != root) {
+        final next = parent[i]!;
+        parent[i] = root;
+        i = next;
+      }
+      return root;
+    }
+
+    bool sameMeaning(ImportLine a, ImportLine b) {
+      final key = _meaningKey(a.meaning);
+      return key.isNotEmpty && key == _meaningKey(b.meaning);
+    }
+
+    bool sameWord(ImportLine a, ImportLine b) =>
+        _hasWord(a.synonyms, b.word) || _hasWord(b.synonyms, a.word);
+
+    for (var x = 0; x < indexes.length; x++) {
+      for (var y = x + 1; y < indexes.length; y++) {
+        final a = lines[indexes[x]];
+        final b = lines[indexes[y]];
+        if (!sameWord(a, b) && !sameMeaning(a, b)) continue;
+        final ra = find(indexes[x]);
+        final rb = find(indexes[y]);
+        if (ra != rb) parent[rb] = ra;
+      }
+    }
+
+    final groups = <int, List<int>>{};
+    for (final i in indexes) {
+      groups.putIfAbsent(find(i), () => <int>[]).add(i);
+    }
+
+    final merged = List<ImportLine>.of(lines);
+    for (final group in groups.values) {
+      if (group.length < 2) continue;
+      group.sort();
+      final head = lines[group.first];
+      final synonyms = List<String>.of(head.synonyms);
+      for (final index in group.skip(1)) {
+        // Nhóm đã đủ từ đồng nghĩa -> từ dư ở lại thành card riêng.
+        if (synonyms.length >= _maxSynonyms) break;
+        final other = lines[index];
+        if (other.word.toLowerCase() != head.word.toLowerCase() &&
+            !_hasWord(synonyms, other.word)) {
+          synonyms.add(other.word);
+        }
+        merged[index] = other.copyWith(
+          error: '${ImportLine.errorMergedPrefix}"${head.word}"',
+          mergedInto: head.word,
+        );
+      }
+      if (synonyms.length != head.synonyms.length) {
+        merged[group.first] = head.copyWith(synonyms: synonyms);
+      }
+    }
+    return merged;
+  }
+
+  static bool _hasWord(List<String> words, String word) {
+    final key = word.trim().toLowerCase();
+    if (key.isEmpty) return false;
+    return words.any((w) => w.trim().toLowerCase() == key);
+  }
+
+  /// Chuẩn hoá nghĩa để so sánh: bỏ dấu câu, gộp khoảng trắng, lowercase.
+  static String _meaningKey(String meaning) => meaning
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^\p{L}\p{N} ]+', unicode: true), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 
   /// Kiem tra tu trung bang 1 request duy nhat. Danh dau `Trùng từ`
   /// trên tất cả dòng có cùng word (case-insensitive), kèm nghĩa + loại từ
@@ -494,14 +667,15 @@ class BulkWordImporter {
     }
   }
 
-  /// Chỉ gửi dữ liệu AI đã điền; nhãn chủ đề / common synonyms để trống.
+  /// Chỉ gửi dữ liệu AI đã điền; nhãn chủ đề để trống, từ đồng nghĩa gộp lấy
+  /// từ nhóm người dùng gõ (`verbose/wordy`) hoặc AI gợi ý.
   List<Map<String, dynamic>> _payload(List<ImportLine> chunk) => chunk.map((l) => {
         'word': l.word,
         'pronunciation': pronunciations[l.word.toLowerCase()] ?? '',
         'meaning': l.meaning,
         'wordType': l.wordType,
         'topicTag': '',
-        'commonSynonyms': '',
+        'commonSynonyms': l.commonSynonyms,
         'collocations': l.collocations,
       }).toList();
 

@@ -218,7 +218,7 @@ void main() {
       expect(sent.map((w) => w['word']), ['apple']);
       expect(find.text('Đã thêm 1 từ.'), findsOneWidget);
       expect(
-        find.text('Đã bỏ qua 1 từ (0 đã có, 1 không dùng được).'),
+        find.text('Đã bỏ qua 1 từ (1 không dùng được).'),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);

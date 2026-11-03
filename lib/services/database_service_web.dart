@@ -33,6 +33,8 @@ class AiWordInfo {
   final String meaning;
   final String wordType;
   final String collocations;
+  /// Từ đồng nghĩa (tiếng Anh) AI gợi ý - dùng để gộp từ cùng nghĩa khi import.
+  final List<String> synonyms;
   final String error;
 
   const AiWordInfo({
@@ -40,6 +42,7 @@ class AiWordInfo {
     required this.meaning,
     required this.wordType,
     this.collocations = '',
+    this.synonyms = const [],
     this.error = '',
   });
 
@@ -294,6 +297,10 @@ class DatabaseService {
         meaning: (row['meaning'] ?? '').toString().trim(),
         wordType: (row['wordType'] ?? '').toString().trim(),
         collocations: (row['collocations'] ?? '').toString().trim(),
+        synonyms: (row['synonyms'] as List? ?? const [])
+            .map((s) => s.toString().trim())
+            .where((s) => s.isNotEmpty)
+            .toList(growable: false),
         error: (row['error'] ?? '').toString(),
       );
     }).toList();

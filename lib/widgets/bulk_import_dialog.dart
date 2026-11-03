@@ -55,7 +55,8 @@ class BulkImportDialog extends StatefulWidget {
 }
 
 class _BulkImportDialogState extends State<BulkImportDialog> {
-  static const _example = 'serendipity, resilient, break the ice, commute';
+  static const _example =
+      'serendipity, resilient, verbose/wordy, break the ice';
 
   // Bước AI lấy nghĩa + loại từ (stage 4) - hiện trước preview.
   static const int _stageAnalyzing = 4;
@@ -75,6 +76,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   int _excludedCount = 0;
   int _errorCount = 0;
   int _duplicateCount = 0;
+  int _mergedCount = 0;
 
   int _analyzeTotal = 0;
   int _done = 0;
@@ -150,7 +152,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
   }
 
   void _applyCounts(List<ImportLine> lines) {
-    int valid = 0, dup = 0, excluded = 0;
+    int valid = 0, dup = 0, excluded = 0, merged = 0;
     for (final l in lines) {
       if (l.isValid) {
         if (_excluded.contains(l.lineNumber)) {
@@ -160,12 +162,25 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
         }
       } else if (l.isDuplicate) {
         dup++;
+      } else if (l.isMerged) {
+        merged++;
       }
     }
     _validCount = valid;
     _excludedCount = excluded;
     _duplicateCount = dup;
-    _errorCount = lines.length - valid - excluded - dup;
+    _mergedCount = merged;
+    _errorCount = lines.length - valid - excluded - dup - merged;
+  }
+
+  /// "2 đã có, 1 gộp nghĩa, 3 không dùng được" - chỉ liệt kê phần khác 0.
+  String _skippedDetail() {
+    final parts = <String>[
+      if (_duplicateCount > 0) '$_duplicateCount đã có',
+      if (_mergedCount > 0) '$_mergedCount gộp nghĩa',
+      if (_errorCount > 0) '$_errorCount không dùng được',
+    ];
+    return parts.join(', ');
   }
 
   /// Bật/tắt loại trừ một từ khỏi lần import. Từ bị loại vẫn hiện trong danh
@@ -350,7 +365,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       key: key,
       children: [
         Text(
-          'Dán danh sách từ, ngăn cách bằng dấu phẩy. AI tự lấy nghĩa tiếng Việt, phân loại từ và tạo ví dụ cho từng từ. Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
+          'Dán danh sách từ, ngăn cách bằng dấu phẩy. Viết verbose/wordy (hoặc verbose = wordy) để gộp các từ cùng nghĩa vào 1 card – từ đầu là từ chính, các từ sau vào Common synonyms. AI tự lấy nghĩa tiếng Việt, phân loại từ và gộp luôn các từ cùng nghĩa còn lại. Dòng bắt đầu # là comment, dòng trống bị bỏ qua.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withAlpha(150),
             fontFamily: 'Be Vietnam Pro',
@@ -444,6 +459,8 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
               _stat('Đã loại trừ', _excludedCount, theme.colorScheme.outline),
             _stat('Không dùng được', _errorCount, theme.colorScheme.error),
             _stat('Trùng từ', _duplicateCount, theme.colorScheme.onSurfaceVariant),
+            if (_mergedCount > 0)
+              _stat('Gộp nghĩa', _mergedCount, theme.colorScheme.secondary),
             _stat('Tổng dòng', _lines.length, theme.colorScheme.onSurface),
           ],
         ),
@@ -688,11 +705,11 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (_errorCount + _duplicateCount > 0) ...[
+          if (_errorCount + _duplicateCount + _mergedCount > 0) ...[
             const SizedBox(height: 4),
             Text(
-              'Đã bỏ qua ${_errorCount + _duplicateCount} từ '
-              '($_duplicateCount đã có, $_errorCount không dùng được).',
+              'Đã bỏ qua ${_errorCount + _duplicateCount + _mergedCount} từ '
+              '(${_skippedDetail()}).',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withAlpha(150),
@@ -801,7 +818,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
       case 3:
         return Row(
           children: [
-            if (_errorCount + _duplicateCount > 0)
+            if (_errorCount + _duplicateCount + _mergedCount > 0)
               TextButton(
                 onPressed: _back,
                 child: const Text('Xem lại lỗi'),
@@ -924,12 +941,15 @@ class _PreviewRow extends StatelessWidget {
     // Trùng từ không phải lỗi nhập liệu: tô teal riêng, nghĩa đã có vẫn hiển
     // thị đầy đủ ở cột nghĩa.
     final isDuplicate = line.isDuplicate;
-    final isError = !line.isValid && !isDuplicate;
+    final isMerged = line.isMerged;
+    final isError = !line.isValid && !isDuplicate && !isMerged;
     final bgColor = isDuplicate
         ? theme.colorScheme.tertiary.withAlpha(14)
-        : isError
-            ? theme.colorScheme.error.withAlpha(15)
-            : Colors.transparent;
+        : isMerged
+            ? theme.colorScheme.secondary.withAlpha(14)
+            : isError
+                ? theme.colorScheme.error.withAlpha(15)
+                : Colors.transparent;
     final content = Container(
       color: bgColor,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -951,15 +971,31 @@ class _PreviewRow extends StatelessWidget {
           ],
           Expanded(
             flex: 2,
-            child: Text(
-              line.word,
-              style: TextStyle(
-                fontFamily: 'Be Vietnam Pro',
-                fontWeight: isError ? FontWeight.w500 : FontWeight.w600,
-                decoration: (line.word.isEmpty || excluded)
-                    ? TextDecoration.lineThrough
-                    : null,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  line.word,
+                  style: TextStyle(
+                    fontFamily: 'Be Vietnam Pro',
+                    fontWeight: isError ? FontWeight.w500 : FontWeight.w600,
+                    decoration: (line.word.isEmpty || excluded)
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
+                ),
+                if (line.synonyms.isNotEmpty)
+                  Text(
+                    '≈ ${line.commonSynonyms}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'Be Vietnam Pro',
+                      color: theme.colorScheme.primary.withAlpha(190),
+                    ),
+                  ),
+              ],
             ),
           ),
           Expanded(
@@ -985,7 +1021,9 @@ class _PreviewRow extends StatelessWidget {
                   fontSize: 12,
                   color: isDuplicate
                       ? theme.colorScheme.tertiary
-                      : theme.colorScheme.error,
+                      : isMerged
+                          ? theme.colorScheme.secondary
+                          : theme.colorScheme.error,
                 ),
               ),
             ),
