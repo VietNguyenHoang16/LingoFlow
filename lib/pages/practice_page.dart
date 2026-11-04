@@ -15,6 +15,10 @@ import '../widgets/load_error_view.dart';
 import '../widgets/save_blocked_dialog.dart';
 import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
+import '../services/meaning_choice_options.dart';
+import '../widgets/meaning_choice_card.dart';
+import '../widgets/topic_tag_badge.dart';
+import '../widgets/word_type_badge.dart';
 
 class PracticePage extends StatefulWidget {
   final int listId;
@@ -73,6 +77,25 @@ class _PracticePageState extends State<PracticePage> {
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _hintLevel = 0;
 
+  /// Che do tra loi: gõ từ (mặc định) hoạc chọn nghĩa. Đổi ngay tại chỗ,
+  /// giữ nguyên bộ từ và câu hiện tại.
+  AnswerInputMode _inputMode = AnswerInputMode.typing;
+
+  /// Đúng/sai của câu vừa trả lời (cả 2 chế độ) — dùng khi hiện khung kết quả.
+  bool? _lastIsCorrect;
+
+  /// Bộ options của câu hiện tại (cache theo id + nghĩa + cờ fallback để
+  /// không shuffle lại khi rebuild).
+  String _optionsCacheKey = '';
+  List<MeaningOption> _optionsCache = const [];
+
+  /// Nghĩa fallback toàn bộ từ vựng (chỉ tải khi bộ ôn quá ít nghĩa để ra đề).
+  List<String>? _fallbackMeanings;
+  bool _fallbackLoaded = false;
+  bool _fallbackLoading = false;
+
+  final Random _random = Random();
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +132,8 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   void _focusSpellInputIfNeeded() {
+    // Chế độ chọn nghĩa không có ô nhập -> không xin focus bàn phím.
+    if (_inputMode == AnswerInputMode.choice) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _showResult || _isCompleted) return;
       _spellFocusNode.requestFocus();
@@ -157,6 +182,7 @@ class _PracticePageState extends State<PracticePage> {
   void _nextQuestion() {
     setState(() {
       _showResult = false;
+      _lastIsCorrect = null;
       _spellController.clear();
       _questionStartTime = DateTime.now();
       _hintLevel = 0;
@@ -250,11 +276,83 @@ class _PracticePageState extends State<PracticePage> {
     navigator.pop(result);
   }
 
-  Future<void> _checkSpell() async {
+  /// Dựng bộ options cho [word]; cache theo id + nghĩa + cờ fallback để không
+  /// shuffle lại mỗi lần rebuild. Pool = nghĩa các từ khác trong session, bù
+  /// thêm nghĩa toàn bộ từ vựng (wordIndex) khi bộ ôn quá ít.
+  List<MeaningOption> _optionsForWord(Map<String, dynamic> word) {
+    final key = '${word['id']}|${word['meaning']}|$_fallbackLoaded';
+    if (_optionsCacheKey == key) return _optionsCache;
+    final pool = <String>[
+      for (final w in _words)
+        if (w['id'] != word['id']) (w['meaning'] ?? '').toString(),
+      if (_fallbackMeanings != null) ..._fallbackMeanings!,
+    ];
+    _optionsCacheKey = key;
+    _optionsCache = buildMeaningOptions(
+      correctMeaning: (word['meaning'] ?? '').toString(),
+      poolMeanings: pool,
+      random: _random,
+    );
+    if (_optionsCache.length < 4 &&
+        _fallbackMeanings == null &&
+        !_fallbackLoading) {
+      unawaited(_ensureChoicePool());
+    }
+    return _optionsCache;
+  }
+
+  /// Tải nghĩa fallback từ toàn bộ từ vựng (wordIndex có cache sẵn trong
+  /// DatabaseService, tự invalidate khi sửa từ). Fail -> bỏ qua, đề vẫn ra
+  /// với ít lựa chọn hơn.
+  Future<void> _ensureChoicePool() async {
+    _fallbackLoading = true;
+    try {
+      final rows = await _db.wordIndex(widget.userId);
+      _fallbackMeanings =
+          rows.map((w) => (w['meaning'] ?? '').toString()).toList();
+    } catch (e) {
+      debugPrint('Choice pool fallback error: $e');
+      _fallbackMeanings = const [];
+    }
+    _fallbackLoaded = true;
+    _fallbackLoading = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Câu hiện tại có thể ra đề chọn nghĩa không (cần >= 1 nghĩa nhiễu).
+  bool get _choicePossible =>
+      _words.isNotEmpty &&
+      _optionsForWord(_words[_currentIndex]).length >= 2;
+
+  void _setInputMode(AnswerInputMode mode) {
+    if (_inputMode == mode) return;
+    setState(() => _inputMode = mode);
+    if (mode == AnswerInputMode.typing) _focusSpellInputIfNeeded();
+  }
+
+  void _checkChoice(int selectedIndex) {
     if (_words.isEmpty || _showResult) return;
+    final options = _optionsForWord(_words[_currentIndex]);
+    if (selectedIndex < 0 || selectedIndex >= options.length) return;
+    _revealAnswer(isCorrect: options[selectedIndex].isCorrect);
+  }
+
+  void _checkSpell() {
+    if (_words.isEmpty || _showResult) return;
+    // Chế độ chọn nghĩa: không có ô gõ để Check (Enter không làm gì).
+    if (_inputMode == AnswerInputMode.choice) return;
     final word = _words[_currentIndex];
     final correct = word['word'];
     final isCorrect = _spellController.text.trim().toLowerCase() == correct.toLowerCase();
+    _revealAnswer(isCorrect: isCorrect);
+  }
+
+  /// Chung cho cả 2 chế độ: hiện khung kết quả + chấm điểm
+  /// (studyMode: sai -> lặp lại cuối; SRS mode: lưu quality).
+  void _revealAnswer({required bool isCorrect}) {
+    final word = _words[_currentIndex];
+    final correct = word['word'];
+    _lastIsCorrect = isCorrect;
 
     if (widget.studyMode) {
       if (!isCorrect) {
@@ -335,6 +433,7 @@ class _PracticePageState extends State<PracticePage> {
       _isCompleted = false;
       _showConfetti = false;
       _showResult = false;
+      _lastIsCorrect = null;
       _spellController.clear();
       _words.shuffle(Random());
       _sessionResults.clear();
@@ -362,7 +461,7 @@ class _PracticePageState extends State<PracticePage> {
     if (_isCompleted) return;
     if (_showResult) {
       _nextQuestion();
-    } else {
+    } else if (_inputMode == AnswerInputMode.typing) {
       _checkSpell();
     }
   }
@@ -688,6 +787,14 @@ class _PracticePageState extends State<PracticePage> {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: AnswerModeToggle(
+                mode: _inputMode,
+                onChanged: _setInputMode,
+              ),
+            ),
+            const SizedBox(height: 10),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -699,9 +806,15 @@ class _PracticePageState extends State<PracticePage> {
                   final cardPadding = compact ? 18.0 : 24.0;
                   final titleFont = compact ? 21.0 : 24.0;
                   final maskedFont = compact ? 26.0 : 32.0;
-                  final isCorrectAnswer = _spellController.text.trim().toLowerCase() ==
-                      currentWord['word'].toString().toLowerCase();
-                  final typedAnswer = _spellController.text.trim();
+                  // Chế độ chọn nghĩa: đúng/sai lấy từ lần chọn gần nhất
+                  // (ô gõ không có nội dung), dòng "Bạn gõ" được ẩn.
+                  final isCorrectAnswer = _inputMode == AnswerInputMode.choice
+                      ? (_lastIsCorrect == true)
+                      : _spellController.text.trim().toLowerCase() ==
+                          currentWord['word'].toString().toLowerCase();
+                  final typedAnswer = _inputMode == AnswerInputMode.choice
+                      ? ''
+                      : _spellController.text.trim();
 
                   if (_showResult) {
                     return _buildResultView(
@@ -724,7 +837,21 @@ class _PracticePageState extends State<PracticePage> {
                       children: [
                         // Khi có kết quả, thẻ nghĩa được thay bằng khung đáp án
                         // lớn (bên dưới) để dùng hết chiều cao màn hình.
-                        if (!_showResult)
+                        // Chế độ chọn nghĩa: thẻ câu hỏi là từ + options.
+                        // (Bộ từ quá ít nghĩa -> tự động về dạng gõ từ.)
+                        if (!_showResult &&
+                            _inputMode == AnswerInputMode.choice &&
+                            _choicePossible)
+                          _buildChoiceQuestion(
+                            theme: theme,
+                            currentWord: currentWord,
+                            masteryLevel: masteryLevel,
+                            compact: compact,
+                            cardPadding: cardPadding,
+                          ),
+                        if (!_showResult &&
+                            !(_inputMode == AnswerInputMode.choice &&
+                                _choicePossible))
                         Container(
                           width: double.infinity,
                           padding: EdgeInsets.all(
@@ -786,6 +913,8 @@ class _PracticePageState extends State<PracticePage> {
                         // Giữ ô nhập trong cây (Offstage) khi hiện kết quả: bàn
                         // phím không đóng/mở lại giữa các câu -> bấm tick lần nữa
                         // là sang câu tiếp, hết cảm giác khựng vì IME.
+                        if (!_showResult &&
+                            _inputMode == AnswerInputMode.typing)
                         Offstage(
                           offstage: _showResult,
                           child: Column(
@@ -935,6 +1064,81 @@ class _PracticePageState extends State<PracticePage> {
       ),
     ),
     ),
+    );
+  }
+
+  /// Thẻ câu hỏi chế độ chọn nghĩa: từ + phiên âm + badges + options.
+  Widget _buildChoiceQuestion({
+    required ThemeData theme,
+    required Map<String, dynamic> currentWord,
+    required int masteryLevel,
+    required bool compact,
+    required double cardPadding,
+  }) {
+    final wordText = (currentWord['word'] ?? '').toString();
+    final pronunciation = (currentWord['pronunciation'] ?? '').toString();
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(cardPadding),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withAlpha(51),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MasteryBadge(level: masteryLevel),
+          const SizedBox(height: 12),
+          Text(
+            'Nghĩa của từ này là gì?',
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            wordText,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: compact ? 21 : 24,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          if (pronunciation.isNotEmpty)
+            Text(
+              '/$pronunciation/',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: compact ? 13 : 15,
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          if ((currentWord['word_type'] ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: WordTypeBadge(
+                typeKey: currentWord['word_type'] as String,
+                showIcon: false,
+              ),
+            ),
+          if ((currentWord['topic_tag'] ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: TopicTagBadge(
+                tag: currentWord['topic_tag'] as String,
+                onColoredSurface: false,
+              ),
+            ),
+          SizedBox(height: compact ? 12 : 16),
+          MeaningChoiceCard(
+            options: _optionsForWord(currentWord),
+            onSelected: _checkChoice,
+            compact: compact,
+          ),
+        ],
+      ),
     );
   }
 
