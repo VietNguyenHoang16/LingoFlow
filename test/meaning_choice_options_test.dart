@@ -69,4 +69,23 @@ void main() {
     }
     expect(positions.length, greaterThan(1));
   });
+
+  test('nhiu chon ngau nhien tu pool: bo nhiu khac nhau qua nhieu lan goi', () {
+    final distractorSets = <String>{};
+    for (var i = 0; i < 40; i++) {
+      final options = buildMeaningOptions(
+        correctMeaning: 'đúng',
+        poolMeanings: const ['a', 'b', 'c', 'd', 'e', 'f'],
+        random: Random(),
+      );
+      final distractors = options
+          .where((o) => !o.isCorrect)
+          .map((o) => o.meaning)
+          .toList()
+        ..sort();
+      expect(distractors.length, 3);
+      distractorSets.add(distractors.join(','));
+    }
+    expect(distractorSets.length, greaterThan(1));
+  });
 }

@@ -226,9 +226,20 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
 
-      // Mac dinh la chon nghia: 2 tu session -> 2 lua chon; fallback wordIndex
-      // bo thanh 4 lua chon. (userId: 2 de tranh cache wordIndex static.)
-      expect(find.text('nghĩa A'), findsOneWidget);
+      // Mac dinh la chon nghia: nhiu lay tu list tong (wordIndex) va chon ngau
+      // nhien -> 4 lua chon (1 dung + 3 nhiu), bo nhiu thay doi moi lan.
+      // (userId: 2 de tranh cache wordIndex static.)
+      final allMeanings = [
+        'triển khai',
+        'kiên cường',
+        'nghĩa A',
+        'nghĩa B',
+        'nghĩa C',
+        'nghĩa D',
+      ];
+      final shownOptions =
+          allMeanings.where((m) => find.text(m).evaluate().isNotEmpty).toList();
+      expect(shownOptions.length, 4);
 
       final current = ['deploy', 'resilient']
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);

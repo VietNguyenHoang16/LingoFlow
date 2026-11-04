@@ -778,15 +778,21 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   /// Dựng bộ options cho [word]; cache theo id + nghĩa + cờ fallback để không
-  /// shuffle lại mỗi lần rebuild. Pool = nghĩa các từ due khác, bù thêm nghĩa
-  /// toàn bộ từ vựng (wordIndex) khi bộ due quá ít.
+  /// shuffle lại mỗi lần rebuild.
+  ///
+  /// Nghĩa nhiễu **luôn lấy từ list tổng** (toàn bộ từ vựng của user, qua
+  /// `wordIndex`) và chọn ngẫu nhiên. Chỉ khi list tổng chưa/khtải được
+  /// (offline) mới tạm dùng nghĩa các từ đang ôn.
   List<MeaningOption> _optionsForWord(Map<String, dynamic> word) {
     final key = '${word['id']}|${word['meaning']}|$_fallbackLoaded';
     if (_optionsCacheKey == key) return _optionsCache;
+    final global = _fallbackMeanings;
     final pool = <String>[
-      for (final w in _dueWords)
-        if (w['id'] != word['id']) (w['meaning'] ?? '').toString(),
-      if (_fallbackMeanings != null) ..._fallbackMeanings!,
+      if (global != null && global.isNotEmpty)
+        ...global
+      else
+        for (final w in _dueWords)
+          if (w['id'] != word['id']) (w['meaning'] ?? '').toString(),
     ];
     _optionsCacheKey = key;
     _optionsCache = buildMeaningOptions(
@@ -794,17 +800,15 @@ class _ReviewPageState extends State<ReviewPage>
       poolMeanings: pool,
       random: _random,
     );
-    if (_optionsCache.length < 4 &&
-        _fallbackMeanings == null &&
-        !_fallbackLoading) {
+    if (_fallbackMeanings == null && !_fallbackLoading) {
       unawaited(_ensureChoicePool());
     }
     return _optionsCache;
   }
 
-  /// Tải nghĩa fallback từ toàn bộ từ vựng (wordIndex có cache sẵn trong
-  /// DatabaseService, tự invalidate khi sửa từ). Fail -> bỏ qua, đề vẫn ra
-  /// với ít lựa chọn hơn.
+  /// Tải nghĩa toàn bộ từ vựng (list tổng) — wordIndex có cache sẵn trong
+  /// DatabaseService, tự invalidate khi sửa từ. Fail -> bỏ qua, đề vẫn ra
+  /// với nghĩa các từ đang ôn.
   Future<void> _ensureChoicePool() async {
     _fallbackLoading = true;
     try {

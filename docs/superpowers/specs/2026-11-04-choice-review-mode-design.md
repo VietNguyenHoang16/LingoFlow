@@ -13,8 +13,9 @@ POS/topic), người dùng **chọn nghĩa đúng trong 4 lựa chọn**. Song s
 
 Đã xác nhận với người dùng (2026-11-04):
 1. Thêm vào cả 2 màn ReviewPage + PracticePage.
-2. Nghĩa gây nhiễu là nghĩa thật của từ khác trong cùng bộ đang ôn; bộ quá ít
-   thì bù ngẫu nhiên từ toàn bộ từ vựng user (qua action `getWordIndex` có sẵn).
+2. Nghĩa nhiễu **luôn lấy ngẫu nhiên từ list tổng** — toàn bộ từ vựng của user
+   (list canonical duy nhất/user, qua `wordIndex`); chỉ khi không tải được
+   (offline) mới tạm dùng nghĩa các từ đang ôn. Bộ nhiễu đổi mới mỗi lần ra đề.
 3. 4 lựa chọn mỗi câu.
 4. Đổi chế độ giữa session: giữ nguyên danh sách từ, câu hiện tại, điểm, queue Again.
 5. Chế độ **mặc định khi mở màn là Chọn nghĩa** (nhìn từ chọn nghĩa); grammar
@@ -45,7 +46,8 @@ POS/topic), người dùng **chọn nghĩa đúng trong 4 lựa chọn**. Song s
 - `lib/widgets/meaning_choice_card.dart` (mới): widget câu hỏi trắc nghiệm dùng chung
   cho cả 2 màn — từ + phiên âm + badges + danh sách option + trạng thái đúng/sai.
 - `lib/services/meaning_choice_options.dart` (mới, pure Dart): hàm dựng bộ options,
-  shuffle, dedupe nghĩa, fallback giảm số lựa chọn (tối thiểu 2).
+  shuffle **cả ứng viên nhiễu (chọn ngẫu nhiên 3)** lẫn thứ tự lựa chọn, dedupe nghĩa,
+  giảm số lựa chọn khi pool ít.
 - `lib/services/database_service_web.dart`: tái dụng method `wordIndex(userId)`
   đã có (cache trong bộ nhớ, tự invalidate khi sửa từ) để lấy pool nghĩa
   fallback toàn bộ từ vựng. Không thêm method, không đổi API server.
@@ -102,8 +104,9 @@ List<MeaningOption> buildMeaningOptions({
 - Toggle "Gõ từ" / "Chọn nghĩa" trên cả ReviewPage và PracticePage; **mặc định mở
   màn là Chọn nghĩa** (tham số `initialMode` cho phép caller đổi); đổi giữa
   session giữ nguyên bộ từ, câu hiện tại, điểm, queue Again — không reset.
-- Mỗi câu chọn nghĩa có 4 lựa chọn (1 đúng + 3 nhiễu cùng bộ; fallback toàn bộ
-  từ vựng qua `getWordIndex`; tối thiểu 2 lựa chọn khi pool quá nhỏ).
+- Mỗi câu chọn nghĩa có 4 lựa chọn: 1 đúng + **3 nhiễu chọn ngẫu nhiên từ list
+  tổng** (`wordIndex`); khi list tổng không tải được thì tạm dùng từ đang ôn;
+  tối thiểu 2 lựa chọn khi pool quá nhỏ (dưới 2 thì tự về dạng gõ từ).
 - Chọn sai: option đỏ, option đúng xanh, panel đáp án (từ, phiên âm, ví dụ) hiện ra,
   chấm SRS/retry giống chế độ gõ từ.
 - `flutter test` và `flutter analyze` pass; `main.dart.js` production chứa chuỗi

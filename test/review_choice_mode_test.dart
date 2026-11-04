@@ -106,8 +106,18 @@ void main() {
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);
       final q1 = currentWord();
 
-      // Fallback wordIndex bo du 4 lua chon (nghĩa chi co trong index).
-      expect(find.text('quả chà là'), findsOneWidget);
+      // Nhiu lay tu list tong (wordIndex = toan bo tu) va chon ngau nhien ->
+      // 4 lua chon (1 dung + 3 nhiu), bo nhiu co the khac nhau moi lan.
+      final allMeanings = [
+        'quả táo',
+        'quả chuối',
+        'quả anh đào',
+        'quả chà là',
+        'quả trứng',
+      ];
+      final shownOptions =
+          allMeanings.where((m) => find.text(m).evaluate().isNotEmpty).toList();
+      expect(shownOptions.length, 4);
 
       // Doi qua lai giua 2 che do: cau hoi khong doi.
       await tester.tap(find.text('Gõ từ'));
@@ -118,7 +128,10 @@ void main() {
       expect(currentWord(), q1);
 
       // Chon SAI -> the lat, hien dap an dung + nut cham SRS.
-      final wrong = meaningOf.values.firstWhere((m) => m != meaningOf[q1]);
+      // Nhiu ngau nhien moi lan -> chon 1 nghia dang hien khac dap an dung.
+      final wrong = allMeanings
+          .where((m) => find.text(m).evaluate().isNotEmpty)
+          .firstWhere((m) => m != meaningOf[q1]);
       await tester.tap(find.text(wrong));
       await tester.pumpAndSettle();
       expect(find.text('How well did you know it?'), findsOneWidget);
