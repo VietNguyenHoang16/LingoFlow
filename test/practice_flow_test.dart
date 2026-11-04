@@ -66,6 +66,7 @@ void main() {
           listName: 'Test',
           preloadedWords: words,
           studyMode: true,
+          initialMode: AnswerInputMode.typing,
         ),
       ),
     );
@@ -125,6 +126,7 @@ void main() {
             userId: 1,
             listName: 'Test',
             studyMode: false,
+            initialMode: AnswerInputMode.typing,
           ),
         ),
       );

@@ -39,7 +39,10 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: const ReviewPage(userId: 1),
+          home: const ReviewPage(
+            userId: 1,
+            initialMode: AnswerInputMode.typing,
+          ),
         ),
       );
       await tester.pumpAndSettle();

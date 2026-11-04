@@ -77,32 +77,32 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Mac dinh: che do go tu.
-      expect(find.text('Từ tiếng Anh của nghĩa này là gì?'), findsOneWidget);
-
-      // Toggle sang chon nghia.
-      await tester.tap(find.text('Chọn nghĩa'));
-      await tester.pumpAndSettle();
-
+      // Mac dinh: che do chon nghia (nhin tu -> chon nghia).
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
 
       // Bo tu giu nguyen: chi tu hien tai hien dang cau hoi (cac tu con lai
       // chi xuat hien nghia cua chung o dang lua chon, khong xuat hien tu).
-      final shownWords = ['deploy', 'resilient', 'abandon']
+      List<String> shownWordsNow() => ['deploy', 'resilient', 'abandon']
           .where((w) => find.text(w).evaluate().isNotEmpty)
           .toList();
-      expect(shownWords.length, 1);
+      expect(shownWordsNow().length, 1);
+      final q1 = shownWordsNow().single;
 
       // 3 nghia (1 dung + 2 nhieu cung bo) deu la lua chon.
       expect(find.text('triển khai'), findsOneWidget);
       expect(find.text('kiên cường'), findsOneWidget);
       expect(find.text('bỏ rơi'), findsOneWidget);
 
-      // Chuyen nguoc ve go tu: o nhap lai hien, cung mot tu.
+      // Doi sang go tu roi quay lai chon nghia: cung mot tu, khong doi bo tu.
       await tester.tap(find.text('Gõ từ'));
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsOneWidget);
       expect(find.text('Từ tiếng Anh của nghĩa này là gì?'), findsOneWidget);
+      await tester.tap(find.text('Chọn nghĩa'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      expect(shownWordsNow().single, q1);
 
       expect(tester.takeException(), isNull);
     }, () => client);
@@ -144,9 +144,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Chọn nghĩa'));
-      await tester.pumpAndSettle();
-
+      // Mac dinh da la chon nghia, khong can doi che do.
       String currentWord() => ['deploy', 'resilient', 'abandon']
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);
 
@@ -226,13 +224,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Chọn nghĩa'));
-      await tester.pumpAndSettle();
       await tester.pumpAndSettle();
 
-      // 2 tu session -> 2 lua chon; fallback wordIndex bo thanh 4 lua chon.
-      // (userId: 2 de tranh cache wordIndex static cua cac test truoc.)
+      // Mac dinh la chon nghia: 2 tu session -> 2 lua chon; fallback wordIndex
+      // bo thanh 4 lua chon. (userId: 2 de tranh cache wordIndex static.)
       expect(find.text('nghĩa A'), findsOneWidget);
 
       final current = ['deploy', 'resilient']

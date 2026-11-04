@@ -93,6 +93,7 @@ void main() {
           userId: 1,
           studyMode: studyMode,
           preloadedWords: [_word()],
+          initialMode: AnswerInputMode.typing,
         ),
       ));
       await tester.pumpAndSettle();

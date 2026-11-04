@@ -20,6 +20,9 @@ import '../widgets/meaning_choice_card.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/word_type_badge.dart';
 
+// Cong khai che do tra loi de callers (ke ca test) dung tham so initialMode.
+export '../widgets/meaning_choice_card.dart' show AnswerInputMode;
+
 class PracticePage extends StatefulWidget {
   final int listId;
   final String listName;
@@ -28,12 +31,16 @@ class PracticePage extends StatefulWidget {
   final bool studyMode;
   final List<Map<String, dynamic>>? preloadedWords;
 
+  /// Che do tra loi luc mo man: mac dinh la "chon nghia" (nhin tu chon nghia).
+  final AnswerInputMode initialMode;
+
   const PracticePage({
     super.key,
     this.listId = 0,
     required this.listName,
     required this.userId,
     this.studyMode = true,
+    this.initialMode = AnswerInputMode.choice,
     this.category,
     this.preloadedWords,
   });
@@ -77,9 +84,9 @@ class _PracticePageState extends State<PracticePage> {
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _hintLevel = 0;
 
-  /// Che do tra loi: gõ từ (mặc định) hoạc chọn nghĩa. Đổi ngay tại chỗ,
+  /// Che do tra loi: chon nghia (mac dinh) hoạc gõ từ. Đổi ngay tại chỗ,
   /// giữ nguyên bộ từ và câu hiện tại.
-  AnswerInputMode _inputMode = AnswerInputMode.typing;
+  late AnswerInputMode _inputMode;
 
   /// Đúng/sai của câu vừa trả lời (cả 2 chế độ) — dùng khi hiện khung kết quả.
   bool? _lastIsCorrect;
@@ -99,6 +106,7 @@ class _PracticePageState extends State<PracticePage> {
   @override
   void initState() {
     super.initState();
+    _inputMode = widget.initialMode;
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     _loadWords();
   }

@@ -95,17 +95,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Mac dinh: che do go tu (o nhap + cau hoi nghia).
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('What is the English word?'), findsOneWidget);
-
-      // Doi sang chon nghia.
-      await tester.tap(find.text('Chọn nghĩa'));
-      await tester.pumpAndSettle();
-      await tester.pumpAndSettle();
-
+      // Mac dinh: che do chon nghia (nhin tu -> chon nghia).
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
+
+      // Mot nhip nua de fallback wordIndex ve xong.
+      await tester.pumpAndSettle();
 
       String currentWord() => ['apple', 'banana', 'cherry']
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);

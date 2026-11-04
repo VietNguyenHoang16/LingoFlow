@@ -131,7 +131,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: ReviewPage(userId: 1),
+          home: ReviewPage(userId: 1, initialMode: AnswerInputMode.typing),
         ),
       );
       await tester.pumpAndSettle();

@@ -17,6 +17,8 @@ POS/topic), người dùng **chọn nghĩa đúng trong 4 lựa chọn**. Song s
    thì bù ngẫu nhiên từ toàn bộ từ vựng user (qua action `getWordIndex` có sẵn).
 3. 4 lựa chọn mỗi câu.
 4. Đổi chế độ giữa session: giữ nguyên danh sách từ, câu hiện tại, điểm, queue Again.
+5. Chế độ **mặc định khi mở màn là Chọn nghĩa** (nhìn từ chọn nghĩa); grammar
+   review luôn ở chế độ gõ từ.
 
 ## Tech Stack
 
@@ -38,7 +40,8 @@ POS/topic), người dùng **chọn nghĩa đúng trong 4 lựa chọn**. Song s
 ## Project Structure
 
 - `lib/pages/review_page.dart`, `lib/pages/practice_page.dart`: thêm state chế độ
-  (`spelling` | `choice`), toggle UI, nhánh render câu hỏi, xử lý trả lời cho chế độ chọn.
+  (`AnswerInputMode.typing` | `choice`, mặc định `choice` qua tham số `initialMode`),
+  toggle UI, nhánh render câu hỏi, xử lý trả lời cho chế độ chọn.
 - `lib/widgets/meaning_choice_card.dart` (mới): widget câu hỏi trắc nghiệm dùng chung
   cho cả 2 màn — từ + phiên âm + badges + danh sách option + trạng thái đúng/sai.
 - `lib/services/meaning_choice_options.dart` (mới, pure Dart): hàm dựng bộ options,
@@ -96,7 +99,8 @@ List<MeaningOption> buildMeaningOptions({
 
 ## Success Criteria
 
-- Toggle "Gõ từ" / "Chọn nghĩa" trên cả ReviewPage và PracticePage; đổi giữa
+- Toggle "Gõ từ" / "Chọn nghĩa" trên cả ReviewPage và PracticePage; **mặc định mở
+  màn là Chọn nghĩa** (tham số `initialMode` cho phép caller đổi); đổi giữa
   session giữ nguyên bộ từ, câu hiện tại, điểm, queue Again — không reset.
 - Mỗi câu chọn nghĩa có 4 lựa chọn (1 đúng + 3 nhiễu cùng bộ; fallback toàn bộ
   từ vựng qua `getWordIndex`; tối thiểu 2 lựa chọn khi pool quá nhỏ).

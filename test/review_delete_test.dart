@@ -66,7 +66,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: ReviewPage(userId: 1, grammarReview: grammar),
+          home: ReviewPage(
+            userId: 1,
+            grammarReview: grammar,
+            initialMode: AnswerInputMode.typing,
+          ),
         ),
       );
       await tester.pumpAndSettle();

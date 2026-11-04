@@ -26,6 +26,9 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/topic_tag_badge.dart';
 
+// Cong khai che do tra loi de callers (ke ca test) dung tham so initialMode.
+export '../widgets/meaning_choice_card.dart' show AnswerInputMode;
+
 /// Màu tô ký tự gõ sai của người dùng: đỏ (feedback 'sai') đủ tương phản
 /// trên cả nền trắng lẫn đen thuần.
 const Color _answerMismatchColor = Color(0xFFDC2626);
@@ -43,6 +46,10 @@ class ReviewPage extends StatefulWidget {
   /// (bao gom tu lai loai 'noun,grammar') thay vi danh sach SRS thong thuong.
   final bool grammarReview;
 
+  /// Che do tra loi luc mo man: mac dinh la "chon nghia". Grammar review luon
+  /// dung che do gõ từ (khong co lua chon nghia).
+  final AnswerInputMode initialMode;
+
   const ReviewPage({
     super.key,
     required this.userId,
@@ -50,6 +57,7 @@ class ReviewPage extends StatefulWidget {
     this.listName,
     this.category,
     this.grammarReview = false,
+    this.initialMode = AnswerInputMode.choice,
   });
 
   @override
@@ -101,9 +109,9 @@ class _ReviewPageState extends State<ReviewPage>
 
   Map<int, String> _calculatedIntervals = {};
 
-  /// Che do tra loi: gõ từ (mặc định) hoạc chọn nghĩa. Đổi ngay tại chỗ,
+  /// Che do tra loi: chon nghia (mac dinh) hoạc gõ từ. Đổi ngay tại chỗ,
   /// giữ nguyên queue due và câu hiện tại. Grammar review không đổi được.
-  AnswerInputMode _inputMode = AnswerInputMode.typing;
+  late AnswerInputMode _inputMode;
 
   /// Bộ options của câu hiện tại (cache theo id + nghĩa + cờ fallback để
   /// không shuffle lại khi rebuild).
@@ -123,6 +131,9 @@ class _ReviewPageState extends State<ReviewPage>
   @override
   void initState() {
     super.initState();
+    // Grammar review khong co nghia de chon -> luon o che do gõ từ.
+    _inputMode =
+        widget.grammarReview ? AnswerInputMode.typing : widget.initialMode;
     // Phím Enter (grammar review) can phan hoi ca khi khong node nao focus,
     // nen dung handler toan cuc giong practice_page thay vi KeyboardListener.
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
@@ -1320,7 +1331,9 @@ class _ReviewPageState extends State<ReviewPage>
     ThemeData theme,
     bool compact,
   ) {
-    if (_inputMode == AnswerInputMode.choice && _choicePossible) {
+    if (!widget.grammarReview &&
+        _inputMode == AnswerInputMode.choice &&
+        _choicePossible) {
       return _buildChoiceQuestionCardContent(currentWord, theme, compact);
     }
     return Column(
