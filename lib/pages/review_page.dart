@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -7,8 +8,10 @@ import '../services/answer_comparison.dart';
 import '../services/database_service.dart';
 import '../services/review_word_utils.dart';
 import '../services/word_change_bus.dart';
+import '../services/meaning_choice_options.dart';
 import '../widgets/answer_diff_text.dart';
 import '../widgets/favorite_button.dart';
+import '../widgets/meaning_choice_card.dart';
 import '../widgets/review_example_panel.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
@@ -97,6 +100,22 @@ class _ReviewPageState extends State<ReviewPage>
   bool _isWordBusy = false;
 
   Map<int, String> _calculatedIntervals = {};
+
+  /// Che do tra loi: gõ từ (mặc định) hoạc chọn nghĩa. Đổi ngay tại chỗ,
+  /// giữ nguyên queue due và câu hiện tại. Grammar review không đổi được.
+  AnswerInputMode _inputMode = AnswerInputMode.typing;
+
+  /// Bộ options của câu hiện tại (cache theo id + nghĩa + cờ fallback để
+  /// không shuffle lại khi rebuild).
+  String _optionsCacheKey = '';
+  List<MeaningOption> _optionsCache = const [];
+
+  /// Nghĩa fallback toàn bộ từ vựng (chỉ tải khi bộ due quá ít nghĩa để ra đề).
+  List<String>? _fallbackMeanings;
+  bool _fallbackLoaded = false;
+  bool _fallbackLoading = false;
+
+  final Random _random = Random();
 
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
@@ -197,8 +216,8 @@ class _ReviewPageState extends State<ReviewPage>
 
   void _requestInputFocus({bool immediate = false}) {
     // Che do grammar khong co o nhap: khong focus keyboard, chi cuon the cau hoi
-    // len dau vung nhin thay duoc.
-    if (widget.grammarReview) {
+    // len dau vung nhin thay duoc. Che do chon nghia cung khong can keyboard.
+    if (widget.grammarReview || _inputMode == AnswerInputMode.choice) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_showAnswer && !_isCompleted) _scrollQuestionIntoView();
       });
@@ -704,6 +723,29 @@ class _ReviewPageState extends State<ReviewPage>
     _answerFocusNode.unfocus();
     _pageFocusNode.requestFocus();
 
+    final intervals = _calcIntervals(word);
+
+    setState(() {
+      _showAnswer = true;
+      // Grammar tu cham: khong so sanh chuoi go -> giu _isAnswerCorrect = null.
+      if (!widget.grammarReview) {
+        // Giữ nguyên kết luận đúng/sai như trước, đồng thời lưu dấu từng ký tự
+        // để tô chỗ người dùng gõ thiếu / thừa / sai.
+        _answerDiff = diffAnswer(
+          typed: _answerController.text,
+          expected: (word['word'] ?? '').toString(),
+        );
+        _isAnswerCorrect = _answerDiff!.isCorrect;
+      }
+      _calculatedIntervals = intervals;
+    });
+
+    _flipController.forward();
+    unawaited(_speak((word['word'] ?? '').toString()));
+  }
+
+  /// Khoảng cách ôn tiếp theo với 4 mức chất — dùng chung cho gõ từ và chọn nghĩa.
+  Map<int, String> _calcIntervals(Map<String, dynamic> word) {
     final intervals = <int, String>{};
     for (final q in [
       SrsService.qualityAgain,
@@ -721,22 +763,79 @@ class _ReviewPageState extends State<ReviewPage>
       );
       intervals[q] = res.newInterval == 0 ? '< 1m' : '${res.newInterval}d';
     }
+    return intervals;
+  }
 
+  /// Dựng bộ options cho [word]; cache theo id + nghĩa + cờ fallback để không
+  /// shuffle lại mỗi lần rebuild. Pool = nghĩa các từ due khác, bù thêm nghĩa
+  /// toàn bộ từ vựng (wordIndex) khi bộ due quá ít.
+  List<MeaningOption> _optionsForWord(Map<String, dynamic> word) {
+    final key = '${word['id']}|${word['meaning']}|$_fallbackLoaded';
+    if (_optionsCacheKey == key) return _optionsCache;
+    final pool = <String>[
+      for (final w in _dueWords)
+        if (w['id'] != word['id']) (w['meaning'] ?? '').toString(),
+      if (_fallbackMeanings != null) ..._fallbackMeanings!,
+    ];
+    _optionsCacheKey = key;
+    _optionsCache = buildMeaningOptions(
+      correctMeaning: (word['meaning'] ?? '').toString(),
+      poolMeanings: pool,
+      random: _random,
+    );
+    if (_optionsCache.length < 4 &&
+        _fallbackMeanings == null &&
+        !_fallbackLoading) {
+      unawaited(_ensureChoicePool());
+    }
+    return _optionsCache;
+  }
+
+  /// Tải nghĩa fallback từ toàn bộ từ vựng (wordIndex có cache sẵn trong
+  /// DatabaseService, tự invalidate khi sửa từ). Fail -> bỏ qua, đề vẫn ra
+  /// với ít lựa chọn hơn.
+  Future<void> _ensureChoicePool() async {
+    _fallbackLoading = true;
+    try {
+      final rows = await _db.wordIndex(widget.userId);
+      _fallbackMeanings =
+          rows.map((w) => (w['meaning'] ?? '').toString()).toList();
+    } catch (e) {
+      debugPrint('Choice pool fallback error: $e');
+      _fallbackMeanings = const [];
+    }
+    _fallbackLoaded = true;
+    _fallbackLoading = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Câu hiện tại có thể ra đề chọn nghĩa không (cần >= 1 nghĩa nhiễu).
+  bool get _choicePossible =>
+      _dueWords.isNotEmpty &&
+      _optionsForWord(_dueWords[_currentIndex]).length >= 2;
+
+  void _setInputMode(AnswerInputMode mode) {
+    if (_inputMode == mode) return;
+    setState(() => _inputMode = mode);
+    if (mode == AnswerInputMode.typing) _requestInputFocus();
+  }
+
+  /// Trả lời chế độ chọn nghĩa: lật thẻ + hiện đáp án + chờ chấm SRS, giống
+  /// _showAnswerCard nhưng không có diff ký tự (không gõ).
+  void _answerChoice(int selectedIndex) {
+    if (_wordOptionsOpen || _isCompleted || _isGrading || _showAnswer) return;
+    final word = _currentWordSafe;
+    if (word == null) return;
+    final options = _optionsForWord(word);
+    if (selectedIndex < 0 || selectedIndex >= options.length) return;
+    final isCorrect = options[selectedIndex].isCorrect;
     setState(() {
       _showAnswer = true;
-      // Grammar tu cham: khong so sanh chuoi go -> giu _isAnswerCorrect = null.
-      if (!widget.grammarReview) {
-        // Giữ nguyên kết luận đúng/sai như trước, đồng thời lưu dấu từng ký tự
-        // để tô chỗ người dùng gõ thiếu / thừa / sai.
-        _answerDiff = diffAnswer(
-          typed: _answerController.text,
-          expected: (word['word'] ?? '').toString(),
-        );
-        _isAnswerCorrect = _answerDiff!.isCorrect;
-      }
-      _calculatedIntervals = intervals;
+      // Chọn nghĩa: không có chuỗi gõ để tô dấu sai.
+      _answerDiff = null;
+      _isAnswerCorrect = isCorrect;
+      _calculatedIntervals = _calcIntervals(word);
     });
-
     _flipController.forward();
     unawaited(_speak((word['word'] ?? '').toString()));
   }
@@ -765,6 +864,8 @@ class _ReviewPageState extends State<ReviewPage>
 
   void _tapHint() {
     if (_showAnswer || _wordOptionsOpen) return;
+    // Chon nghia: tu hien ro san, khong can goi y.
+    if (_inputMode == AnswerInputMode.choice) return;
     final wordStr = (_currentWordSafe?['word'] ?? '').toString();
     if (wordStr.isEmpty) return;
     final maxHints = (wordStr.length - 2).clamp(0, wordStr.length);
@@ -1060,6 +1161,16 @@ class _ReviewPageState extends State<ReviewPage>
               ),
               const SizedBox(height: 8),
 
+              // Toggle doi che do tra loi ngay tai cho (grammar khong doi duoc).
+              if (!widget.grammarReview)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: AnswerModeToggle(
+                    mode: _inputMode,
+                    onChanged: _setInputMode,
+                  ),
+                ),
+
               // Mastery badge — an khi go phim de tiet kiem cho hien thi tu.
               if (!compactMode)
                 Padding(
@@ -1178,7 +1289,13 @@ class _ReviewPageState extends State<ReviewPage>
                 child: !_showAnswer
                     ? (widget.grammarReview
                         ? _buildGrammarShowAnswerButton(theme, compactMode)
-                        : _buildInputSection(theme, compactMode))
+                        : _inputMode == AnswerInputMode.choice && _choicePossible
+                            ? MeaningChoiceCard(
+                                options: _optionsForWord(currentWord),
+                                onSelected: _answerChoice,
+                                compact: compactMode,
+                              )
+                            : _buildInputSection(theme, compactMode))
                     : _buildRatingSection(theme, colors, compactMode),
               ),
 
@@ -1203,6 +1320,9 @@ class _ReviewPageState extends State<ReviewPage>
     ThemeData theme,
     bool compact,
   ) {
+    if (_inputMode == AnswerInputMode.choice && _choicePossible) {
+      return _buildChoiceQuestionCardContent(currentWord, theme, compact);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1282,6 +1402,100 @@ class _ReviewPageState extends State<ReviewPage>
             ),
           ),
         ],
+        if (currentWord['set_name'] != null && !compact) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              currentWord['set_name'],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontFamily: 'Be Vietnam Pro',
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// The cau hoi che do chon nghia: tu + phien am + badges (nghia chi hien
+  /// sau khi tra loi, o mat dap an).
+  Widget _buildChoiceQuestionCardContent(
+    Map<String, dynamic> currentWord,
+    ThemeData theme,
+    bool compact,
+  ) {
+    final wordText = (currentWord['word'] ?? '').toString();
+    final pronunciation = (currentWord['pronunciation'] ?? '').toString();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if ((currentWord['topic_tag'] ?? '').isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: TopicTagBadge(
+                  tag: currentWord['topic_tag'] as String,
+                  onColoredSurface: false,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        if ((currentWord['word_type'] ?? '').isNotEmpty) ...[
+          WordTypeBadge(
+            typeKey: currentWord['word_type'] as String,
+            showIcon: false,
+            onColoredSurface: false,
+          ),
+          const SizedBox(height: 10),
+        ],
+        Text(
+          'Nghĩa của từ này là gì?',
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: compact ? 12 : 13,
+            fontFamily: 'Be Vietnam Pro',
+          ),
+        ),
+        SizedBox(height: compact ? 8 : 12),
+        Text(
+          wordText,
+          textAlign: TextAlign.center,
+          maxLines: compact ? 2 : 3,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: compact ? 24 : 30,
+            fontWeight: FontWeight.w800,
+            color: theme.colorScheme.onSurface,
+            letterSpacing: -0.3,
+          ),
+        ),
+        if (pronunciation.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              '/$pronunciation/',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: compact ? 13 : 15,
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         if (currentWord['set_name'] != null && !compact) ...[
           const SizedBox(height: 10),
           Container(
