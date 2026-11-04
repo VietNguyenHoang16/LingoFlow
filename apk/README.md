@@ -6,17 +6,17 @@ Thư mục phát hành APK. Tải file `.apk` bằng điện thoại rồi mở 
 
 | File | Dung lượng | Kiến trúc | Dùng cho |
 |---|---|---|---|
-| **`vocab-arm64-release.apk`** | **20.2 MB** | arm64-v8a (+ armeabi-v7a, x86_64) | Gần như mọi điện thoại Android từ ~2016 đến nay |
+| **`vocab-arm64-release.apk`** | **20.3 MB** | arm64-v8a (+ armeabi-v7a, x86_64) | Gần như mọi điện thoại Android từ ~2016 đến nay |
 
-> Bản này có thêm **chế độ Chọn nghĩa trong Ôn tập / Luyện tập**: bấm toggle **Gõ từ / Chọn nghĩa** ngay trong màn hình để đổi cách trả lời (nhìn từ → chọn 1 trong 4 nghĩa, hoặc nhìn nghĩa → gõ từ) mà **không cần chọn trước**, giữ nguyên bộ từ và câu đang làm. 3 nghĩa nhiễu là nghĩa thật của các từ khác cùng bộ, thiếu thì bù từ toàn bộ từ vựng; chấm SRS vẫn 4 mức Again/Hard/Good/Easy. Đây là chế độ tùy chọn song song (khác Multiple Choice cũ đã gỡ), mặc định vẫn gõ từ. Bản này vẫn giữ **nhập thủ công khi AI lỗi**: dán chung một khung, dòng chỉ ghi từ thì AI tự lấy nghĩa như cũ; dòng viết theo quy tắc `POS :: từ :: nghĩa :: common` (hoặc `||`, hoặc format cũ `từ / POS / nghĩa`) thì lấy luôn nghĩa + loại từ bạn gõ, **không cần AI**. Vẫn **import không còn bị cắt kết nối** (`Software caused connection abort`): gửi từng lô nhỏ và tự thử lại. Vẫn **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
+> Bản này có thêm **chế độ Chọn nghĩa trong Ôn tập / Luyện tập**: bấm toggle **Gõ từ / Chọn nghĩa** ngay trong màn hình để đổi cách trả lời (nhìn từ → chọn 1 trong 4 nghĩa, hoặc nhìn nghĩa → gõ từ) mà **không cần chọn trước**, giữ nguyên bộ từ và câu đang làm. 3 nghĩa nhiễu là nghĩa thật của các từ khác cùng bộ, thiếu thì bù từ toàn bộ từ vựng; chấm SRS vẫn 4 mức Again/Hard/Good/Easy. Mặc định khi mở màn là **Chọn nghĩa**, vẫn đổi sang Gõ từ được bất cứ lúc nào (đây là chế độ tùy chọn song song, khác Multiple Choice cũ đã gỡ). Bản này vẫn giữ **nhập thủ công khi AI lỗi**: dán chung một khung, dòng chỉ ghi từ thì AI tự lấy nghĩa như cũ; dòng viết theo quy tắc `POS :: từ :: nghĩa :: common` (hoặc `||`, hoặc format cũ `từ / POS / nghĩa`) thì lấy luôn nghĩa + loại từ bạn gõ, **không cần AI**. Vẫn **import không còn bị cắt kết nối** (`Software caused connection abort`): gửi từng lô nhỏ và tự thử lại. Vẫn **gộp các từ đồng nghĩa khi import thành 1 card** (viết `verbose/wordy`, hoặc để AI tự gộp khi hai từ cùng nghĩa) và **sửa từ luôn lưu được** kể cả khi AI trả câu ví dụ lỗi. Vẫn giữ mục **Cỡ chữ** trong Settings (Chuẩn / Lớn / Rất lớn / Tối đa): trên iPad và màn hình rộng chữ mặc định to hơn hẳn nên đọc dễ hơn nhiều, chọn cỡ nào cũng được lưu lại. Vẫn giữ **widget "Từ cần ôn"** trên màn hình chính Android: hiện số từ đến hạn ngay ngoài app, chạm vào là mở app. Đồng thời vẫn giữ việc **gỡ mô hình 2 loại từ**: mọi từ đều là từ muốn học, không còn tab Học ngay / Nên biết, chip loại, ôn Nên biết hay màn phân loại; toàn bộ từ về 1 danh sách như cũ, không mất lịch ôn. Muốn ôn kĩ từ nào thì dùng ▶ chọn từ để luyện. Vẫn giữ **cụm từ đi kèm** (hiện ở mặt sau thẻ) và các cải tiến trước.
 
 Link tải nhanh:
 <https://github.com/VietNguyenHoang16/LingoFlow/raw/main/apk/vocab-arm64-release.apk>
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,234,014 bytes` (20.2 MB)
-- SHA256: `663CFF951185725C65F36DDDB62C5FA4781E735E3517B024444D07C41FE74873`
+- Kích thước: `21,234,014 bytes` (20.3 MB)
+- SHA256: `EA86F04EEC7710793AE00447272054BFA2F1D735918C2E429092B8FF85133E42`
 - Ngày build: `04/11/2026` — bản mới nhất:
   - **Ôn tập / Luyện tập: chế độ "Chọn nghĩa"** — thêm chế độ song song với gõ từ,
     đổi ngay trong màn hình bằng toggle **Gõ từ / Chọn nghĩa** (không cần chọn
@@ -26,6 +26,7 @@ Link tải nhanh:
     xong lật thẻ hiện đáp án + ví dụ; chấm SRS vẫn 4 mức Again / Hard / Good / Easy
     (Luyện tập: đúng/sai như cũ, sai lặp lại). Áp dụng cho cả màn **Ôn tập hằng
     ngày** và **Luyện tập**; màn Ôn grammar không có toggle (vì không gõ/chọn).
+    **Mặc định khi mở màn là Chọn nghĩa** — đổi sang Gõ từ ngay trong màn hình.
   - **Nhập thủ công khi AI lỗi** — cùng một khung dán, dòng chỉ ghi từ vẫn nhờ
     AI lấy nghĩa như cũ; dòng viết theo quy tắc `POS :: từ :: nghĩa :: common`
     (hoặc `||`, hoặc format cũ `từ / POS / nghĩa`) thì lấy luôn nghĩa + loại từ
