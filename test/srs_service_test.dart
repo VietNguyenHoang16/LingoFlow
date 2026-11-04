@@ -2,10 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lingoflow/services/srs_service.dart';
 
 void main() {
-  group('SrsService - Hard phat nang hon (muc Vua)', () {
+  group('SrsService - Hard nhe vua (xem dap an roi moi nho)', () {
     final srs = SrsService();
 
-    test('Hard 30d -> cap 7d, ease -0.2, giu streak, +1 lapse', () {
+    test('Hard 30d -> cap 14d, ease -0.14, giu streak, +1 lapse', () {
       final r = srs.calculateNextReview(
         quality: SrsService.qualityHard,
         currentInterval: 30,
@@ -14,13 +14,13 @@ void main() {
         reviewCount: 10,
       );
 
-      expect(r.newInterval, 7);
-      expect(r.newEaseFactor, closeTo(2.3, 0.0001));
+      expect(r.newInterval, 14);
+      expect(r.newEaseFactor, closeTo(2.36, 0.0001));
       expect(r.newCorrectStreak, 5);
       expect(r.newLapseCount, 1);
     });
 
-    test('Hard 60d -> cap 7d', () {
+    test('Hard 60d -> cap 14d', () {
       final r = srs.calculateNextReview(
         quality: SrsService.qualityHard,
         currentInterval: 60,
@@ -29,11 +29,11 @@ void main() {
         reviewCount: 10,
       );
 
-      expect(r.newInterval, 7);
+      expect(r.newInterval, 14);
       expect(r.newLapseCount, 1);
     });
 
-    test('Hard 10d -> 3d, khong +lapse', () {
+    test('Hard 10d -> 5d, khong +lapse', () {
       final r = srs.calculateNextReview(
         quality: SrsService.qualityHard,
         currentInterval: 10,
@@ -42,9 +42,21 @@ void main() {
         reviewCount: 10,
       );
 
-      expect(r.newInterval, 3);
+      expect(r.newInterval, 5);
       expect(r.newLapseCount, 0);
       expect(r.newCorrectStreak, 5);
+    });
+
+    test('Hard 4d -> 2d (khong cap)', () {
+      final r = srs.calculateNextReview(
+        quality: SrsService.qualityHard,
+        currentInterval: 4,
+        easeFactor: 2.5,
+        correctStreak: 5,
+        reviewCount: 10,
+      );
+
+      expect(r.newInterval, 2);
     });
 
     test('Hard 3 lan lien tiep tren tu cu -> roi vao Leech (cap 4d)', () {

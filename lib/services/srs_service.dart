@@ -42,8 +42,8 @@ class SrsService {
   /// Leech detection
   static const int leechThreshold = 3;    // 3 lần Again → đánh dấu Leech
   static const int leechMaxInterval = 4;  // Leech: interval tối đa 4 ngày
-  static const double hardMultiplier = 0.3; // Hard: giảm 70% interval
-  static const int hardMaxInterval = 7;   // Hard (interval>=2): trần 7 ngày
+  static const double hardMultiplier = 0.5; // Hard: giảm 50% interval
+  static const int hardMaxInterval = 14;  // Hard (interval>=2): trần 14 ngày
   static const int hardLapseThreshold = 14; // Hard trên từ >=14d thì +1 lapse
 
   /// Kiểm tra từ có phải là Leech không
@@ -129,7 +129,7 @@ class SrsService {
       } else {
         // Lần 3+
         if (quality == qualityHard) {
-          // Hard: GIẢM 70% interval (không nhân easeFactor) + trần 7 ngày
+          // Hard: GIẢM 50% interval (không nhân easeFactor) + trần 14 ngày
           // để từ đã ôn lâu mà còn khó không bị hẹn quá xa.
           newInterval = max(1, (currentInterval * hardMultiplier).round());
           newInterval = min(newInterval, hardMaxInterval);
@@ -145,12 +145,9 @@ class SrsService {
         newInterval = (newInterval * 1.3).round();
       }
 
-      // Cập nhật ease factor theo công thức SM-2
+      // Cập nhật ease factor theo công thức SM-2. Hard chỉ chịu mức phạt gốc
+      // (-0.14) chứ không phạt thêm, để Hard nhẹ hơn nhưng vẫn thấp hơn Good.
       newEaseFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-      if (quality == qualityHard) {
-        // Hard phạt thêm ease để lần Good sau giãn chậm hơn.
-        newEaseFactor -= 0.06;
-      }
       newEaseFactor = max(1.3, newEaseFactor);
     }
 

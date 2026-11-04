@@ -30,3 +30,24 @@ Muc tiêu: `Hard` trên tư đã ôn lâu vân giữ được từ, nhưng hẹn
 - [x] `test/srs_service_test.dart` có các case trên và pass.
 - [ ] `flutter test` toàn suite liên quan không regression.
 - [ ] Preview `Hard` trên tư `30d` hiên `7d` thay vì `15d`.
+
+## Cập nhật 2026-11-04 — mức "Nhẹ vừa" (thay mức Vừa ở trên)
+Lý do: người dùng phản hồi có từ chỉ cần **gợi ý nhẹ là nhớ**, nhưng nhìn lần đầu chưa
+nhớ ra — Hard cũ quá nặng (ease bằng Again, cắt 70% interval, lại +1 lapse).
+
+Đã đổi:
+1. `hardMultiplier`: `0.3` -> `0.5` (cắt 50% thay vì 70%).
+2. `hardMaxInterval`: `7` -> `14` ngày.
+3. **Bỏ** phạt ease thêm `-0.06`: Hard chỉ còn `-0.14` (SM-2 gốc), không còn ngang Again.
+
+Giữ nguyên: Hard không tăng streak; `interval 0/1 -> 1d/2d`; `+1 lapse` khi
+`interval >= 14` hoặc đang có lapse; Leech cap `4` ngày; trần `180` ngày.
+
+Ví dụ mới (ease 2.5, streak 5, lapse 0):
+- `30d + Hard` -> `14d` (trước `7d`), ease `2.36` (trước `2.30`), lapse `1`.
+- `60d + Hard` -> `14d`; `10d + Hard` -> `5d`; `4d + Hard` -> `2d`.
+- `Hard x3` trên từ `30d`: `14d -> 7d -> 4d` (Leech), lapse `1 -> 2 -> 3`.
+
+Success Criteria (cập nhật):
+- [x] `test/srs_service_test.dart` cập nhật theo số mới và pass.
+- [ ] `flutter test` toàn suite không regression.
