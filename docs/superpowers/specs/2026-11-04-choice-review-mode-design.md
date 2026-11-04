@@ -43,8 +43,9 @@ POS/topic), người dùng **chọn nghĩa đúng trong 4 lựa chọn**. Song s
   cho cả 2 màn — từ + phiên âm + badges + danh sách option + trạng thái đúng/sai.
 - `lib/services/meaning_choice_options.dart` (mới, pure Dart): hàm dựng bộ options,
   shuffle, dedupe nghĩa, fallback giảm số lựa chọn (tối thiểu 2).
-- `lib/services/database_service_web.dart`: thêm `getWordIndex(userId)` (gọi action
-  `getWordIndex` đã có) để lấy pool nghĩa fallback toàn bộ từ vựng.
+- `lib/services/database_service_web.dart`: tái dụng method `wordIndex(userId)`
+  đã có (cache trong bộ nhớ, tự invalidate khi sửa từ) để lấy pool nghĩa
+  fallback toàn bộ từ vựng. Không thêm method, không đổi API server.
 - `test/`: unit test cho `meaning_choice_options.dart`; widget test cho cả 2 màn
   (đổi chế độ giữa session, chọn đúng/sai, chấm SRS, retry).
 
