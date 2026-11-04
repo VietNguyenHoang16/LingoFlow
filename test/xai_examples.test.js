@@ -3,12 +3,34 @@ const test = require('node:test');
 
 const {
   TEMPLATE_BANK,
+  buildExamplePrompt,
   firstMeaning,
   normalizeSentenceKey,
   pickUniqueExample,
   primaryType,
   templateExample,
 } = require('../api/_lib/xai');
+
+test('prompt huong dan cum co placeholder thay bang danh tu cu the', () => {
+  const prompt = buildExamplePrompt({
+    word: 'put someone down',
+    meaning: 'hạ bệ ai đó',
+    wordType: 'phrasal_verb',
+  });
+  assert.match(prompt, /placeholder/i);
+  assert.match(prompt, /put someone down/);
+});
+
+test('templateExample cho cum nhieu tu luon chua target nguyen van', () => {
+  const example = templateExample({
+    word: 'put someone down',
+    meaning: 'hạ bệ ai đó',
+    wordType: 'phrasal_verb',
+  });
+  assert.equal(example.target, 'put someone down');
+  assert.match(example.sentence.toLowerCase(), /put someone down/);
+  assert.ok(example.translation.length > 0);
+});
 
 const NOUNS = [
   'table', 'window', 'garden', 'letter', 'bottle', 'candle', 'basket', 'pencil',

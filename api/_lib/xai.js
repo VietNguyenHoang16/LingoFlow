@@ -529,6 +529,7 @@ Create a fresh, concrete scene that makes the meaning obvious: a person doing so
 Rules:
 - Exactly one sentence, 5-20 words.
 - The sentence MUST contain the target word exactly as written (capitalization may differ).
+- If the target is a phrase with a generic placeholder (someone / something / somebody), put a concrete person or thing there instead, but keep every other word of the phrase in the same order (target "put someone down" -> "He put his colleague down.").
 - Do not follow a fixed sentence pattern and do not reuse clichés. Avoid openings like "The ___ was ...", "I usually ...", "Every day ..." or "Today ..." unless that is truly the most natural choice.
 - Write in natural, correct English at whatever level the word itself needs: simple for common words, more advanced for advanced words. No definition, no quotes around the sentence.
 - The Vietnamese translation must be natural spoken Vietnamese and match the sentence.
@@ -546,10 +547,65 @@ function normalizeGeneratedExample(parsed, word) {
   const translation = clean(parsed?.translation, 1000);
   if (!sentence || !translation) throw new Error('AI returned an empty example');
   const target = String(word || '').trim();
-  if (target && !sentence.toLowerCase().includes(target.toLowerCase())) {
+  if (target && !exampleContainsTarget(sentence, target)) {
     throw new Error('AI example is missing the target word');
   }
   return { sentence, translation, target };
+}
+
+// Tu placeholder trong cum (vd "put someone down", "give something up"): nguoi
+// hoc thay bang nguoi/do cu the khi dat cau nen bo qua khi doi chieu.
+const EXAMPLE_PLACEHOLDERS = new Set([
+  'someone', 'somebody', 'something', 'sb', 'sth', 'one', 'ones', 'oneself',
+  'people', 'person',
+]);
+
+const BE_FORMS = new Set(['be', 'am', 'is', 'are', 'was', 'were', 'been', 'being']);
+
+// Tach cau/cum thanh cac tu thuong: ha chu thuong, bo dau cau va so huu cach.
+function exampleWords(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[\u2019]/g, "'")
+    .replace(/'s\b/g, '')
+    .replace(/[^a-z0-9\s']/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+// Mot tu trong cau co khop voi mot token cua cum khong (cham nhan hau to don gian).
+function exampleTokenMatches(word, token) {
+  if (word === token) return true;
+  if (token === 'be') return BE_FORMS.has(word);
+  for (const suffix of ['s', 'es', 'ed', 'd', 'ing']) {
+    if (word === token + suffix) return true;
+    // putting/putted: gap doi phu am cuoi.
+    if (token.length > 1 && word === token + token.slice(-1) + suffix) return true;
+    // using: bo 'e' cuoi truoc hau to.
+    if (token.endsWith('e') && word === token.slice(0, -1) + suffix) return true;
+  }
+  return false;
+}
+
+// Cau co "chua" cum dich khong: nhan nguyen van (nhu cu), hoac nhan khi moi tu
+// cua cum (da bo placeholder) xuat hien DUNG THU TU, cho phep tu xen giua.
+// Vd target "put someone down" nhan duoc "He put his colleague down."
+function exampleContainsTarget(sentence, target) {
+  const text = String(sentence || '');
+  const raw = String(target || '').trim();
+  if (!raw) return text.trim().length > 0;
+  const words = exampleWords(text);
+  if (words.length === 0) return false;
+  // Fast path: giu nguyen hanh vi cu khi tu/cum xuat hien nguyen van.
+  if (text.toLowerCase().includes(raw.toLowerCase())) return true;
+  const tokens = exampleWords(raw).filter((t) => !EXAMPLE_PLACEHOLDERS.has(t));
+  if (tokens.length === 0) return true; // cum chi gom placeholder
+  let matched = 0;
+  for (const word of words) {
+    if (matched >= tokens.length) break;
+    if (exampleTokenMatches(word, tokens[matched])) matched += 1;
+  }
+  return matched >= tokens.length;
 }
 
 // Loai tu ma app ho tro (trung voi CATEGORIES cua api va kWordTypeKeys cua app).
@@ -806,6 +862,7 @@ module.exports = {
   callOpenAiCompatible,
   createAiChain,
   exampleErrorMessage,
+  exampleContainsTarget,
   firstMeaning,
   generateExample,
   normalizeChatEndpoint,

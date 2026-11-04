@@ -843,11 +843,20 @@ async function handleAction(action, data) {
             });
             prepared.push({ ...info, example });
           } catch (error) {
-            failed.push({
-              word: info.word,
-              message: error.message,
-              retryable: isRetryableAiFailure(error.message),
-            });
+            // AI khong tao duoc vi du (vd cum nhieu tu co placeholder): van luu
+            // tu voi cau mau du phong de khong mat du lieu nguoi dung.
+            try {
+              prepared.push({
+                ...info,
+                example: templateExample(info, { used: usedSentences }),
+              });
+            } catch (_) {
+              failed.push({
+                word: info.word,
+                message: error.message,
+                retryable: isRetryableAiFailure(error.message),
+              });
+            }
           }
         }
       }

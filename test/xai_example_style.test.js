@@ -87,7 +87,10 @@ test('prompt nghia chi nhan uu tien nghia, khong nhan boi canh', () => {
   });
   assert.match(prompt, /cụ thể, rõ ràng/);
   assert.equal(prompt.includes('IT and technology'), false);
-  assert.match(prompt, /Reply with JSON only: \{"meaning":"\.\.\.","wordType":"\.\.\."\}/);
+  assert.match(
+    prompt,
+    /Reply with JSON only: \{"meaning":"\.\.\.","wordType":"\.\.\.","collocations":\["\.\.\."\],"synonyms":\["\.\.\."\]\}/,
+  );
 });
 
 test('buildStylePrompt tra ve chuoi rong khi khong co tuy chon nao', () => {

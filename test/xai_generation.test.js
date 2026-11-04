@@ -6,6 +6,7 @@ const {
   buildExamplePrompt,
   buildWordInfoPrompt,
   createAiChain,
+  exampleContainsTarget,
   exampleErrorMessage,
   normalizeGeneratedExample,
   normalizeGeneratedWordInfo,
@@ -55,6 +56,35 @@ test('normalize tu choi cau thieu tu dich, thieu ban dich, qua dai', () => {
   );
 });
 
+test('cum nhieu tu: nhan cau da thay placeholder bang danh tu cu the', () => {
+  assert.equal(
+    exampleContainsTarget('He put his colleague down in front of the team.', 'put someone down'),
+    true,
+  );
+  assert.equal(exampleContainsTarget('You should give up smoking.', 'give something up'), true);
+  assert.equal(exampleContainsTarget('She puts people down all the time.', 'put someone down'), true);
+  assert.equal(exampleContainsTarget('They looked after the children well.', 'look after someone'), true);
+});
+
+test('cum nhieu tu: van tu choi cau thieu tu khoa cua cum', () => {
+  assert.equal(exampleContainsTarget('He put the book on the shelf.', 'put someone down'), false);
+  assert.equal(exampleContainsTarget('She left early.', 'put someone down'), false);
+  assert.equal(exampleContainsTarget('', 'put someone down'), false);
+});
+
+test('normalize nhan duoc vi du cho cum co placeholder', () => {
+  const example = normalizeGeneratedExample(
+    {
+      sentence: 'He put his colleague down at the meeting.',
+      translation: 'Anh ta ha be dong nghiep trong cuoc hop.',
+    },
+    'put someone down',
+  );
+
+  assert.equal(example.target, 'put someone down');
+  assert.equal(example.sentence, 'He put his colleague down at the meeting.');
+});
+
 test('loi duoc map sang thong bao tieng Viet ro rang', () => {
   assert.match(exampleErrorMessage(new Error('Missing GEMINI_API_KEY')), /chưa cấu hình AI/);
   assert.match(exampleErrorMessage(new Error('This operation was aborted')), /quá chậm/);
@@ -73,7 +103,13 @@ test('prompt word info mang tu va liet ke du loai tu app ho tro', () => {
 test('normalize word info nhan key hop le, map exclamation -> interjection', () => {
   assert.deepEqual(
     normalizeGeneratedWordInfo({ meaning: 'kiên cường', wordType: 'adjective' }, 'resilient'),
-    { word: 'resilient', meaning: 'kiên cường', wordType: 'adjective' },
+    {
+      word: 'resilient',
+      meaning: 'kiên cường',
+      wordType: 'adjective',
+      collocations: '',
+      synonyms: [],
+    },
   );
   assert.equal(
     normalizeGeneratedWordInfo({ meaning: 'ồ', wordType: 'exclamation' }, 'wow').wordType,
@@ -108,7 +144,13 @@ test('createAiChain.generateWordInfo goi provider va tra nghia + loai tu', async
       { name: 'test', baseUrl: 'https://api.example.com/v1', apiKey: 'k', model: 'm' },
     ]);
     const info = await chain.generateWordInfo({ word: 'give up' }, { timeoutMs: 2000 });
-    assert.deepEqual(info, { word: 'give up', meaning: 'từ bỏ', wordType: 'phrasal_verb' });
+    assert.deepEqual(info, {
+      word: 'give up',
+      meaning: 'từ bỏ',
+      wordType: 'phrasal_verb',
+      collocations: '',
+      synonyms: [],
+    });
   } finally {
     global.fetch = original;
   }
