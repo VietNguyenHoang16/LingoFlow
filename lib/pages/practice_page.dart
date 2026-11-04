@@ -787,14 +787,18 @@ class _PracticePageState extends State<PracticePage> {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: AnswerModeToggle(
-                mode: _inputMode,
-                onChanged: _setInputMode,
+            // An khi dang hien khung ket qua: khung do phai gon trong 1 man
+            // hinh (khong cuon), doi che do chi co y nghia o cau hoi.
+            if (!_showResult) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: AnswerModeToggle(
+                  mode: _inputMode,
+                  onChanged: _setInputMode,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
+            ],
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
