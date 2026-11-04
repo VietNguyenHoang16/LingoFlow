@@ -226,11 +226,20 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   void _requestInputFocus({bool immediate = false}) {
-    // Che do grammar khong co o nhap: khong focus keyboard, chi cuon the cau hoi
-    // len dau vung nhin thay duoc. Che do chon nghia cung khong can keyboard.
-    if (widget.grammarReview || _inputMode == AnswerInputMode.choice) {
+    // Che do grammar khong co o nhap: chi cuon the cau hoi len dau vung nhin thay.
+    if (widget.grammarReview) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_showAnswer && !_isCompleted) _scrollQuestionIntoView();
+      });
+      return;
+    }
+    // Che do chon nghia: khong co o nhap, nhung van phai focus node trang de
+    // phim 1-4 chon dap an / cham diem hoat dong (giong nhu sau khi tra loi).
+    if (_inputMode == AnswerInputMode.choice) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isCompleted) return;
+        if (!_pageFocusNode.hasFocus) _pageFocusNode.requestFocus();
+        if (!_showAnswer) _scrollQuestionIntoView();
       });
       return;
     }
@@ -832,7 +841,8 @@ class _ReviewPageState extends State<ReviewPage>
   void _setInputMode(AnswerInputMode mode) {
     if (_inputMode == mode) return;
     setState(() => _inputMode = mode);
-    if (mode == AnswerInputMode.typing) _requestInputFocus();
+    // Typing -> focus o go; Choice -> focus node trang de phim 1-4 chay.
+    _requestInputFocus();
   }
 
   /// Trả lời chế độ chọn nghĩa: lật thẻ + hiện đáp án + chờ chấm SRS, giống
@@ -853,6 +863,41 @@ class _ReviewPageState extends State<ReviewPage>
     });
     _flipController.forward();
     unawaited(_speak((word['word'] ?? '').toString()));
+  }
+
+  /// Phím 1-4: chọn đáp án khi chưa trả lời (chế độ chọn nghĩa), chấm điểm
+  /// Again/Hard/Good/Easy sau khi đã hiện đáp án. Trả về true nếu đã xử lý.
+  bool _handleDigitKey(LogicalKeyboardKey key) {
+    const digits = [
+      LogicalKeyboardKey.digit1,
+      LogicalKeyboardKey.digit2,
+      LogicalKeyboardKey.digit3,
+      LogicalKeyboardKey.digit4,
+    ];
+    const numpads = [
+      LogicalKeyboardKey.numpad1,
+      LogicalKeyboardKey.numpad2,
+      LogicalKeyboardKey.numpad3,
+      LogicalKeyboardKey.numpad4,
+    ];
+    var index = digits.indexOf(key);
+    if (index < 0) index = numpads.indexOf(key);
+    if (index < 0) return false;
+
+    if (_showAnswer) {
+      _rateWord(const [
+        SrsService.qualityAgain,
+        SrsService.qualityHard,
+        SrsService.qualityGood,
+        SrsService.qualityEasy,
+      ][index]);
+      return true;
+    }
+    if (_inputMode == AnswerInputMode.choice && _choicePossible) {
+      _answerChoice(index);
+      return true;
+    }
+    return false;
   }
 
   /// Enter = "Show answer" cho che do grammar (khong co o nhap de onSubmitted).
@@ -1092,18 +1137,7 @@ class _ReviewPageState extends State<ReviewPage>
         focusNode: _pageFocusNode,
       onKeyEvent: (event) {
         if (event is KeyDownEvent) {
-          final key = event.logicalKey;
-          if (_showAnswer) {
-            if (key == LogicalKeyboardKey.digit1 || key == LogicalKeyboardKey.numpad1) {
-              _rateWord(SrsService.qualityAgain);
-            } else if (key == LogicalKeyboardKey.digit2 || key == LogicalKeyboardKey.numpad2) {
-              _rateWord(SrsService.qualityHard);
-            } else if (key == LogicalKeyboardKey.digit3 || key == LogicalKeyboardKey.numpad3) {
-              _rateWord(SrsService.qualityGood);
-            } else if (key == LogicalKeyboardKey.digit4 || key == LogicalKeyboardKey.numpad4) {
-              _rateWord(SrsService.qualityEasy);
-            }
-          }
+          _handleDigitKey(event.logicalKey);
         }
       },
       child: Scaffold(

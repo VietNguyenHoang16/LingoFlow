@@ -20,6 +20,9 @@ POS/topic), người dùng **chọn nghĩa đúng trong 4 lựa chọn**. Song s
 4. Đổi chế độ giữa session: giữ nguyên danh sách từ, câu hiện tại, điểm, queue Again.
 5. Chế độ **mặc định khi mở màn là Chọn nghĩa** (nhìn từ chọn nghĩa); grammar
    review luôn ở chế độ gõ từ.
+6. Phím **1-4** trên bàn phím cứng (web/PC/iPad): ở tab Chọn nghĩa bấm 1-4 **chọn
+   đáp án** khi chưa trả lời; sau khi hiện đáp án bấm 1-4 để **chấm** Again/Hard/
+   Good/Easy (như tab Gõ từ). Nút đáp án hiện số 1-4.
 
 ## Tech Stack
 
@@ -109,6 +112,8 @@ List<MeaningOption> buildMeaningOptions({
   tối thiểu 2 lựa chọn khi pool quá nhỏ (dưới 2 thì tự về dạng gõ từ).
 - Chọn sai: option đỏ, option đúng xanh, panel đáp án (từ, phiên âm, ví dụ) hiện ra,
   chấm SRS/retry giống chế độ gõ từ.
+- Phím 1-4 hoạt động ở cả 2 chế độ (Chọn nghĩa: chọn đáp án + chấm điểm; Gõ từ:
+  chấm điểm sau khi hiện đáp án) — có test `test/review_digit_shortcut_test.dart`.
 - `flutter test` và `flutter analyze` pass; `main.dart.js` production chứa chuỗi
   mới; APK rebuild với hash cập nhật trong `apk/README.md`.
 

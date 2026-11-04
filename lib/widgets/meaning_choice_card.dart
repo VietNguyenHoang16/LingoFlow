@@ -110,18 +110,44 @@ class MeaningChoiceCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: theme.colorScheme.outlineVariant),
                 ),
-                child: Text(
-                  options[i].meaning,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: compact ? 14 : 15,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                    color: theme.colorScheme.onSurface,
-                    fontFamily: 'Be Vietnam Pro',
-                  ),
+                child: Row(
+                  children: [
+                    // Chip so 1-4: phim tat tren ban phim cung (web/PC/iPad).
+                    Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withAlpha(28),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${i + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.primary,
+                          fontFamily: 'Be Vietnam Pro',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        options[i].meaning,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: compact ? 14 : 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                          color: theme.colorScheme.onSurface,
+                          fontFamily: 'Be Vietnam Pro',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
