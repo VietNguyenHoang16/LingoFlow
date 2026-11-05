@@ -151,4 +151,78 @@ void main() {
       expect(tester.takeException(), isNull);
     }, () => client);
   });
+
+  testWidgets('review: "Không biết" lật thẻ ngay, bấm Tiếp tính Hard',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('flutter_tts'),
+      (call) async => 1,
+    );
+
+    final dueWords = [
+      _word(1, 'apple', 'quả táo'),
+      _word(2, 'banana', 'quả chuối'),
+      _word(3, 'cherry', 'quả anh đào'),
+    ];
+    final indexWords = [
+      ...dueWords,
+      _word(10, 'date', 'quả chà là'),
+      _word(11, 'egg', 'quả trứng'),
+    ];
+
+    final requests = <Map<String, dynamic>>[];
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      requests.add(body);
+      final action = body['action'].toString();
+      if (action == 'getWordIndex') {
+        return http.Response(jsonEncode({'data': indexWords}), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      if (action.startsWith('get')) {
+        return http.Response(jsonEncode({'data': dueWords}), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      return http.Response('{"data":null}', 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: const ReviewPage(userId: 7, listId: 3),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+
+      // Chưa trả lời: có nút "Không biết" cạnh 4 đáp án.
+      expect(find.text('Không biết'), findsOneWidget);
+
+      await tester.tap(find.text('Không biết'));
+      await tester.pumpAndSettle();
+
+      // Lật thẻ hiện thông tin từ, chỉ còn 1 nút Tiếp (đã tính Hard).
+      expect(find.text('Không biết · tính là Hard'), findsOneWidget);
+      expect(find.text('Tiếp'), findsOneWidget);
+      expect(find.text('How well did you know it?'), findsNothing);
+      expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
+
+      await tester.tap(find.text('Tiếp'));
+      await tester.pumpAndSettle();
+
+      final updates =
+          requests.where((r) => r['action'] == 'updateWordReview').toList();
+      expect(updates, isNotEmpty);
+      expect((updates.first['data'] as Map)['lastRating'], 3);
+      // Sang câu 2, vẫn ở chế độ chọn nghĩa.
+      expect(find.text('2 / 3'), findsOneWidget);
+      expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
 }

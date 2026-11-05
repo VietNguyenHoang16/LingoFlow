@@ -351,6 +351,13 @@ class _PracticePageState extends State<PracticePage> {
     _revealAnswer(isCorrect: options[selectedIndex].isCorrect);
   }
 
+  /// "Không biết" ở chế độ chọn nghĩa: lật thẻ hiện đáp án không cần chọn,
+  /// tính là Hard (studyMode: tính là sai -> lặp lại cuối).
+  void _dontKnowChoice() {
+    if (_words.isEmpty || _showResult) return;
+    _revealAnswer(isCorrect: false, forcedQuality: SrsService.qualityHard);
+  }
+
   void _checkSpell() {
     if (_words.isEmpty || _showResult) return;
     // Chế độ chọn nghĩa: không có ô gõ để Check (Enter không làm gì).
@@ -363,7 +370,7 @@ class _PracticePageState extends State<PracticePage> {
 
   /// Chung cho cả 2 chế độ: hiện khung kết quả + chấm điểm
   /// (studyMode: sai -> lặp lại cuối; SRS mode: lưu quality).
-  void _revealAnswer({required bool isCorrect}) {
+  void _revealAnswer({required bool isCorrect, int? forcedQuality}) {
     final word = _words[_currentIndex];
     final correct = word['word'];
     _lastIsCorrect = isCorrect;
@@ -389,7 +396,8 @@ class _PracticePageState extends State<PracticePage> {
         ? DateTime.now().difference(_questionStartTime!).inMilliseconds
         : 5000;
 
-    final quality = _srs.practiceResultToQuality(isCorrect, responseTimeMs: responseTimeMs);
+    final quality = forcedQuality ??
+        _srs.practiceResultToQuality(isCorrect, responseTimeMs: responseTimeMs);
     final oldMastery = word['mastery_level'] as int? ?? 0;
 
     final result = _srs.calculateNextReview(
@@ -1155,7 +1163,36 @@ class _PracticePageState extends State<PracticePage> {
             onSelected: _checkChoice,
             compact: compact,
           ),
+          const SizedBox(height: 10),
+          _buildDontKnowButton(theme, compact),
         ],
+      ),
+    );
+  }
+
+  /// Nút "Không biết" ở chế độ chọn nghĩa: lật thẻ ngay, tính là Hard.
+  Widget _buildDontKnowButton(ThemeData theme, bool compact) {
+    return SizedBox(
+      width: double.infinity,
+      height: compact ? 44 : 48,
+      child: OutlinedButton.icon(
+        onPressed: _dontKnowChoice,
+        icon: Icon(Icons.help_outline_rounded,
+            color: theme.colorScheme.onSurfaceVariant, size: 18),
+        label: Text(
+          'Không biết',
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+            fontSize: compact ? 13 : 15,
+            fontFamily: 'Plus Jakarta Sans',
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
+        ),
       ),
     );
   }

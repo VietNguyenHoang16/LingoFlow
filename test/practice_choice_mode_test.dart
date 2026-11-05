@@ -255,4 +255,121 @@ void main() {
       expect(tester.takeException(), isNull);
     }, () => client);
   });
+
+  testWidgets('Luyện tập: "Không biết" lật thẻ ngay rồi Tiếp sang câu sau',
+      (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('flutter_tts'),
+      (call) async => 1,
+    );
+
+    final words = [
+      _word(1, 'deploy', 'triển khai'),
+      _word(2, 'resilient', 'kiên cường'),
+      _word(3, 'abandon', 'bỏ rơi'),
+    ];
+
+    final client = MockClient((request) async {
+      return http.Response(jsonEncode({'data': []}), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: PracticePage(
+            userId: 1,
+            listName: 'Test',
+            preloadedWords: words,
+            studyMode: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Không biết'), findsOneWidget);
+
+      await tester.tap(find.text('Không biết'));
+      await tester.pumpAndSettle();
+
+      // Lật thẻ hiện đáp án và nút Tiếp ngay, không cần chọn đáp án.
+      expect(find.text('Sai rồi'), findsOneWidget);
+      expect(find.text('Tiếp'), findsOneWidget);
+
+      await tester.tap(find.text('Tiếp'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      expect(find.text('2/3'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
+
+  testWidgets('Luyện tập SRS: "Không biết" tính Hard (lastRating=3)',
+      (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('flutter_tts'),
+      (call) async => 1,
+    );
+
+    final sessionWords = [
+      _word(1, 'deploy', 'triển khai'),
+      _word(2, 'resilient', 'kiên cường'),
+    ];
+    final indexWords = [
+      _word(10, 'alpha', 'nghĩa A'),
+      _word(11, 'beta', 'nghĩa B'),
+      _word(12, 'gamma', 'nghĩa C'),
+      _word(13, 'delta', 'nghĩa D'),
+    ];
+
+    final requests = <Map<String, dynamic>>[];
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      requests.add(body);
+      switch (body['action']) {
+        case 'getVocabularyWords':
+          return http.Response(jsonEncode({'data': sessionWords}), 200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
+        case 'wordIndex':
+        case 'getWordIndex':
+          return http.Response(jsonEncode({'data': indexWords}), 200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      return http.Response('{"data":null}', 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: const PracticePage(
+            listId: 3,
+            userId: 2,
+            listName: 'Test',
+            studyMode: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Không biết'), findsOneWidget);
+      await tester.tap(find.text('Không biết'));
+      await tester.pumpAndSettle();
+
+      final updates =
+          requests.where((r) => r['action'] == 'updateWordReview').toList();
+      expect(updates, isNotEmpty);
+      expect((updates.first['data'] as Map)['lastRating'], 3);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
 }

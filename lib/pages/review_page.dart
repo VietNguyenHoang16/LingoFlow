@@ -89,6 +89,9 @@ class _ReviewPageState extends State<ReviewPage>
   bool _isLoading = true;
   int _currentIndex = 0;
   bool _showAnswer = false;
+
+  /// Bấm "Không biết" ở chế độ chọn nghĩa: lật thẻ ngay, lượt này tính Hard.
+  bool _dontKnow = false;
   int _hintLevel = 0;
   bool _isCompleted = false;
 
@@ -658,6 +661,7 @@ class _ReviewPageState extends State<ReviewPage>
   /// Xoa trang thai tra loi cua the hien tai (goi trong setState).
   void _resetCardAnswerState() {
     _showAnswer = false;
+    _dontKnow = false;
     _isAnswerCorrect = null;
     _answerDiff = null;
     _answerController.clear();
@@ -870,6 +874,23 @@ class _ReviewPageState extends State<ReviewPage>
     unawaited(_speak((word['word'] ?? '').toString()));
   }
 
+  /// "Không biết" ở chế độ chọn nghĩa: lật thẻ hiện thông tin từ mà không cần
+  /// chọn đáp án; lượt này được tính là Hard khi bấm nút Tiếp.
+  void _answerDontKnow() {
+    if (_wordOptionsOpen || _isCompleted || _isGrading || _showAnswer) return;
+    final word = _currentWordSafe;
+    if (word == null) return;
+    setState(() {
+      _showAnswer = true;
+      _answerDiff = null;
+      _isAnswerCorrect = false;
+      _dontKnow = true;
+      _calculatedIntervals = _calcIntervals(word);
+    });
+    _flipController.forward();
+    unawaited(_speak((word['word'] ?? '').toString()));
+  }
+
   /// Phím 1-4: chọn đáp án khi chưa trả lời (chế độ chọn nghĩa), chấm điểm
   /// Again/Hard/Good/Easy sau khi đã hiện đáp án. Trả về true nếu đã xử lý.
   bool _handleDigitKey(LogicalKeyboardKey key) {
@@ -890,6 +911,8 @@ class _ReviewPageState extends State<ReviewPage>
     if (index < 0) return false;
 
     if (_showAnswer) {
+      // Sau "Không biết" chỉ còn nút Tiếp (đã tính Hard) -> bỏ qua phím chấm.
+      if (_dontKnow) return false;
       _rateWord(const [
         SrsService.qualityAgain,
         SrsService.qualityHard,
@@ -1344,13 +1367,22 @@ class _ReviewPageState extends State<ReviewPage>
                     ? (widget.grammarReview
                         ? _buildGrammarShowAnswerButton(theme, compactMode)
                         : _inputMode == AnswerInputMode.choice && _choicePossible
-                            ? MeaningChoiceCard(
-                                options: _optionsForWord(currentWord),
-                                onSelected: _answerChoice,
-                                compact: compactMode,
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  MeaningChoiceCard(
+                                    options: _optionsForWord(currentWord),
+                                    onSelected: _answerChoice,
+                                    compact: compactMode,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDontKnowButton(theme, compactMode),
+                                ],
                               )
                             : _buildInputSection(theme, compactMode))
-                    : _buildRatingSection(theme, colors, compactMode),
+                    : _dontKnow
+                        ? _buildDontKnowNextButton(theme, compactMode)
+                        : _buildRatingSection(theme, colors, compactMode),
               ),
 
               // Safari iPad bao viewInsets = 0 khi keyboard mo -> spacer nay
@@ -1745,6 +1777,76 @@ class _ReviewPageState extends State<ReviewPage>
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  /// Nút "Không biết" ở chế độ chọn nghĩa: lật thẻ ngay (không cần chọn đáp
+  /// án), lượt này được tính là Hard khi bấm Tiếp.
+  Widget _buildDontKnowButton(ThemeData theme, bool compact) {
+    return SizedBox(
+      width: double.infinity,
+      height: compact ? 44 : 48,
+      child: OutlinedButton.icon(
+        onPressed: _answerDontKnow,
+        icon: Icon(Icons.help_outline_rounded,
+            color: theme.colorScheme.onSurfaceVariant, size: 18),
+        label: Text(
+          'Không biết',
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+            fontSize: compact ? 13 : 15,
+            fontFamily: 'Plus Jakarta Sans',
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  /// Sau khi bấm "Không biết": chỉ còn một nút Tiếp (đã tính Hard) để qua câu.
+  Widget _buildDontKnowNextButton(ThemeData theme, bool compact) {
+    final isLast = _currentIndex >= _dueWords.length - 1;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Không biết · tính là Hard',
+          style: TextStyle(
+            fontSize: compact ? 12 : 13,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurfaceVariant,
+            fontFamily: 'Be Vietnam Pro',
+          ),
+        ),
+        SizedBox(height: compact ? 8 : 10),
+        SizedBox(
+          width: double.infinity,
+          height: compact ? 48 : 54,
+          child: ElevatedButton(
+            onPressed: () => _rateWord(SrsService.qualityHard),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            child: Text(
+              isLast ? 'Hoàn thành' : 'Tiếp',
+              style: TextStyle(
+                color: theme.colorScheme.onPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: compact ? 14 : 16,
+                fontFamily: 'Plus Jakarta Sans',
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
