@@ -497,6 +497,12 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
+  /// Từ có lần chấm gần nhất là Hard (quality 3).
+  Future<List<Map<String, dynamic>>> getHardWords(int userId) async {
+    final rows = await _request<List<dynamic>>('getHardWords', data: {'userId': userId});
+    return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
+  }
+
   Future<List<Map<String, dynamic>>> getRecentWords(int userId, {int limit = 20}) async {
     final rows = await _request<List<dynamic>>('getRecentWords', data: {'userId': userId, 'limit': limit});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
@@ -588,6 +594,7 @@ class DatabaseService {
     required DateTime nextReviewDate,
     required int masteryLevel,
     required int lapseCount,
+    required int lastRating,
   }) async {
     await _request<void>('updateWordReview', data: {
       'wordId': wordId,
@@ -598,6 +605,7 @@ class DatabaseService {
       'nextReviewDate': nextReviewDate.toIso8601String(),
       'masteryLevel': masteryLevel,
       'lapseCount': lapseCount,
+      'lastRating': lastRating,
     });
   }
 

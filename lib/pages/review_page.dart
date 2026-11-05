@@ -314,7 +314,11 @@ class _ReviewPageState extends State<ReviewPage>
   ///
   /// Mat mang / server loi -> mo hop thoai chan: nguoi dung thay ro luot on nay
   /// chua duoc luu, co the thu lai hoac thoat, khong bi mat tien do am tham.
-  Future<bool> _saveReview(Map<String, dynamic> word, SrsResult result) async {
+  Future<bool> _saveReview(
+    Map<String, dynamic> word,
+    SrsResult result,
+    int quality,
+  ) async {
     Future<void> write() => _db.updateWordReview(
           wordId: word['id'] as int,
           reviewCount: result.newReviewCount,
@@ -324,6 +328,7 @@ class _ReviewPageState extends State<ReviewPage>
           nextReviewDate: result.nextReviewDate,
           masteryLevel: result.newMasteryLevel,
           lapseCount: result.newLapseCount,
+          lastRating: quality,
         );
 
     setState(() => _isGrading = true);
@@ -702,7 +707,7 @@ class _ReviewPageState extends State<ReviewPage>
 
     // Luu xong moi chuyen the: mat mang thi dung lai ngay, khong danh roi
     // tien do cua luot vua cham.
-    final saved = await _saveReview(word, result);
+    final saved = await _saveReview(word, result, quality);
     if (!saved || !mounted) return;
 
     _totalReviewed++;

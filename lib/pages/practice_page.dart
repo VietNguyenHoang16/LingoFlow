@@ -240,6 +240,7 @@ class _PracticePageState extends State<PracticePage> {
   Future<bool> _saveReviewGrade(
     Map<String, dynamic> word,
     SrsResult result,
+    int quality,
   ) async {
     Future<void> write() => _db.updateWordReview(
           wordId: word['id'] as int,
@@ -250,6 +251,7 @@ class _PracticePageState extends State<PracticePage> {
           nextReviewDate: result.nextReviewDate,
           masteryLevel: result.newMasteryLevel,
           lapseCount: result.newLapseCount,
+          lastRating: quality,
         );
 
     setState(() => _pendingSaves++);
@@ -418,7 +420,7 @@ class _PracticePageState extends State<PracticePage> {
     _spellFocusNode.unfocus();
     _speakAfterFrame(correct);
     _scrollToTopAfterFrame();
-    unawaited(_saveReviewGrade(word, result));
+    unawaited(_saveReviewGrade(word, result, quality));
   }
 
   /// Đọc từ sau khi frame kết quả đã vẽ xong (TTS không làm chậm phản hồi).

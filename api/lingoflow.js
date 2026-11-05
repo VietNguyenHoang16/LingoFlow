@@ -111,6 +111,7 @@ function mapWordRow(row) {
     last_reviewed_at: normalizeDate(row.last_reviewed_at),
     mastery_level: asInt(row.mastery_level),
     lapse_count: asInt(row.lapse_count),
+    last_rating: asInt(row.last_rating),
     word_type: row.word_type || '',
     topic_tag: row.topic_tag || '',
     collocations: normalizeCollocations(row.collocations),
@@ -215,6 +216,8 @@ async function ensureRequiredColumns() {
   // v8: "tu kho" -> "yeu thich". Reset trang (user chon) roi bo cot cu.
   await addColumnIfNotExists('vocabulary_words', 'is_favorite', 'BOOLEAN DEFAULT FALSE');
   await dropColumnIfExists('vocabulary_words', 'is_difficult');
+  // Muc cham gan nhat (0=Again,3=Hard,4=Good,5=Easy). NULL = chua tung on.
+  await addColumnIfNotExists('vocabulary_words', 'last_rating', 'INTEGER');
   requiredColumnsReady = true;
 }
 
@@ -536,6 +539,8 @@ async function handleAction(action, data) {
                                       AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS reviewed_today,
                 COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
                                       AND COALESCE(vw.word_type, '') LIKE '%grammar%') AS grammar_due,
+                COUNT(*) FILTER (WHERE vw.last_rating = 3
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS hard_count,
                 COUNT(*) FILTER (WHERE vw.is_favorite IS TRUE) AS favorite_count
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
@@ -561,6 +566,7 @@ async function handleAction(action, data) {
           reviewedToday: asInt(reviewRows[0].reviewed_today),
           grammarDue: asInt(reviewRows[0].grammar_due),
           favoriteCount: asInt(reviewRows[0].favorite_count),
+          hardCount: asInt(reviewRows[0].hard_count),
           breakdown,
         },
       };
@@ -984,6 +990,23 @@ async function handleAction(action, data) {
       return rows.map(mapWordRow);
     }
 
+    case 'getHardWords': {
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+                vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
+                vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
+                vw.last_rating, vw.created_at,
+                vl.id AS list_id
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND vw.last_rating = $2
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+         ORDER BY vw.last_reviewed_at DESC NULLS LAST, vw.id DESC`,
+        [data.userId, 3],
+      );
+      return rows.map(mapWordRow);
+    }
+
     case 'getWordsMissingPronunciation': {
       const rows = await query(
         `SELECT vw.id, vw.word
@@ -1118,9 +1141,9 @@ async function handleAction(action, data) {
         `UPDATE vocabulary_words
          SET review_count = $1, correct_streak = $2, ease_factor = $3, interval_days = $4,
              next_review_date = $5, last_reviewed_at = CURRENT_TIMESTAMP, mastery_level = $6,
-             is_mastered = $7, lapse_count = $8
-         WHERE id = $9 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $10)`,
-        [data.reviewCount, data.correctStreak, data.easeFactor, data.intervalDays, new Date(data.nextReviewDate), masteryLevel, masteryLevel >= 3, asInt(data.lapseCount), data.wordId, data.userId],
+             is_mastered = $7, lapse_count = $8, last_rating = $9
+         WHERE id = $10 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $11)`,
+        [data.reviewCount, data.correctStreak, data.easeFactor, data.intervalDays, new Date(data.nextReviewDate), masteryLevel, masteryLevel >= 3, asInt(data.lapseCount), asInt(data.lastRating), data.wordId, data.userId],
       );
       return null;
     }

@@ -16,6 +16,7 @@ import '../services/word_enrichment_service.dart';
 import '../widgets/practice_mode_sheet.dart';
 import 'favorites_page.dart';
 import 'flashcard_practice_page.dart';
+import 'hard_words_page.dart';
 import 'practice_page.dart';
 import 'profile_page.dart';
 import 'review_page.dart';
@@ -191,11 +192,22 @@ class _RecentPageState extends State<RecentPage> {
   int get _dueWords => (_reviewStats['dueToday'] as int?) ?? 0;
   int get _dueGrammar => (_reviewStats['grammarDue'] as int?) ?? 0;
   int get _favoriteCount => (_reviewStats['favoriteCount'] as int?) ?? 0;
+  int get _hardCount => (_reviewStats['hardCount'] as int?) ?? 0;
 
   Future<void> _openFavorites() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => FavoritesPage(userId: widget.userId)),
+    );
+    if (!mounted) return;
+    await _loadRecent(background: true);
+    await _loadReviewStats();
+  }
+
+  Future<void> _openHardWords() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => HardWordsPage(userId: widget.userId)),
     );
     if (!mounted) return;
     await _loadRecent(background: true);
@@ -840,6 +852,44 @@ class _RecentPageState extends State<RecentPage> {
                         count: _favoriteCount,
                         size: 18,
                         onTap: _openFavorites,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Từ khó',
+                  child: GestureDetector(
+                    onTap: _openHardWords,
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.local_fire_department_rounded,
+                            size: 18,
+                            color: theme.colorScheme.primary,
+                          ),
+                          if (_hardCount > 0) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '$_hardCount',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
