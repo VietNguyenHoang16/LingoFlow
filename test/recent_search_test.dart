@@ -440,6 +440,16 @@ void main() {
     }, size: const Size(360, 800));
   });
 
+  testWidgets('header khong vo cot o man hinh 320px', (tester) async {
+    await scenario(tester, (requests) async {
+      // Tieu de + dong thong ke phai la 1 dong: neu bi ep nho, chu se ngat
+      // tung ky tu va chieu cao tang vot.
+      expect(tester.getSize(find.text('Từ vựng')).height, lessThan(40));
+      expect(tester.getSize(find.text('20 từ gần đây')).height, lessThan(40));
+      expect(tester.takeException(), isNull);
+    }, size: const Size(320, 800));
+  });
+
   testWidgets('xoá từ trong kết quả tìm: mất ngay ở cả panel lẫn danh sách', (
     tester,
   ) async {

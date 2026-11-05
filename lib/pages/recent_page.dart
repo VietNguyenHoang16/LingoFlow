@@ -835,10 +835,18 @@ class _RecentPageState extends State<RecentPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
+          // Wrap (thay cho Row + Expanded): tieu de luon duoc cap du be rong
+          // de ngat theo tu; cum nut giu nguyen kich thuoc va tu xuong dong khi
+          // man hinh hep, khong con ep tieu de co lai roi ngat tung ky tu.
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 8,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -867,155 +875,159 @@ class _RecentPageState extends State<RecentPage> {
                     ),
                   ],
                 ),
-              ),
-              if (!_isSelectionMode) ...[
-                Tooltip(
-                  message: 'Từ yêu thích',
-                  child: GestureDetector(
-                    onTap: _openFavorites,
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: theme.colorScheme.outlineVariant),
-                      ),
-                      child: FavoriteButton(
-                        isFavorite: _favoriteCount > 0,
-                        count: _favoriteCount,
-                        size: 18,
-                        onTap: _openFavorites,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Từ khó',
-                  child: GestureDetector(
-                    onTap: _openHardWords,
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: theme.colorScheme.outlineVariant),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.local_fire_department_rounded,
-                            size: 18,
-                            color: theme.colorScheme.primary,
-                          ),
-                          if (_hardCount > 0) ...[
-                            const SizedBox(width: 4),
-                            Text(
-                              '$_hardCount',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: theme.colorScheme.primary,
-                              ),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (!_isSelectionMode) ...[
+                      Tooltip(
+                        message: 'Từ yêu thích',
+                        child: GestureDetector(
+                          onTap: _openFavorites,
+                          child: Container(
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: theme.colorScheme.outlineVariant),
                             ),
-                          ],
-                        ],
+                            child: FavoriteButton(
+                              isFavorite: _favoriteCount > 0,
+                              count: _favoriteCount,
+                              size: 18,
+                              onTap: _openFavorites,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _bulkImport,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add_rounded, color: theme.colorScheme.onSurface, size: 16),
-                        if (!compact) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            'Import',
+                      Tooltip(
+                        message: 'Từ khó',
+                        child: GestureDetector(
+                          onTap: _openHardWords,
+                          child: Container(
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: theme.colorScheme.outlineVariant),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.local_fire_department_rounded,
+                                  size: 18,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                if (_hardCount > 0) ...[
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$_hardCount',
+                                    style: TextStyle(
+                                      fontFamily: 'Plus Jakarta Sans',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _bulkImport,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.add_rounded, color: theme.colorScheme.onSurface, size: 16),
+                              if (!compact) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Import',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_words.isNotEmpty) ...[
+                        Tooltip(
+                          message: 'Luyện tập',
+                          child: GestureDetector(
+                            onTap: _toggleSelectionMode,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(Icons.play_arrow_rounded, color: theme.colorScheme.onPrimary, size: 18),
+                            ),
+                          ),
+                        ),
+                      ],
+                      Tooltip(
+                        message: 'Cài đặt',
+                        child: GestureDetector(
+                          onTap: _openSettings,
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: theme.colorScheme.outlineVariant),
+                            ),
+                            child: Icon(Icons.settings_outlined, color: theme.colorScheme.onSurfaceVariant, size: 18),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (_isSelectionMode)
+                      GestureDetector(
+                        onTap: _toggleSelectionMode,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
+                          ),
+                          child: Text(
+                            'Hủy',
                             style: TextStyle(
                               fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
                               color: theme.colorScheme.onSurface,
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                if (_words.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'Luyện tập',
-                    child: GestureDetector(
-                      onTap: _toggleSelectionMode,
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.play_arrow_rounded, color: theme.colorScheme.onPrimary, size: 18),
                       ),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'Cài đặt',
-                  child: GestureDetector(
-                    onTap: _openSettings,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: theme.colorScheme.outlineVariant),
-                      ),
-                      child: Icon(Icons.settings_outlined, color: theme.colorScheme.onSurfaceVariant, size: 18),
-                    ),
-                  ),
+                  ],
                 ),
               ],
-              if (_isSelectionMode)
-                GestureDetector(
-                  onTap: _toggleSelectionMode,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-                    ),
-                    child: Text(
-                      'Hủy',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
           const SizedBox(height: 14),
           TextField(
