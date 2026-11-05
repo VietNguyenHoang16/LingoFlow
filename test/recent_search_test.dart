@@ -59,9 +59,10 @@ void main() {
     Future<void> Function(List<Map<String, dynamic>> requests) check, {
     List<MethodCall>? ttsCalls,
     Map<String, Object> prefs = const {},
+    Size size = const Size(900, 1500),
   }) async {
     SharedPreferences.setMockInitialValues(Map<String, Object>.from(prefs));
-    tester.view.physicalSize = const Size(900, 1500);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -388,6 +389,55 @@ void main() {
       expect(find.text('Luyện tập (2)'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  });
+
+  testWidgets('sao chép từ đã chọn: mỗi từ một dòng', (tester) async {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await scenario(tester, (requests) async {
+      await tester.tap(find.byTooltip('Luyện tập'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('word0'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('word2'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Sao chép'));
+      await tester.pumpAndSettle();
+
+      expect(copied, ['word0\nword1\nword2']);
+      expect(find.text('Đã sao chép 3 từ'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('thanh chọn từ không tràn ở màn hình 360px', (tester) async {
+    await scenario(tester, (requests) async {
+      await tester.tap(find.byTooltip('Luyện tập'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('word0'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sao chép'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, size: const Size(360, 800));
   });
 
   testWidgets('xoá từ trong kết quả tìm: mất ngay ở cả panel lẫn danh sách', (

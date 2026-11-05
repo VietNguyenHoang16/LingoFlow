@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/due_widget_service.dart';
 import '../services/tts_settings_service.dart';
@@ -577,6 +578,23 @@ class _RecentPageState extends State<RecentPage> {
     });
   }
 
+  /// Sao chép các từ được chọn, mỗi từ trên một dòng, vào clipboard.
+  void _copySelectedWords() {
+    final words = _visibleWords
+        .where((w) => _selectedWords.contains(w['id'] as int))
+        .map((w) => (w['word'] ?? '').toString())
+        .toList();
+    if (words.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: words.join('\n')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã sao chép ${words.length} từ'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _startPractice() async {
     if (_selectedWords.isEmpty) return;
     final selected =
@@ -654,22 +672,38 @@ class _RecentPageState extends State<RecentPage> {
             ),
           ),
           child: SizedBox(
-            width: double.infinity,
             height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _startPractice,
-              icon: const Icon(Icons.play_arrow_rounded, size: 20),
-              label: Text(
-                'Luyện tập (${_selectedWords.length})',
-                style: const TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _copySelectedWords,
+                    icon: const Icon(Icons.copy, size: 20),
+                    label: const Text('Sao chép'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _startPractice,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                    label: Text(
+                      'Luyện tập (${_selectedWords.length})',
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
