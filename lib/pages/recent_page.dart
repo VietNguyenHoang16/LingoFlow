@@ -11,6 +11,7 @@ import '../widgets/favorite_button.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/word_meta_badges.dart';
 import '../widgets/save_feedback.dart';
 import '../services/word_details_parser.dart';
 import '../services/word_enrichment_service.dart';
@@ -40,7 +41,7 @@ class _RecentPageState extends State<RecentPage> {
   StreamSubscription<WordChangeEvent>? _wordChangeSub;
 
   List<Map<String, dynamic>> _words = [];
-  // Kết quả tìm trên toàn bộ từ đã lưu (server), tách khỏi 20 từ gần nhất.
+  // Kết quả tìm trên toàn bộ từ đã lưu (server), tách khỏi 30 từ gần nhất.
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
   String? _searchError;
@@ -98,7 +99,7 @@ class _RecentPageState extends State<RecentPage> {
   }
 
   /// Tìm trên toàn bộ từ đã lưu (word / nghĩa / nhãn chủ đề) thay vì chỉ lọc
-  /// trong 20 từ gần nhất đang hiện ở danh sách.
+  /// trong 30 từ gần nhất đang hiện ở danh sách.
   Future<void> _runSearch(String query) async {
     final seq = ++_searchSeq;
     setState(() {
@@ -161,7 +162,7 @@ class _RecentPageState extends State<RecentPage> {
       });
     }
     try {
-      final words = await _db.getRecentWords(widget.userId, limit: 20);
+      final words = await _db.getRecentWords(widget.userId, limit: 30);
       if (!mounted) return;
       setState(() {
         _words = words;
@@ -404,6 +405,52 @@ class _RecentPageState extends State<RecentPage> {
         ),
       ),
     );
+  }
+
+  /// Chinh nhanh Trinh do / Do thong dung ngay tren the trong danh sach (cham chip).
+  Future<void> _editWordMeta(Map<String, dynamic> word, String field) async {
+    final wordId = word['id'] as int;
+    final prevCommon = word['commonness'] as int?;
+    final prevLevel = word['word_level'] as String?;
+    int? newCommon = prevCommon;
+    String? newLevel = prevLevel;
+    if (field == 'level') {
+      final pick = await showLevelPicker(context, prevLevel);
+      if (pick == null) return;
+      newLevel = pick.value;
+    } else {
+      final pick = await showCommonnessPicker(context, prevCommon);
+      if (pick == null) return;
+      newCommon = pick.value;
+    }
+    if (!mounted) return;
+    if (newCommon == prevCommon && newLevel == prevLevel) return;
+    setState(() {
+      final i = _words.indexWhere((w) => w['id'] == wordId);
+      if (i != -1) {
+        _words[i] = {..._words[i], 'commonness': newCommon, 'word_level': newLevel};
+      }
+    });
+    try {
+      await _db.updateWordMeta(
+        wordId: wordId,
+        commonness: newCommon,
+        wordLevel: newLevel,
+      );
+      WordChangeBus().notifyChanged('edit-word');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          final i = _words.indexWhere((w) => w['id'] == wordId);
+          if (i != -1) {
+            _words[i] = {..._words[i], 'commonness': prevCommon, 'word_level': prevLevel};
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không lưu được. Vui lòng thử lại.')),
+        );
+      }
+    }
   }
 
   Future<void> _editWord(Map<String, dynamic> word) async {
@@ -1506,6 +1553,12 @@ class _RecentPageState extends State<RecentPage> {
       meaning: meaning,
       wordType: wordType,
       topicTag: (word['topic_tag'] as String?) ?? '',
+      metaBadges: WordMetaBadges(
+        commonness: word['commonness'] as int?,
+        wordLevel: word['word_level'] as String?,
+        onTapLevel: () => _editWordMeta(word, 'level'),
+        onTapCommonness: () => _editWordMeta(word, 'commonness'),
+      ),
       createdLabel: createdAt != null ? _formatRelative(createdAt) : null,
       example: resolved['sentence'] ?? '',
       exampleTranslation: (resolved['translation'] ?? '').isEmpty

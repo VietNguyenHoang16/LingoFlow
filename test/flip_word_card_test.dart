@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lingoflow/widgets/flip_word_card.dart';
+import 'package:lingoflow/widgets/word_meta_badges.dart';
 
 const _longWord = 'antidisestablishmentarianism supercalifragilistic';
 const _longMeaning =
@@ -166,5 +167,41 @@ void main() {
     await tester.pump();
     expect(toggled, 1);
     expect(tapped, 0);
+  });
+
+  testWidgets('slot metaBadges hien tren mat truoc, cham chip khong lat the', (
+    tester,
+  ) async {
+    var flippedTaps = 0;
+    var levelTaps = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FlipWordCard(
+          isFlipped: false,
+          word: 'apple',
+          pronunciation: 'a',
+          meaning: 'tao',
+          wordType: 'noun',
+          topicTag: '',
+          example: '',
+          accent: const Color(0xFF6366F1),
+          onTap: () => flippedTaps++,
+          onLongPress: () {},
+          onSpeak: () {},
+          metaBadges: WordMetaBadges(
+            commonness: 8,
+            wordLevel: 'B2',
+            onTapLevel: () => levelTaps++,
+          ),
+        ),
+      ),
+    ));
+    expect(find.text('B2'), findsOneWidget);
+    expect(find.text('8/10'), findsOneWidget);
+
+    await tester.tap(find.text('B2'));
+    await tester.pump();
+    expect(levelTaps, 1);
+    expect(flippedTaps, 0);
   });
 }

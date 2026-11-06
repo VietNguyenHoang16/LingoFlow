@@ -34,6 +34,10 @@ class FlipWordCard extends StatefulWidget {
   final VoidCallback onLongPress;
   final VoidCallback onSpeak;
 
+  /// Slot tuỳ chọn hiện trên hàng badge mặt trước (vd chip Trình độ / Độ thông
+  /// dụng ở màn Gần đây). null = không hiện gì (các màn khác giữ nguyên).
+  final Widget? metaBadges;
+
   const FlipWordCard({
     super.key,
     required this.isFlipped,
@@ -57,6 +61,7 @@ class FlipWordCard extends StatefulWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onSpeak,
+    this.metaBadges,
   });
 
   @override
@@ -147,6 +152,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                       topicTag: widget.topicTag,
                       metaLabel: widget.metaLabel,
                       createdLabel: widget.createdLabel,
+                      metaBadges: widget.metaBadges,
                       accent: widget.accent,
                       theme: theme,
                       showFlipHint: widget.showFlipHint,
@@ -180,6 +186,7 @@ class _CardFront extends StatelessWidget {
   final String topicTag;
   final String? metaLabel;
   final String? createdLabel;
+  final Widget? metaBadges;
   final Color accent;
   final ThemeData theme;
   final bool showFlipHint;
@@ -193,6 +200,7 @@ class _CardFront extends StatelessWidget {
     required this.topicTag,
     this.metaLabel,
     this.createdLabel,
+    this.metaBadges,
     required this.accent,
     required this.theme,
     required this.showFlipHint,
@@ -224,6 +232,7 @@ class _CardFront extends StatelessWidget {
             children: [
               if (wordType.isNotEmpty) WordTypeBadge(typeKey: wordType, compact: true),
               if (topicTag.isNotEmpty) TopicTagBadge(tag: topicTag),
+              ?metaBadges,
               if (createdLabel != null && createdLabel!.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
