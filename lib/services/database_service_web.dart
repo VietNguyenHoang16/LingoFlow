@@ -589,6 +589,18 @@ class DatabaseService {
     return _parseExample(result);
   }
 
+  Future<void> updateWordMeta({
+    required int wordId,
+    int? commonness,
+    String? wordLevel,
+  }) async {
+    await _request<void>('updateWordMeta', data: {
+      'wordId': wordId,
+      'commonness': commonness,
+      'wordLevel': wordLevel,
+    });
+  }
+
   Future<void> updateWordReview({
     required int wordId,
     required int reviewCount,

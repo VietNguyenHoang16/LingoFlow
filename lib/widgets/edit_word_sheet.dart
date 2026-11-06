@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'word_meta_badges.dart';
 import 'word_type_utils.dart';
 
 /// Kết quả trả về từ [showEditWordSheet]. null = người dùng hủy.
@@ -26,9 +27,6 @@ class EditWordResult {
     this.wordLevel,
   });
 }
-
-/// Trình độ CEFR dùng cho field `word_level`.
-const List<String> kCefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 /// Bottom sheet sửa từ dùng chung cho 3 màn hình (Recent, danh mục, bộ từ).
 /// Thiết kế gọn để hiển thị đủ nội dung không cần cuộn trên điện thoại phổ thông:

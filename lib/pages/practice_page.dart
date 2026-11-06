@@ -19,6 +19,7 @@ import '../services/meaning_choice_options.dart';
 import '../widgets/meaning_choice_card.dart';
 import '../widgets/topic_tag_badge.dart';
 import '../widgets/word_type_badge.dart';
+import '../widgets/word_meta_badges.dart';
 
 // Cong khai che do tra loi de callers (ke ca test) dung tham so initialMode.
 export '../widgets/meaning_choice_card.dart' show AnswerInputMode;
@@ -558,6 +559,56 @@ class _PracticePageState extends State<PracticePage> {
     } finally {
       // Spell mode: tra focus de go tiep; MC mode thi no-op.
       if (mounted) _focusSpellInputIfNeeded();
+    }
+  }
+
+  /// Chinh nhanh Trinh do / Do thong dung ngay tren the (cham chip).
+  Future<void> _editWordMeta(String field) async {
+    if (_words.isEmpty || _currentIndex >= _words.length || !mounted) return;
+    final word = _words[_currentIndex];
+    final wordId = word['id'] as int;
+    final prevCommon = word['commonness'] as int?;
+    final prevLevel = word['word_level'] as String?;
+    int? newCommon = prevCommon;
+    String? newLevel = prevLevel;
+    if (field == 'level') {
+      final pick = await showLevelPicker(context, prevLevel);
+      if (pick == null) return;
+      newLevel = pick.value;
+    } else {
+      final pick = await showCommonnessPicker(context, prevCommon);
+      if (pick == null) return;
+      newCommon = pick.value;
+    }
+    if (!mounted || _currentIndex >= _words.length) return;
+    if (newCommon == prevCommon && newLevel == prevLevel) return;
+    setState(() {
+      _words[_currentIndex] = {
+        ..._words[_currentIndex],
+        'commonness': newCommon,
+        'word_level': newLevel,
+      };
+    });
+    try {
+      await _db.updateWordMeta(
+        wordId: wordId,
+        commonness: newCommon,
+        wordLevel: newLevel,
+      );
+      WordChangeBus().notifyChanged('edit-word');
+    } catch (e) {
+      if (mounted && _currentIndex < _words.length) {
+        setState(() {
+          _words[_currentIndex] = {
+            ..._words[_currentIndex],
+            'commonness': prevCommon,
+            'word_level': prevLevel,
+          };
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không lưu được. Vui lòng thử lại.')),
+        );
+      }
     }
   }
 
@@ -1157,6 +1208,13 @@ class _PracticePageState extends State<PracticePage> {
                 onColoredSurface: false,
               ),
             ),
+          SizedBox(height: compact ? 8 : 10),
+          WordMetaBadges(
+            commonness: currentWord['commonness'] as int?,
+            wordLevel: currentWord['word_level'] as String?,
+            onTapLevel: () => _editWordMeta('level'),
+            onTapCommonness: () => _editWordMeta('commonness'),
+          ),
           SizedBox(height: compact ? 12 : 16),
           MeaningChoiceCard(
             options: _optionsForWord(currentWord),
@@ -1387,6 +1445,17 @@ class _PracticePageState extends State<PracticePage> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
+              // Thẻ đáp án rất chặt về chiều cao -> chỉ thêm dòng khi đã có giá
+              // trị; từ chưa chọn thì đặt ở thẻ câu hỏi (chọn nghĩa) hoặc Sửa từ.
+              if (word['commonness'] != null || word['word_level'] != null) ...[
+                const SizedBox(height: 6),
+                WordMetaBadges(
+                  commonness: word['commonness'] as int?,
+                  wordLevel: word['word_level'] as String?,
+                  onTapLevel: () => _editWordMeta('level'),
+                  onTapCommonness: () => _editWordMeta('commonness'),
+                ),
+              ],
               if (meaning.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(

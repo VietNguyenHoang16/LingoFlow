@@ -1162,6 +1162,21 @@ async function handleAction(action, data) {
       return example;
     }
 
+    // v9: chi cap nhat 2 field phu (do thong dung + trinh do) - dung khi nguoi
+    // dung cham chip ngay tren the on tap/luyen tap. Khong dung toi field khac.
+    case 'updateWordMeta': {
+      const commonness = (data.commonness === null || data.commonness === undefined)
+        ? null
+        : Math.min(Math.max(asInt(data.commonness), 1), 10);
+      const wordLevel = String(data.wordLevel || '').trim().toUpperCase() || null;
+      await query(
+        `UPDATE vocabulary_words SET commonness = $1, word_level = $2
+         WHERE id = $3 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $4)`,
+        [commonness, wordLevel, data.wordId, data.userId],
+      );
+      return null;
+    }
+
     case 'updateWordReview': {
       const masteryLevel = asInt(data.masteryLevel);
       await query(

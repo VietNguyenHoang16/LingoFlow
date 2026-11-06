@@ -25,6 +25,7 @@ import '../theme/app_theme.dart';
 import '../widgets/mastery_badge.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/topic_tag_badge.dart';
+import '../widgets/word_meta_badges.dart';
 
 // Cong khai che do tra loi de callers (ke ca test) dung tham so initialMode.
 export '../widgets/meaning_choice_card.dart' show AnswerInputMode;
@@ -1026,6 +1027,50 @@ class _ReviewPageState extends State<ReviewPage>
     }
   }
 
+  /// Chinh nhanh Trinh do / Do thong dung ngay tren the (cham chip).
+  Future<void> _editWordMeta(String field) async {
+    final word = _currentWordSafe;
+    if (word == null || _wordOptionsOpen || _isGrading || _isWordBusy) return;
+    final wordId = word['id'] as int;
+    final prevCommon = word['commonness'] as int?;
+    final prevLevel = word['word_level'] as String?;
+    int? newCommon = prevCommon;
+    String? newLevel = prevLevel;
+    if (field == 'level') {
+      final pick = await showLevelPicker(context, prevLevel);
+      if (pick == null) return;
+      newLevel = pick.value;
+    } else {
+      final pick = await showCommonnessPicker(context, prevCommon);
+      if (pick == null) return;
+      newCommon = pick.value;
+    }
+    if (!mounted) return;
+    if (newCommon == prevCommon && newLevel == prevLevel) return;
+    setState(() {
+      word['commonness'] = newCommon;
+      word['word_level'] = newLevel;
+    });
+    try {
+      await _db.updateWordMeta(
+        wordId: wordId,
+        commonness: newCommon,
+        wordLevel: newLevel,
+      );
+      WordChangeBus().notifyChanged('edit-word');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          word['commonness'] = prevCommon;
+          word['word_level'] = prevLevel;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không lưu được. Vui lòng thử lại.')),
+        );
+      }
+    }
+  }
+
   String _getMaskedWord(String word, {int hintLevel = 0}) {
     if (word.length <= 2) return word;
     final buffer = StringBuffer();
@@ -1551,6 +1596,13 @@ class _ReviewPageState extends State<ReviewPage>
           ),
           const SizedBox(height: 10),
         ],
+        WordMetaBadges(
+          commonness: currentWord['commonness'] as int?,
+          wordLevel: currentWord['word_level'] as String?,
+          onTapLevel: () => _editWordMeta('level'),
+          onTapCommonness: () => _editWordMeta('commonness'),
+        ),
+        const SizedBox(height: 10),
         Text(
           'Nghĩa của từ này là gì?',
           style: TextStyle(
@@ -1721,6 +1773,13 @@ class _ReviewPageState extends State<ReviewPage>
             onColoredSurface: false,
           ),
         ],
+        SizedBox(height: compact ? 8 : 12),
+        WordMetaBadges(
+          commonness: currentWord['commonness'] as int?,
+          wordLevel: currentWord['word_level'] as String?,
+          onTapLevel: () => _editWordMeta('level'),
+          onTapCommonness: () => _editWordMeta('commonness'),
+        ),
         SizedBox(height: compact ? 8 : 12),
         Container(width: 48, height: 2, color: theme.colorScheme.outlineVariant),
         SizedBox(height: compact ? 8 : 12),
