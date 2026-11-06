@@ -97,6 +97,7 @@
       <section class="panel">
         <h2>2. Phân loại từ chưa được phân loại</h2>
         <p class="hint">Lấy các từ còn thiếu <strong>cả trình độ lẫn độ thông dụng</strong>, dùng AI phân loại rồi lưu thẳng vào từ điển.</p>
+        <p class="hint" id="unclassified-count" style="color:#4141ae;font-weight:700"></p>
         <div class="row">
           <label for="count" style="margin:0">Số từ</label>
           <input id="count" class="count" type="number" min="1" max="100" value="100">
@@ -149,6 +150,21 @@
     function showShell() {
       $('auth-gate').hidden = true;
       $('shell').hidden = false;
+      refreshCount();
+    }
+
+    async function refreshCount() {
+      const el = $('unclassified-count');
+      el.textContent = '';
+      try {
+        const data = await callAction('getUnclassifiedCount', {});
+        const count = data && typeof data.count === 'number' ? data.count : 0;
+        el.textContent = count === 0
+          ? 'Không còn từ nào chưa phân loại.'
+          : `Còn ${count} từ chưa có trình độ + độ thông dụng.`;
+      } catch (error) {
+        el.textContent = error.message;
+      }
     }
     async function login(phoneInput) {
       const response = await fetch('/api/lingoflow', {
@@ -294,6 +310,7 @@
       } finally {
         running = false;
         button.disabled = false;
+        refreshCount();
       }
     }
 

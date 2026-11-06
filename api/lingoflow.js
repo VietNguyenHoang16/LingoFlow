@@ -873,6 +873,20 @@ async function handleAction(action, data) {
       }));
     }
 
+    // Dem so tu chua phan loai (thieu CA trinh do lan do thong dung).
+    case 'getUnclassifiedCount': {
+      const rows = await query(
+        `SELECT COUNT(*)::int AS count
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1
+               AND COALESCE(vw.word_level, '') = ''
+               AND vw.commonness IS NULL`,
+        [data.userId],
+      );
+      return { count: rows.length > 0 ? asInt(rows[0].count) : 0 };
+    }
+
     // Phan loai 1 lo tu bang AI: do trinh do CEFR + do thong dung roi luu.
     // AI config gui kem theo request (khong luu vao tai khoan).
     case 'classifyWords': {
