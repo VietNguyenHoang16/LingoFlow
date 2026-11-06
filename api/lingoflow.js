@@ -15,6 +15,48 @@ const {
 const BULK_AI_BUDGET_MS = 8000;
 const BULK_AI_TIMEOUT_MS = 8000;
 const BULK_AI_CONCURRENCY = 4;
+// Phan loai trinh do + do thong dung khi import (1 lan goi AI / lo 20 tu).
+const BULK_CLASSIFY_CHUNK = 20;
+const BULK_CLASSIFY_BUDGET_MS = 20000;
+const BULK_CLASSIFY_TIMEOUT_MS = 12000;
+const CEFR_LEVELS = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+
+function normalizeCefrLevel(raw) {
+  const value = String(raw || '').trim().toUpperCase();
+  return CEFR_LEVELS.has(value) ? value : null;
+}
+
+function normalizeCommonness(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return null;
+  return Math.min(Math.max(Math.round(value), 1), 10);
+}
+
+// Dien wordLevel + commonness cho cac muc con thieu, bang AI. Loi AI -> bo qua,
+// tu van duoc luu (chi thieu 2 thong so nay).
+async function classifyMissingWords(chain, items) {
+  const pending = items.filter((it) => it.wordLevel == null && it.commonness == null);
+  if (pending.length === 0) return;
+  const deadline = Date.now() + BULK_CLASSIFY_BUDGET_MS;
+  for (let i = 0; i < pending.length; i += BULK_CLASSIFY_CHUNK) {
+    if (Date.now() > deadline) break;
+    const chunk = pending.slice(i, i + BULK_CLASSIFY_CHUNK);
+    try {
+      const result = await chain.classifyWords(
+        { words: chunk.map((it) => ({ word: it.word, meaning: it.meaning })) },
+        { timeoutMs: BULK_CLASSIFY_TIMEOUT_MS, deadline },
+      );
+      result.forEach((row, index) => {
+        const target = chunk[index];
+        if (!target) return;
+        if (row.level != null) target.wordLevel = row.level;
+        if (row.commonness != null) target.commonness = row.commonness;
+      });
+    } catch (_) {
+      // Bo qua lo loi, thu lo ke tiep neu con thoi gian.
+    }
+  }
+}
 
 // Loi tam thoi -> client tu dong thu lai qua request moi.
 function isRetryableAiFailure(message) {
@@ -601,16 +643,34 @@ async function handleAction(action, data) {
       const collocations = normalizeCollocations(data.collocations);
       const aiConfigs = await getUserAiConfigs(data.userId);
       const style = await getUserAiExampleStyle(data.userId);
+      const chain = createAiChain(aiConfigs);
+      // AI lay luon trinh do CEFR + do thong dung (neu client chua gui).
+      let wordLevel = normalizeCefrLevel(data.wordLevel);
+      let commonness = normalizeCommonness(data.commonness);
+      if (wordLevel == null && commonness == null) {
+        try {
+          const [classified] = await chain.classifyWords(
+            { words: [{ word: String(data.word || '').trim(), meaning: data.meaning || '' }] },
+            { timeoutMs: BULK_CLASSIFY_TIMEOUT_MS },
+          );
+          if (classified) {
+            wordLevel = classified.level;
+            commonness = classified.commonness;
+          }
+        } catch (_) {
+          // AI loi -> van luu tu, chi thieu 2 thong so nay.
+        }
+      }
       // Sinh vi du truoc khi insert: AI loi -> dung mau tinh, tu van duoc luu.
       const example = await generateExampleOrFallback(
         { word: data.word, meaning: data.meaning || '', wordType, topicTag, style },
-        { timeoutMs: 10000, aiConfigs },
+        { timeoutMs: 10000, chain },
       );
       const rows = await query(
-        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, collocations)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, collocations, word_level, commonness)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING id`,
-        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag, (data.commonSynonyms || '').trim(), example.sentence, example.translation, example.target, collocations],
+        [listId, data.word, data.pronunciation || '', data.meaning || '', data.fullDetails || '', wordType, topicTag, (data.commonSynonyms || '').trim(), example.sentence, example.translation, example.target, collocations, wordLevel, commonness],
       );
       return asInt(rows[0].id);
     }
@@ -891,14 +951,19 @@ async function handleAction(action, data) {
           topicTag: String(it.topicTag || '').trim().slice(0, 100),
           commonSynonyms: (it.commonSynonyms || '').trim(),
           collocations: normalizeCollocations(it.collocations),
+          wordLevel: normalizeCefrLevel(it.wordLevel),
+          commonness: normalizeCommonness(it.commonness),
         });
       }
       if (candidates.length === 0) return { insertedCount: 0, failed: [] };
 
+      const aiChain = createAiChain(await getUserAiConfigs(data.userId));
+      // Moi tu import duoc AI lay luon trinh do CEFR + do thong dung (neu chua co).
+      await classifyMissingWords(aiChain, candidates);
+
       // Sinh vi du truoc khi insert, gioi han concurrency + tong thoi gian.
       const deadline = Date.now() + BULK_AI_BUDGET_MS;
       const usedSentences = new Set();
-      const aiChain = createAiChain(await getUserAiConfigs(data.userId));
       const style = await getUserAiExampleStyle(data.userId);
       const prepared = [];
       const failed = [];
@@ -957,13 +1022,13 @@ async function handleAction(action, data) {
             it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType,
             it.topicTag, it.commonSynonyms,
             it.example.sentence, it.example.translation, it.example.target,
-            it.collocations,
+            it.collocations, it.wordLevel, it.commonness,
           );
-          return `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11})`;
+          return `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13})`;
         });
         try {
           const inserted = await query(
-            `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, collocations)
+            `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, collocations, word_level, commonness)
              VALUES ${values.join(', ')}
              RETURNING id`,
             params,
@@ -974,9 +1039,9 @@ async function handleAction(action, data) {
           for (const it of chunk) {
             try {
               await query(
-                `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, collocations)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-                [listId, it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType, it.topicTag, it.commonSynonyms, it.example.sentence, it.example.translation, it.example.target, it.collocations],
+                `INSERT INTO vocabulary_words (list_id, word, pronunciation, meaning, full_details, word_type, topic_tag, common_synonyms, example_sentence, example_translation, example_target, collocations, word_level, commonness)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                [listId, it.word, it.pronunciation, it.meaning, it.fullDetails, it.wordType, it.topicTag, it.commonSynonyms, it.example.sentence, it.example.translation, it.example.target, it.collocations, it.wordLevel, it.commonness],
               );
               insertedCount += 1;
             } catch (rowError) {
