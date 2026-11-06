@@ -615,6 +615,55 @@ const WORD_TYPES = [
   'idiom', 'collocation', 'grammar',
 ];
 
+// Trinh do CEFR hop le cho field word_level.
+const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+// Phan loai mot lo tu: trinh do CEFR + do thong dung (1-10).
+function buildClassifyPrompt({ words }) {
+  const list = words
+    .map((w, i) => `${i + 1}. ${w.word}${w.meaning ? ` — ${w.meaning}` : ''}`)
+    .join('\n');
+  return `You rate English words for a Vietnamese learner (everyday communication + working in IT).
+
+For EACH numbered word below, give:
+- "level": the CEFR level of the word, exactly one of: ${CEFR_LEVELS.join(', ')}.
+- "commonness": how common/useful the word is for a learner, an integer 1-10
+  (10 = extremely common and essential, 1 = very rare/advanced).
+
+Rules:
+- Judge the headword itself, not any example.
+- "level" must be one of the allowed values, uppercase.
+- "commonness" must be an integer from 1 to 10.
+- Return exactly one item per input word, in the same order, keyed by "i" (1-based).
+
+Words:
+${list}
+
+Reply with JSON only: {"items":[{"i":1,"level":"B1","commonness":8}]}`;
+}
+
+function normalizeClassifyResult(parsed, words) {
+  const rawItems = Array.isArray(parsed?.items) ? parsed.items : [];
+  const byIndex = new Map();
+  for (const item of rawItems) {
+    const index = Number(item?.i);
+    if (Number.isInteger(index)) byIndex.set(index, item);
+  }
+  return words.map((w, i) => {
+    const item = byIndex.get(i + 1) || {};
+    const level = String(item.level || '').trim().toUpperCase();
+    const rawCommonness = Number(item.commonness);
+    return {
+      id: w.id,
+      word: w.word,
+      level: CEFR_LEVELS.includes(level) ? level : null,
+      commonness: Number.isFinite(rawCommonness)
+        ? Math.min(Math.max(Math.round(rawCommonness), 1), 10)
+        : null,
+    };
+  });
+}
+
 // Nghia tieng Viet + loai tu + cum tu cho mot tu.
 function buildWordInfoPrompt({ word, style }) {
   const w = String(word || '').trim();
@@ -821,7 +870,18 @@ function createAiChain(rawConfigs) {
     );
   }
 
-  return { generate, generateWordInfo, configs };
+  // Trinh do CEFR + do thong dung (1-10) cho mot lo tu.
+  async function classifyWords({ words }, { timeoutMs = 30000, deadline } = {}) {
+    const list = Array.isArray(words) ? words.filter((w) => w && w.word) : [];
+    if (list.length === 0) return [];
+    return run(
+      buildClassifyPrompt({ words: list }),
+      (parsed) => normalizeClassifyResult(parsed, list),
+      { timeoutMs, deadline },
+    );
+  }
+
+  return { generate, generateWordInfo, classifyWords, configs };
 }
 
 async function generateExample(input, { timeoutMs = 10000, used, aiConfigs, chain } = {}) {
@@ -853,12 +913,14 @@ async function testAiProvider(raw, { timeoutMs = 15000 } = {}) {
 module.exports = {
   TEMPLATE_BANK,
   WORD_TYPES,
+  CEFR_LEVELS,
   DEFAULT_EXAMPLE_STYLE,
   EXAMPLE_CONTEXTS,
   MAX_STYLE_CUSTOM,
   buildExamplePrompt,
   buildStylePrompt,
   buildWordInfoPrompt,
+  buildClassifyPrompt,
   callOpenAiCompatible,
   createAiChain,
   exampleErrorMessage,
@@ -869,6 +931,7 @@ module.exports = {
   normalizeExampleStyle,
   normalizeGeneratedExample,
   normalizeGeneratedWordInfo,
+  normalizeClassifyResult,
   normalizeSentenceKey,
   parseJsonContent,
   pickUniqueExample,

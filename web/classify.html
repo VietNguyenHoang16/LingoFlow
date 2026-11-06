@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phân loại từ · LingoFlow</title>
+  <meta name="description" content="Dùng AI gán trình độ CEFR và độ thông dụng (1-10) cho các từ chưa phân loại.">
+  <style>
+    :root { color-scheme: light; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f5f7fb; color: #182033; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .page { max-width: 900px; margin: 0 auto; padding: 28px 20px 64px; }
+    [hidden] { display: none !important; }
+    h1, p { margin: 0; }
+    h1 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.03em; }
+    .subtitle { margin-top: 6px; color: #667085; font-size: 14px; }
+    .panel { background: #fff; border: 1px solid #e5e9f2; border-radius: 16px; box-shadow: 0 8px 24px rgba(20, 35, 70, .05); padding: 18px; margin-top: 16px; }
+    .panel h2 { font-size: 15px; margin: 0 0 4px; }
+    .panel .hint { color: #667085; font-size: 13px; margin-bottom: 14px; }
+    label { display: block; color: #344054; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #d8deea; border-radius: 10px; background: #fff; color: #182033; outline: 0; }
+    input:focus { border-color: #5b5bd6; box-shadow: 0 0 0 3px rgba(91, 91, 214, .12); }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+    .grid .full { grid-column: 1 / -1; }
+    .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+    .primary { border: 0; border-radius: 10px; padding: 11px 16px; background: #5151c9; color: #fff; font-weight: 700; }
+    .primary:hover { background: #4141ae; }
+    .primary:disabled, .ghost:disabled { cursor: wait; opacity: .55; }
+    .ghost { border: 1px solid #d8deea; border-radius: 10px; padding: 10px 14px; background: #fff; color: #344054; }
+    .status { font-size: 13px; color: #667085; }
+    .status.ok { color: #16794a; }
+    .status.error { color: #b42318; }
+    .count { width: 110px; }
+    .auth-gate { max-width: 440px; margin: 12vh auto 0; padding: 28px; }
+    .auth-form { display: grid; gap: 12px; margin-top: 24px; }
+    .auth-error { min-height: 20px; color: #b42318; font-size: 13px; }
+    .topbar { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+    .progress-outer { height: 8px; border-radius: 999px; background: #eef1f6; overflow: hidden; margin-top: 12px; }
+    .progress-inner { height: 100%; width: 0; background: #5151c9; transition: width .2s; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eef1f6; font-size: 14px; }
+    th { color: #667085; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    td.num { font-variant-numeric: tabular-nums; width: 90px; }
+    .pill { display: inline-block; min-width: 42px; text-align: center; padding: 2px 8px; border-radius: 999px; background: #eef0ff; color: #4141ae; font-weight: 700; font-size: 12px; }
+    .pill.na { background: #f2f4f7; color: #98a2b3; font-weight: 600; }
+    .results-wrap { max-height: 60vh; overflow: auto; margin-top: 8px; border: 1px solid #eef1f6; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section id="auth-gate" class="panel auth-gate">
+      <h1>Phân loại từ</h1>
+      <p class="subtitle">Nhập số điện thoại LingoFlow để tiếp tục.</p>
+      <form id="login-form" class="auth-form">
+        <label for="phone">Số điện thoại</label>
+        <input id="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="9xx xxx xxx" required>
+        <div id="auth-error" class="auth-error" role="alert"></div>
+        <button class="primary" id="login-button" type="submit">Đăng nhập</button>
+      </form>
+      <p class="subtitle" style="margin-top:14px">Số điện thoại cần được đăng ký trong ứng dụng LingoFlow trước.</p>
+    </section>
+
+    <div id="shell" hidden>
+      <header class="topbar">
+        <div>
+          <h1>Phân loại từ</h1>
+          <p class="subtitle">Dùng AI gán <strong>trình độ CEFR</strong> và <strong>độ thông dụng (1-10)</strong> cho các từ chưa phân loại.</p>
+        </div>
+        <button id="logout" class="ghost" type="button">Đăng xuất</button>
+      </header>
+
+      <section class="panel">
+        <h2>1. Kết nối AI</h2>
+        <p class="hint">Nhập thông tin nhà cung cấp AI (OpenAI-compatible). Thông tin chỉ dùng cho phiên này, <strong>không lưu</strong> vào tài khoản.</p>
+        <div class="grid">
+          <div class="full">
+            <label for="baseUrl">Base URL</label>
+            <input id="baseUrl" type="url" placeholder="https://generativelanguage.googleapis.com/v1beta/openai" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="full">
+            <label for="apiKey">API key</label>
+            <input id="apiKey" type="password" placeholder="Dán API key" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="full">
+            <label for="model">Model</label>
+            <input id="model" type="text" placeholder="vd: gemini-2.5-flash / gpt-4o-mini" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="row">
+          <button id="connect" class="ghost" type="button">Kết nối</button>
+          <span id="connect-status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>2. Phân loại từ chưa được phân loại</h2>
+        <p class="hint">Lấy các từ còn thiếu <strong>cả trình độ lẫn độ thông dụng</strong>, dùng AI phân loại rồi lưu thẳng vào từ điển.</p>
+        <div class="row">
+          <label for="count" style="margin:0">Số từ</label>
+          <input id="count" class="count" type="number" min="1" max="100" value="100">
+          <button id="run" class="primary" type="button">Phân loại</button>
+          <span id="run-status" class="status"></span>
+        </div>
+        <div class="progress-outer"><div id="progress" class="progress-inner"></div></div>
+      </section>
+
+      <section class="panel">
+        <h2>Kết quả</h2>
+        <p class="hint" id="results-summary">Chưa chạy.</p>
+        <div class="results-wrap">
+          <table>
+            <thead><tr><th>Từ</th><th>Nghĩa</th><th class="num">Trình độ</th><th class="num">Thông dụng</th></tr></thead>
+            <tbody id="results"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const CHUNK = 10;
+    const $ = (id) => document.getElementById(id);
+
+    function getToken() {
+      return localStorage.getItem('auth_token')
+        || localStorage.getItem('flutter.auth_token')
+        || localStorage.getItem('lingoflow.auth_token')
+        || '';
+    }
+    function clearToken() {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('flutter.auth_token');
+      localStorage.removeItem('lingoflow.auth_token');
+    }
+    function formatPhone(value) {
+      let digits = String(value || '').replace(/\D/g, '');
+      if (digits.length === 10 && digits.startsWith('0')) digits = digits.slice(1);
+      if (digits.length !== 9) throw new Error('Vui lòng nhập đủ 9 số điện thoại.');
+      return `+84${digits}`;
+    }
+    function showAuth(message = '') {
+      $('auth-gate').hidden = false;
+      $('shell').hidden = true;
+      $('auth-error').textContent = message;
+      $('phone').focus();
+    }
+    function showShell() {
+      $('auth-gate').hidden = true;
+      $('shell').hidden = false;
+    }
+    async function login(phoneInput) {
+      const response = await fetch('/api/lingoflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'loginUser', data: { phoneNumber: formatPhone(phoneInput) } }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.data || !payload.data.token) {
+        throw new Error(payload.error || 'Số điện thoại chưa đăng ký hoặc đăng nhập thất bại.');
+      }
+      const token = payload.data.token;
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('flutter.auth_token', token);
+    }
+    async function callAction(action, data) {
+      const token = getToken();
+      if (!token) throw new Error('Hãy đăng nhập LingoFlow trước.');
+      const response = await fetch('/api/lingoflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action, data: data || {} }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        clearToken();
+        showAuth('Phiên đăng nhập hết hạn. Vui lòng nhập lại số điện thoại.');
+      }
+      if (!response.ok) throw new Error(payload.error || `Request thất bại (HTTP ${response.status}).`);
+      return payload.data;
+    }
+
+    function readAi() {
+      const ai = {
+        name: 'web-classify',
+        baseUrl: $('baseUrl').value.trim(),
+        apiKey: $('apiKey').value.trim(),
+        model: $('model').value.trim(),
+      };
+      if (!ai.baseUrl || !ai.apiKey || !ai.model) {
+        throw new Error('Nhập đủ Base URL, API key và Model.');
+      }
+      return ai;
+    }
+    function setStatus(el, message, kind = '') {
+      el.textContent = message;
+      el.className = `status${kind ? ' ' + kind : ''}`;
+    }
+
+    async function connect() {
+      const button = $('connect');
+      const status = $('connect-status');
+      setStatus(status, '');
+      let ai;
+      try { ai = readAi(); } catch (error) { setStatus(status, error.message, 'error'); return false; }
+      button.disabled = true;
+      setStatus(status, 'Đang kiểm tra...');
+      try {
+        const result = await callAction('testAiProvider', ai);
+        if (result && result.ok) {
+          setStatus(status, `Kết nối thành công (${result.latencyMs || 0} ms).`, 'ok');
+          return true;
+        }
+        setStatus(status, (result && result.message) || 'Kết nối thất bại.', 'error');
+        return false;
+      } catch (error) {
+        setStatus(status, error.message, 'error');
+        return false;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function addRow(item) {
+      const tr = document.createElement('tr');
+      const word = document.createElement('td');
+      word.textContent = item.word;
+      const meaning = document.createElement('td');
+      meaning.textContent = item.meaning || '';
+      const level = document.createElement('td');
+      level.className = 'num';
+      level.append(pill(item.level));
+      const common = document.createElement('td');
+      common.className = 'num';
+      common.append(pill(item.commonness == null ? null : `${item.commonness}/10`));
+      tr.append(word, meaning, level, common);
+      $('results').append(tr);
+    }
+    function pill(text) {
+      const span = document.createElement('span');
+      span.className = text ? 'pill' : 'pill na';
+      span.textContent = text || '—';
+      return span;
+    }
+
+    let running = false;
+    async function run() {
+      if (running) return;
+      const button = $('run');
+      const status = $('run-status');
+      setStatus(status, '');
+      let ai;
+      try { ai = readAi(); } catch (error) { setStatus(status, error.message, 'error'); return; }
+
+      const count = Math.min(Math.max(parseInt($('count').value, 10) || 100, 1), 100);
+      $('results').replaceChildren();
+      $('results-summary').textContent = 'Đang lấy danh sách từ...';
+      $('progress').style.width = '0%';
+      running = true;
+      button.disabled = true;
+      try {
+        const connected = await connect();
+        if (!connected) { setStatus(status, 'Chưa kết nối được AI.', 'error'); return; }
+
+        const words = await callAction('getUnclassifiedWords', { limit: count });
+        if (!Array.isArray(words) || words.length === 0) {
+          $('results-summary').textContent = 'Không còn từ nào chưa phân loại.';
+          setStatus(status, 'Không còn từ nào chưa phân loại.', 'ok');
+          return;
+        }
+        $('results-summary').textContent = `Tìm thấy ${words.length} từ chưa phân loại.`;
+
+        let done = 0;
+        let saved = 0;
+        for (let i = 0; i < words.length; i += CHUNK) {
+          const chunk = words.slice(i, i + CHUNK);
+          setStatus(status, `Đang phân loại ${i + 1}-${Math.min(i + CHUNK, words.length)} / ${words.length}...`);
+          const result = await callAction('classifyWords', { words: chunk, ai });
+          const items = (result && result.items) || [];
+          for (const item of items) {
+            const source = chunk.find((w) => w.id === item.id) || {};
+            addRow({ word: item.word || source.word, meaning: source.meaning, level: item.level, commonness: item.commonness });
+          }
+          saved += (result && result.updated) || 0;
+          done += chunk.length;
+          $('progress').style.width = `${Math.round((done / words.length) * 100)}%`;
+        }
+        $('results-summary').textContent = `Đã phân loại ${done} từ, lưu ${saved} từ vào từ điển.`;
+        setStatus(status, 'Hoàn tất.', 'ok');
+      } catch (error) {
+        setStatus(status, error.message, 'error');
+        $('results-summary').textContent = 'Dừng do lỗi. Từ đã xử lý trước đó vẫn được lưu.';
+      } finally {
+        running = false;
+        button.disabled = false;
+      }
+    }
+
+    $('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = $('login-button');
+      button.disabled = true;
+      $('auth-error').textContent = '';
+      try { await login($('phone').value); showShell(); }
+      catch (error) { $('auth-error').textContent = error.message; }
+      finally { button.disabled = false; }
+    });
+    $('logout').addEventListener('click', () => { clearToken(); showAuth(); });
+    $('connect').addEventListener('click', connect);
+    $('run').addEventListener('click', run);
+
+    if (getToken()) showShell();
+    else showAuth();
+  </script>
+</body>
+</html>

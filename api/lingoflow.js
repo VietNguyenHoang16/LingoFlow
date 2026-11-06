@@ -2,8 +2,10 @@ const { Pool } = require('pg');
 const crypto = require('crypto');
 const {
   createAiChain,
+  exampleErrorMessage,
   generateExample,
   normalizeExampleStyle,
+  sanitizeAiConfigs,
   templateExample,
   testAiProvider,
 } = require('./_lib/xai');
@@ -786,6 +788,72 @@ async function handleAction(action, data) {
         wordType: '',
         error: 'Hết thời gian lấy nghĩa.',
       });
+    }
+
+    // ---- Phan loai tu (trang admin tren web) ----
+    // Cac tu chua phan loai: thieu CA trinh do (word_level) lan do thong dung.
+    case 'getUnclassifiedWords': {
+      const limit = Math.min(Math.max(asInt(data.limit) || 100, 1), 100);
+      const rows = await query(
+        `SELECT vw.id, vw.word, vw.meaning, vw.word_type
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1
+               AND COALESCE(vw.word_level, '') = ''
+               AND vw.commonness IS NULL
+         ORDER BY vw.created_at DESC, vw.id DESC
+         LIMIT $2`,
+        [data.userId, limit],
+      );
+      return rows.map((row) => ({
+        id: asInt(row.id),
+        word: row.word || '',
+        meaning: row.meaning || '',
+        wordType: row.word_type || '',
+      }));
+    }
+
+    // Phan loai 1 lo tu bang AI: do trinh do CEFR + do thong dung roi luu.
+    // AI config gui kem theo request (khong luu vao tai khoan).
+    case 'classifyWords': {
+      const rawWords = Array.isArray(data.words) ? data.words : [];
+      const words = [];
+      for (const item of rawWords) {
+        const id = asInt(item?.id);
+        const word = String(item?.word || '').trim().slice(0, 100);
+        if (!id || !word) continue;
+        words.push({ id, word, meaning: String(item?.meaning || '').trim().slice(0, 200) });
+        if (words.length >= 20) break;
+      }
+      if (words.length === 0) return { items: [], updated: 0 };
+
+      const provided = data.ai ? sanitizeAiConfigs([data.ai]) : [];
+      if (provided.length === 0) {
+        throw new Error('Cấu hình AI không hợp lệ (Base URL, API key hoặc model).');
+      }
+
+      const chain = createAiChain(provided);
+      let results;
+      try {
+        results = await chain.classifyWords(
+          { words },
+          { timeoutMs: 40000, deadline: Date.now() + 50000 },
+        );
+      } catch (error) {
+        throw new Error(exampleErrorMessage(error));
+      }
+
+      let updated = 0;
+      for (const item of results) {
+        if (item.level == null && item.commonness == null) continue;
+        await query(
+          `UPDATE vocabulary_words SET word_level = $1, commonness = $2
+           WHERE id = $3 AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $4)`,
+          [item.level, item.commonness, item.id, data.userId],
+        );
+        updated += 1;
+      }
+      return { items: results, updated };
     }
 
     case 'bulkAddWords': {

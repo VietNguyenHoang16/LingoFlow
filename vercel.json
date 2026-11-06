@@ -7,6 +7,10 @@
     {
       "source": "/example",
       "destination": "/example_manager.html"
+    },
+    {
+      "source": "/classify",
+      "destination": "/classify.html"
     }
   ],
   "functions": {
