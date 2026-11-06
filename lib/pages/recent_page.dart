@@ -416,6 +416,8 @@ class _RecentPageState extends State<RecentPage> {
       wordType: (word['word_type'] ?? '').toString(),
       topicTag: (word['topic_tag'] ?? '').toString(),
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
+      commonness: word['commonness'] as int?,
+      wordLevel: word['word_level'] as String?,
       showWordType: false,
       showDetails: false,
       allowEmptyMeaningOnWordChange: true,
@@ -475,6 +477,8 @@ class _RecentPageState extends State<RecentPage> {
               'word_type': wordType,
               'topic_tag': result.topicTag,
               'common_synonyms': result.commonSynonyms,
+              'commonness': result.commonness,
+              'word_level': result.wordLevel,
             });
           });
           _flippedWords.remove(id);
@@ -487,6 +491,8 @@ class _RecentPageState extends State<RecentPage> {
             wordType: wordType,
             topicTag: result.topicTag,
             commonSynonyms: result.commonSynonyms,
+            commonness: result.commonness,
+            wordLevel: result.wordLevel,
           );
           // Đồng bộ nền để khớp server (ví dụ mới), giữ nguyên vị trí cuộn.
           await _refreshActiveList();

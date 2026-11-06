@@ -11,6 +11,8 @@ class EditWordResult {
   final String wordType;
   final String topicTag;
   final String commonSynonyms;
+  final int? commonness;
+  final String? wordLevel;
 
   const EditWordResult({
     required this.word,
@@ -20,8 +22,13 @@ class EditWordResult {
     required this.wordType,
     required this.topicTag,
     this.commonSynonyms = '',
+    this.commonness,
+    this.wordLevel,
   });
 }
+
+/// Trình độ CEFR dùng cho field `word_level`.
+const List<String> kCefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 /// Bottom sheet sửa từ dùng chung cho 3 màn hình (Recent, danh mục, bộ từ).
 /// Thiết kế gọn để hiển thị đủ nội dung không cần cuộn trên điện thoại phổ thông:
@@ -39,6 +46,8 @@ Future<EditWordResult?> showEditWordSheet({
   required String wordType,
   required String topicTag,
   String commonSynonyms = '',
+  int? commonness,
+  String? wordLevel,
   bool showWordType = true,
   bool showDetails = true,
   bool requireMeaning = true,
@@ -64,6 +73,8 @@ Future<EditWordResult?> showEditWordSheet({
         initialTopicTag: topicTag,
         initialWordType: wordType,
         initialCommon: commonSynonyms,
+        initialCommonness: commonness,
+        initialWordLevel: wordLevel,
         showWordType: showWordType,
         showDetails: showDetails,
         requireMeaning: requireMeaning,
@@ -81,6 +92,8 @@ class _EditWordSheetBody extends StatefulWidget {
   final String initialTopicTag;
   final String initialWordType;
   final String initialCommon;
+  final int? initialCommonness;
+  final String? initialWordLevel;
   final bool showWordType;
   final bool showDetails;
   final bool requireMeaning;
@@ -94,6 +107,8 @@ class _EditWordSheetBody extends StatefulWidget {
     required this.initialTopicTag,
     required this.initialWordType,
     this.initialCommon = '',
+    this.initialCommonness,
+    this.initialWordLevel,
     required this.showWordType,
     required this.showDetails,
     required this.requireMeaning,
@@ -115,6 +130,8 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
   late final Set<String> selectedTypes = {
     ...widget.initialWordType.split(',').map((t) => t.trim()).where(kWordTypeLabel.containsKey),
   };
+  late int? selectedCommonness = widget.initialCommonness;
+  late String? selectedLevel = widget.initialWordLevel;
   String? error;
 
   @override
@@ -141,6 +158,47 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
       .length;
+
+  Widget _metaLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: 'Be Vietnam Pro',
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+
+  Widget _metaChip(String text, bool selected, Color color, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 40),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? color.withAlpha(40) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? color.withAlpha(180) : color.withAlpha(60)),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Be Vietnam Pro',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _save() {
     final w = wordCtl.text.trim();
@@ -171,6 +229,8 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
         wordType: selectedTypes.toList().join(','),
         topicTag: topicCtl.text.trim(),
         commonSynonyms: commonCtl.text.trim(),
+        commonness: selectedCommonness,
+        wordLevel: selectedLevel,
       ),
     );
   }
@@ -287,6 +347,44 @@ class _EditWordSheetBodyState extends State<_EditWordSheetBody> {
                 ),
               ),
             ],
+            const SizedBox(height: 10),
+            _metaLabel('Trình độ'),
+            SizedBox(
+              height: 30,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: kCefrLevels.map((lvl) {
+                    final selected = selectedLevel == lvl;
+                    return _metaChip(
+                      lvl,
+                      selected,
+                      theme.colorScheme.primary,
+                      () => setState(() => selectedLevel = selected ? null : lvl),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _metaLabel('Độ thông dụng'),
+            SizedBox(
+              height: 30,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(10, (i) => i + 1).map((n) {
+                    final selected = selectedCommonness == n;
+                    return _metaChip(
+                      '$n',
+                      selected,
+                      theme.colorScheme.primary,
+                      () => setState(() => selectedCommonness = selected ? null : n),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: commonCtl,

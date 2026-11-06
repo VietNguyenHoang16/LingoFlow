@@ -571,6 +571,8 @@ class DatabaseService {
     String? wordType,
     String? topicTag,
     String? commonSynonyms,
+    int? commonness,
+    String? wordLevel,
   }) async {
     final result = await _request<dynamic>('updateVocabularyWord', data: {
       'wordId': wordId,
@@ -581,6 +583,8 @@ class DatabaseService {
       'wordType': wordType ?? '',
       'topicTag': topicTag ?? '',
       'commonSynonyms': commonSynonyms ?? '',
+      'commonness': commonness,
+      'wordLevel': wordLevel,
     });
     return _parseExample(result);
   }

@@ -100,6 +100,8 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       wordType: (word['word_type'] as String?)?.trim() ?? '',
       topicTag: (word['topic_tag'] as String?)?.trim() ?? '',
       commonSynonyms: (details['common_synonyms'] as String?)?.trim() ?? '',
+      commonness: details['commonness'] as int?,
+      wordLevel: details['word_level'] as String?,
     );
     if (result == null || !mounted) return;
 
@@ -116,6 +118,8 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
           wordType: result.wordType,
           topicTag: result.topicTag,
           commonSynonyms: result.commonSynonyms,
+          commonness: result.commonness,
+          wordLevel: result.wordLevel,
         ),
       );
 
@@ -123,6 +127,8 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       word['meaning'] = result.meaning;
       word['word_type'] = result.wordType;
       word['topic_tag'] = result.topicTag;
+      word['commonness'] = result.commonness;
+      word['word_level'] = result.wordLevel;
       _applyFilter(_searchController.text);
       WordChangeBus().notifyChanged('edit-word');
       if (mounted) {

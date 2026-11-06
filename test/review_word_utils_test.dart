@@ -62,4 +62,27 @@ void main() {
       expect(word['word_type'], '');
     });
   });
+
+  group('normalizeWord (do thong dung + trinh do CEFR)', () {
+    test('null khi thieu (mac dinh chua chon)', () {
+      final word = normalizeWord({'word': 'run'});
+      expect(word['commonness'], isNull);
+      expect(word['word_level'], isNull);
+    });
+
+    test('nhan gia tri hop le', () {
+      final word = normalizeWord({'commonness': 7, 'word_level': 'b2'});
+      expect(word['commonness'], 7);
+      expect(word['word_level'], 'B2');
+    });
+
+    test('gia tri rac -> null', () {
+      final word = normalizeWord({
+        'commonness': '',
+        'word_level': 'Z9',
+      });
+      expect(word['commonness'], isNull);
+      expect(word['word_level'], isNull);
+    });
+  });
 }

@@ -613,6 +613,8 @@ class _ReviewPageState extends State<ReviewPage>
         wordType: (updated['word_type'] ?? '').toString(),
         topicTag: (updated['topic_tag'] ?? '').toString(),
         commonSynonyms: (updated['common_synonyms'] ?? '').toString(),
+        commonness: updated['commonness'] as int?,
+        wordLevel: updated['word_level'] as String?,
       );
     } else {
       example = await _db.updateVocabularyWordDetails(

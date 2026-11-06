@@ -18,6 +18,23 @@ int _safeInt(dynamic value) {
   return int.tryParse(value.toString()) ?? 0;
 }
 
+/// Nhu [_safeInt] nhung tra ve null khi thieu/rong (dung cho field tuy chon).
+int? _safeNullableInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.round();
+  final s = value.toString().trim();
+  if (s.isEmpty) return null;
+  return int.tryParse(s);
+}
+
+/// Trinh do CEFR hop le (A1..C2); gia tri khac -> null.
+const _cefrLevels = {'A1', 'A2', 'B1', 'B2', 'C1', 'C2'};
+String? _safeCefr(dynamic value) {
+  final s = value?.toString().trim().toUpperCase() ?? '';
+  return _cefrLevels.contains(s) ? s : null;
+}
+
 double _safeDouble(dynamic value) {
   if (value == null) return 0.0;
   if (value is double) return value;
@@ -62,6 +79,8 @@ Map<String, dynamic> normalizeWord(Map<String, dynamic> raw) {
   word['example_sentence'] = _safeString(word['example_sentence']);
   word['example_translation'] = _safeString(word['example_translation']);
   word['word_type'] = _safeString(word['word_type']);
+  word['commonness'] = _safeNullableInt(word['commonness']);
+  word['word_level'] = _safeCefr(word['word_level']);
   word['next_review_date'] = _safeDate(word['next_review_date']);
   word['last_reviewed_at'] = _safeDate(word['last_reviewed_at']);
   // Parse full_details for structured data and extract first example.

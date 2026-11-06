@@ -141,6 +141,8 @@ class _CategoryPageState extends State<CategoryPage> {
       wordType: (word['word_type'] ?? '').toString(),
       topicTag: (word['topic_tag'] ?? '').toString(),
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
+      commonness: word['commonness'] as int?,
+      wordLevel: word['word_level'] as String?,
       showWordType: false,
       showDetails: false,
     );
@@ -154,6 +156,8 @@ class _CategoryPageState extends State<CategoryPage> {
       word['meaning'] = result.meaning;
       word['pronunciation'] = result.pronunciation;
       word['topic_tag'] = result.topicTag;
+      word['commonness'] = result.commonness;
+      word['word_level'] = result.wordLevel;
     });
     try {
       final example = await runWithSaveFeedback<Map<String, String>?>(
@@ -167,6 +171,8 @@ class _CategoryPageState extends State<CategoryPage> {
           wordType: (previous['word_type'] as String?)?.trim() ?? widget.category,
           topicTag: result.topicTag,
           commonSynonyms: result.commonSynonyms,
+          commonness: result.commonness,
+          wordLevel: result.wordLevel,
         ),
       );
       if (!mounted) return;

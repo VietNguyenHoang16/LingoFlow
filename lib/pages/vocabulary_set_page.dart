@@ -701,9 +701,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     String commonSynonyms = '',
   }) async {
     String initCommon = commonSynonyms;
+    int? initCommonness;
+    String? initWordLevel;
     final idxLookup = _words.indexWhere((w) => w['id'] == wordId);
     if (idxLookup != -1) {
       initCommon = initCommon.isNotEmpty ? initCommon : (_words[idxLookup]['common_synonyms'] ?? '').toString();
+      initCommonness = _words[idxLookup]['commonness'] as int?;
+      initWordLevel = _words[idxLookup]['word_level'] as String?;
     }
     final result = await showEditWordSheet(
       context: context,
@@ -714,6 +718,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       wordType: wordType,
       topicTag: topicTag,
       commonSynonyms: initCommon,
+      commonness: initCommonness,
+      wordLevel: initWordLevel,
       requireMeaning: false,
     );
 
@@ -734,6 +740,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           'word_type': result.wordType,
           'topic_tag': result.topicTag,
           'common_synonyms': result.commonSynonyms,
+          'commonness': result.commonness,
+          'word_level': result.wordLevel,
         };
       });
     }
@@ -751,6 +759,8 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
           wordType: result.wordType,
           topicTag: result.topicTag,
           commonSynonyms: result.commonSynonyms,
+          commonness: result.commonness,
+          wordLevel: result.wordLevel,
         ),
       );
       if (!mounted) return;
