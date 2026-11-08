@@ -15,9 +15,12 @@ Link tải nhanh:
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,299,766 bytes` (20.31 MB)
-- SHA256: `DD4B78C54F0DA66CEDD6F516FBE5E8C0D0E429EE75DB487C06DE68A9F0F8AB4E`
-- Ngày build: `08/11/2026` — bản mới nhất:
+- Kích thước: `21,299,874 bytes` (20.31 MB)
+- SHA256: `EAEF67924F8F6E541799FFB3C90B5CB3B6BE5D719130F3B4C9C7F5A3FF6D0CE2`
+- Ngày build: `09/11/2026` — bản mới nhất:
+  - **Sao chép toàn bộ Từ khó** — ở trang **Từ khó**, bấm nút **sao chép** trên
+    header để copy cả danh sách vào clipboard, **mỗi từ một dòng**; có thông báo
+    số từ đã sao chép.
   - **Phím ~ = "Không biết" (web)** — trong **Ôn tập**, bấm phím **~** (bên
     trái số 1) để lật thẻ như nút **Không biết** (tính Hard), rồi bấm **Enter**
     để qua câu tiếp.
