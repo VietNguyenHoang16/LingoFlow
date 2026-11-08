@@ -43,7 +43,11 @@ final _dueWords = [
   _word(2, 'banana', 'quả chuối'),
   _word(3, 'cherry', 'quả anh đào'),
 ];
-const _correctMeanings = ['quả táo', 'quả chuối', 'quả anh đào'];
+const _meaningOf = {
+  'apple': 'quả táo',
+  'banana': 'quả chuối',
+  'cherry': 'quả anh đào',
+};
 
 MockClient _buildClient(List<Map<String, dynamic>> requests) {
   final indexWords = [
@@ -119,17 +123,26 @@ void main() {
       );
 
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      // Chua mo lua chon: phim 1-4 chi mo lua chon, chua chon dap an.
+      expect(find.byType(MeaningChoiceCard), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+      await tester.pumpAndSettle();
+      expect(find.text('How well did you know it?'), findsNothing);
       final options = _shownOptions(tester);
       expect(options.length, 4);
 
-      // Bam "2" -> chon dung lua chon thu 2 (index 1).
+      // Tu dang hoi (chi nghia cua chinh no moi la dap an dung).
+      final currentWord = ['apple', 'banana', 'cherry']
+          .firstWhere((w) => find.text(w).evaluate().isNotEmpty);
+
+      // Bam "2" lan nua -> chon dung lua chon thu 2 (index 1).
       await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
 
       // Da lo the dap an + hien 4 nut cham SRS (nhu khi bam chuot).
       expect(find.text('How well did you know it?'), findsOneWidget);
-      // Ket qua dung/sai khop voi lua chon thu 2.
-      final choseCorrect = _correctMeanings.contains(options[1]);
+      // Ket qua dung/sai khop voi lua chon thu 2 cua tu dang hoi.
+      final choseCorrect = options[1] == _meaningOf[currentWord];
       expect(
         choseCorrect
             ? find.byIcon(Icons.check_circle_rounded)
@@ -150,6 +163,9 @@ void main() {
         initialMode: AnswerInputMode.choice,
       );
 
+      // Mo lua chon truoc khi cham diem bang phim.
+      await tester.tap(find.text('Xem lựa chọn'));
+      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
       expect(find.text('How well did you know it?'), findsOneWidget);

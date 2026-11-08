@@ -81,6 +81,15 @@ void main() {
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
+      // Buoc "nhin va nghi": chua hien lua chon/dap an nao.
+      expect(find.text('Xem lựa chọn'), findsOneWidget);
+      expect(find.text('triển khai'), findsNothing);
+      expect(find.text('kiên cường'), findsNothing);
+      expect(find.text('bỏ rơi'), findsNothing);
+
+      await tester.tap(find.text('Xem lựa chọn'));
+      await tester.pumpAndSettle();
+
       // Bo tu giu nguyen: chi tu hien tai hien dang cau hoi (cac tu con lai
       // chi xuat hien nghia cua chung o dang lua chon, khong xuat hien tu).
       List<String> shownWordsNow() => ['deploy', 'resilient', 'abandon']
@@ -102,6 +111,8 @@ void main() {
       await tester.tap(find.text('Chọn nghĩa'));
       await tester.pumpAndSettle();
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      // Quay lai che do chon nghia -> ve buoc "nhin va nghi" (an lua chon).
+      expect(find.text('Xem lựa chọn'), findsOneWidget);
       expect(shownWordsNow().single, q1);
 
       expect(tester.takeException(), isNull);
@@ -148,6 +159,9 @@ void main() {
       String currentWord() => ['deploy', 'resilient', 'abandon']
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);
 
+      await tester.tap(find.text('Xem lựa chọn'));
+      await tester.pumpAndSettle();
+
       // Câu 1: chon sai.
       final q1 = currentWord();
       final wrongMeaning = ['triển khai', 'kiên cường', 'bỏ rơi']
@@ -162,6 +176,10 @@ void main() {
       // Câu 2: van o che do chon nghia, tieu tien 2/3.
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
       expect(find.text('2/3'), findsOneWidget);
+
+      // Cau moi: lua chon lai an, phai mo ra moi chon duoc.
+      await tester.tap(find.text('Xem lựa chọn'));
+      await tester.pumpAndSettle();
 
       final q2 = currentWord();
       expect(q2, isNot(q1));
@@ -229,6 +247,8 @@ void main() {
       // Mac dinh la chon nghia: nhiu lay tu list tong (wordIndex) va chon ngau
       // nhien -> 4 lua chon (1 dung + 3 nhiu), bo nhiu thay doi moi lan.
       // (userId: 2 de tranh cache wordIndex static.)
+      await tester.tap(find.text('Xem lựa chọn'));
+      await tester.pumpAndSettle();
       final allMeanings = [
         'triển khai',
         'kiên cường',

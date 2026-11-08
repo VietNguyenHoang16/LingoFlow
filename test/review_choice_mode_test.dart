@@ -99,7 +99,13 @@ void main() {
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
+      // Buoc "nhin va nghi": chua hien lua chon nao.
+      expect(find.text('Xem lựa chọn'), findsOneWidget);
+      expect(find.text('quả táo'), findsNothing);
+
       // Mot nhip nua de fallback wordIndex ve xong.
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xem lựa chọn'));
       await tester.pumpAndSettle();
 
       String currentWord() => ['apple', 'banana', 'cherry']
@@ -126,6 +132,11 @@ void main() {
       await tester.tap(find.text('Chọn nghĩa'));
       await tester.pumpAndSettle();
       expect(currentWord(), q1);
+      // Quay lai che do chon nghia -> ve buoc "nhin va nghi" (an lua chon).
+      expect(find.text('Xem lựa chọn'), findsOneWidget);
+
+      await tester.tap(find.text('Xem lựa chọn'));
+      await tester.pumpAndSettle();
 
       // Chon SAI -> the lat, hien dap an dung + nut cham SRS.
       // Nhiu ngau nhien moi lan -> chon 1 nghia dang hien khac dap an dung.
@@ -200,8 +211,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
 
-      // Chưa trả lời: có nút "Không biết" cạnh 4 đáp án.
+      // Chưa trả lời: có nút "Không biết" ngay ở bước nhìn và nghĩ.
       expect(find.text('Không biết'), findsOneWidget);
+      expect(find.text('Xem lựa chọn'), findsOneWidget);
+      // "Không biết" phải đứng trước nút mở lựa chọn.
+      expect(
+        tester.getTopLeft(find.text('Không biết')).dy,
+        lessThan(tester.getTopLeft(find.text('Xem lựa chọn')).dy),
+      );
 
       await tester.tap(find.text('Không biết'));
       await tester.pumpAndSettle();

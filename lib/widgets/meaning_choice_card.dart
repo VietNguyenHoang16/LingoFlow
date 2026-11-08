@@ -75,6 +75,69 @@ class AnswerModeToggle extends StatelessWidget {
   }
 }
 
+/// Bước 1 của chế độ "nhìn từ chọn nghĩa": chỉ hiện từ để người học tự nghĩ
+/// nghĩa trong đầu, bấm nút này mới mở ra 4 lựa chọn — tránh việc nhìn thấy
+/// đáp án ngay khi câu hỏi vừa hiện.
+class ChoiceRevealButton extends StatelessWidget {
+  const ChoiceRevealButton({
+    super.key,
+    required this.onPressed,
+    this.compact = false,
+  });
+
+  final VoidCallback onPressed;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Nhìn từ, tự nghĩ nghĩa trong đầu rồi mới mở lựa chọn.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: compact ? 12 : 13,
+            height: 1.35,
+            color: theme.colorScheme.onSurfaceVariant,
+            fontFamily: 'Be Vietnam Pro',
+          ),
+        ),
+        SizedBox(height: compact ? 8 : 10),
+        SizedBox(
+          height: compact ? 48 : 52,
+          child: ElevatedButton.icon(
+            onPressed: onPressed,
+            icon: Icon(
+              Icons.visibility_rounded,
+              size: 20,
+              color: theme.colorScheme.onPrimary,
+            ),
+            label: Text(
+              'Xem lựa chọn',
+              style: TextStyle(
+                fontSize: compact ? 14 : 16,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onPrimary,
+                fontFamily: 'Be Vietnam Pro',
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Danh sách nút lựa chọn nghĩa cho chế độ "nhìn từ chọn nghĩa".
 /// Stateless: trang cha giữ trạng thái đã trả lời (hiện đáp án + chấm điểm).
 class MeaningChoiceCard extends StatelessWidget {
