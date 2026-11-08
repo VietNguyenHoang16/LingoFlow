@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/database_service.dart';
 import '../services/tts_settings_service.dart';
@@ -76,6 +77,22 @@ class _HardWordsPageState extends State<HardWordsPage> {
     } catch (_) {}
   }
 
+  /// Sao chép toàn bộ danh sách từ khó, mỗi từ một dòng.
+  void _copyAll() {
+    final words = _words
+        .map((w) => (w['word'] ?? '').toString())
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: words.join('\n')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã sao chép ${words.length} từ'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   /// Bỏ/thêm yêu thích nhưng KHÔNG xoá khỏi danh sách — danh sách phản ánh
   /// "lần chấm gần nhất là Hard", không liên quan tới yêu thích.
   Future<void> _toggleFavorite(Map<String, dynamic> word) async {
@@ -114,6 +131,11 @@ class _HardWordsPageState extends State<HardWordsPage> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Sao chép tất cả',
+            icon: const Icon(Icons.copy_all_rounded),
+            onPressed: _words.isEmpty ? null : _copyAll,
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
