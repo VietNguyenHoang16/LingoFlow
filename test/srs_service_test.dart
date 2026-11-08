@@ -98,18 +98,31 @@ void main() {
       expect(r.newLapseCount, 0);
     });
 
-    test('Again van reset 0d, streak 0, +1 lapse', () {
+    test('Vague 30d -> 2d, streak 0, +1 lapse, ease -0.2', () {
       final r = srs.calculateNextReview(
-        quality: SrsService.qualityAgain,
+        quality: SrsService.qualityVague,
         currentInterval: 30,
         easeFactor: 2.5,
         correctStreak: 5,
         reviewCount: 10,
       );
 
-      expect(r.newInterval, 0);
+      expect(r.newInterval, 2);
       expect(r.newCorrectStreak, 0);
       expect(r.newLapseCount, 1);
+      expect(r.newEaseFactor, closeTo(2.3, 0.0001));
+    });
+
+    test('Vague tu moi -> 1d (som hon Good 2d)', () {
+      final r = srs.calculateNextReview(
+        quality: SrsService.qualityVague,
+        currentInterval: 0,
+        easeFactor: 2.5,
+        correctStreak: 0,
+        reviewCount: 0,
+      );
+
+      expect(r.newInterval, 1);
     });
   });
 }

@@ -262,7 +262,7 @@ async function ensureRequiredColumns() {
   // v8: "tu kho" -> "yeu thich". Reset trang (user chon) roi bo cot cu.
   await addColumnIfNotExists('vocabulary_words', 'is_favorite', 'BOOLEAN DEFAULT FALSE');
   await dropColumnIfExists('vocabulary_words', 'is_difficult');
-  // Muc cham gan nhat (0=Again,3=Hard,4=Good,5=Easy). NULL = chua tung on.
+  // Muc cham gan nhat (2=Vague,3=Hard,4=Good,5=Easy). NULL = chua tung on.
   await addColumnIfNotExists('vocabulary_words', 'last_rating', 'INTEGER');
   // v9: do thong dung (1-10) + trinh do CEFR (A1..C2). NULL = chua chon.
   await addColumnIfNotExists('vocabulary_words', 'commonness', 'INTEGER');

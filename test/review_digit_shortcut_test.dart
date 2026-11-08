@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lingoflow/pages/review_page.dart';
+import 'package:lingoflow/services/srs_service.dart';
 import 'package:lingoflow/theme/app_theme.dart';
 import 'package:lingoflow/widgets/meaning_choice_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -153,7 +154,7 @@ void main() {
     }, () => _buildClient(requests));
   });
 
-  testWidgets('chon nghia: phim 1 sau khi hien dap an = cham Again',
+  testWidgets('chon nghia: phim 2 sau khi hien dap an = cham Vague',
       (tester) async {
     final requests = <Map<String, dynamic>>[];
     await http.runWithClient(() async {
@@ -170,7 +171,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('How well did you know it?'), findsOneWidget);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
 
       final saved =
@@ -179,11 +180,13 @@ void main() {
       final data = saved.last['data'] as Map<String, dynamic>;
       expect(data['correctStreak'], 0);
       expect((data['lapseCount'] as num).toInt(), 1);
+      expect(data['lastRating'], SrsService.qualityVague);
+      expect(data['intervalDays'], 1);
       expect(tester.takeException(), isNull);
     }, () => _buildClient(requests));
   });
 
-  testWidgets('go tu: phim 1 sau khi hien dap an van cham Again', (tester) async {
+  testWidgets('go tu: phim 1 sau khi hien dap an = cham Hard', (tester) async {
     final requests = <Map<String, dynamic>>[];
     await http.runWithClient(() async {
       await _pumpReview(
@@ -206,7 +209,9 @@ void main() {
       expect(saved, isNotEmpty);
       final data = saved.last['data'] as Map<String, dynamic>;
       expect(data['correctStreak'], 0);
-      expect((data['lapseCount'] as num).toInt(), 1);
+      expect((data['lapseCount'] as num).toInt(), 0);
+      expect(data['lastRating'], SrsService.qualityHard);
+      expect(data['intervalDays'], 1);
       // Cho timer 300ms cua _handleAnswerFocusChange chay het truoc khi ket thuc
       // (neu khong Flutter bao "Timer is still pending").
       await tester.pump(const Duration(milliseconds: 400));

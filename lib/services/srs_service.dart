@@ -28,10 +28,14 @@ class SrsService {
   SrsService._internal();
 
   /// Quality ratings - user tự đánh giá mức nhớ
-  static const int qualityAgain = 0;  // Quên hoàn toàn
+  static const int qualityVague = 2;  // Nhận diện được nhưng chưa gợi nhớ
   static const int qualityHard = 3;   // Nhớ nhưng khó (Tăng từ 2 lên 3 để không bị reset interval)
   static const int qualityGood = 4;   // Nhớ tốt
   static const int qualityEasy = 5;   // Nhớ rất dễ
+
+  /// Mơ hồ: hẹn 2 ngày; từ mới hẹn 1 ngày để luôn sớm hơn Good (2 ngày).
+  static const int vagueInterval = 2;
+  static const int vagueNewInterval = 1;
 
   /// Mastery levels
   static const int masteryNew = 0;
@@ -40,7 +44,7 @@ class SrsService {
   static const int masteryMastered = 3;
 
   /// Leech detection
-  static const int leechThreshold = 3;    // 3 lần Again → đánh dấu Leech
+  static const int leechThreshold = 3;    // 3 lần Vague/Hard yếu → đánh dấu Leech
   static const int leechMaxInterval = 4;  // Leech: interval tối đa 4 ngày
   static const double hardMultiplier = 0.5; // Hard: giảm 50% interval
   static const int hardMaxInterval = 14;  // Hard (interval>=2): trần 14 ngày
@@ -86,9 +90,10 @@ class SrsService {
     int newReviewCount = reviewCount + 1;
     int newLapseCount = lapseCount;
 
-    if (quality < 3) {
-      // Trả lời sai (Again) → làm lại ngay (0 ngày)
-      newInterval = 0;
+    if (quality <= qualityVague) {
+      // Mơ hồ: nhận diện được nhưng chưa gợi nhớ → ôn sớm hơn Good.
+      newInterval =
+          currentInterval == 0 ? vagueNewInterval : vagueInterval;
       newStreak = 0;
       newLapseCount = lapseCount + 1; // Tăng lapse count cho leech tracking
       // Giảm ease factor
@@ -164,10 +169,7 @@ class SrsService {
     int newMasteryLevel = determineMasteryLevel(newInterval, newStreak);
 
     // Tính ngày ôn tiếp theo
-    // Nếu là Again (interval = 0) thì đặt là 1 phút sau
-    DateTime nextReview = newInterval == 0
-        ? DateTime.now().add(const Duration(minutes: 1))
-        : DateTime.now().add(Duration(days: newInterval));
+    DateTime nextReview = DateTime.now().add(Duration(days: newInterval));
 
     return SrsResult(
       newInterval: newInterval,
@@ -193,7 +195,7 @@ class SrsService {
   /// [isCorrect]: user trả lời đúng hay sai
   /// [responseTimeMs]: thời gian trả lời (ms), dùng để phân biệt Hard vs Good vs Easy
   int practiceResultToQuality(bool isCorrect, {int responseTimeMs = 5000}) {
-    if (!isCorrect) return qualityAgain;
+    if (!isCorrect) return qualityVague;
 
     // Dựa trên thời gian phản hồi
     if (responseTimeMs < 3000) return qualityEasy;    // < 3 giây: Easy

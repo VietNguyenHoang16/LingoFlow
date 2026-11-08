@@ -735,10 +735,6 @@ class _ReviewPageState extends State<ReviewPage>
     });
 
     setState(() {
-      if (quality == SrsService.qualityAgain) {
-        _dueWords.add(word);
-      }
-
       _resetCardAnswerState();
 
       if (_currentIndex < _dueWords.length - 1) {
@@ -786,8 +782,8 @@ class _ReviewPageState extends State<ReviewPage>
   Map<int, String> _calcIntervals(Map<String, dynamic> word) {
     final intervals = <int, String>{};
     for (final q in [
-      SrsService.qualityAgain,
       SrsService.qualityHard,
+      SrsService.qualityVague,
       SrsService.qualityGood,
       SrsService.qualityEasy,
     ]) {
@@ -918,7 +914,7 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   /// Phím 1-4: chọn đáp án khi chưa trả lời (chế độ chọn nghĩa), chấm điểm
-  /// Again/Hard/Good/Easy sau khi đã hiện đáp án. Trả về true nếu đã xử lý.
+  /// Hard/Vague/Good/Easy sau khi đã hiện đáp án. Trả về true nếu đã xử lý.
   bool _handleDigitKey(LogicalKeyboardKey key) {
     const digits = [
       LogicalKeyboardKey.digit1,
@@ -940,8 +936,8 @@ class _ReviewPageState extends State<ReviewPage>
       // Sau "Không biết" chỉ còn nút Tiếp (đã tính Hard) -> bỏ qua phím chấm.
       if (_dontKnow) return false;
       _rateWord(const [
-        SrsService.qualityAgain,
         SrsService.qualityHard,
+        SrsService.qualityVague,
         SrsService.qualityGood,
         SrsService.qualityEasy,
       ][index]);
@@ -2183,23 +2179,23 @@ class _ReviewPageState extends State<ReviewPage>
           children: [
             Expanded(
               child: _buildRateButton(
-                label: 'Again',
-                emoji: '\u{1F622}',
+                label: 'Hard',
+                emoji: '\u{1F914}',
                 shortcut: '1',
-                subtitle: _calculatedIntervals[SrsService.qualityAgain] ?? '',
-                color: theme.colorScheme.error,
-                onTap: () => _rateWord(SrsService.qualityAgain),
+                subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '',
+                color: colors.masteryReviewing,
+                onTap: () => _rateWord(SrsService.qualityHard),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _buildRateButton(
-                label: 'Hard',
-                emoji: '\u{1F914}',
+                label: 'Vague',
+                emoji: '\u{1F615}',
                 shortcut: '2',
-                subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '',
-                color: colors.masteryReviewing,
-                onTap: () => _rateWord(SrsService.qualityHard),
+                subtitle: _calculatedIntervals[SrsService.qualityVague] ?? '',
+                color: theme.colorScheme.error,
+                onTap: () => _rateWord(SrsService.qualityVague),
               ),
             ),
             const SizedBox(width: 8),

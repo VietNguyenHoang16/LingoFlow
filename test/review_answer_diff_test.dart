@@ -200,14 +200,14 @@ void main() {
     }, grammar: true);
   });
 
-  testWidgets('cham diem Again -> dau sai duoc xoa cung the dap an', (
+  testWidgets('cham diem Vague -> dau sai duoc xoa cung the dap an', (
     tester,
   ) async {
     await scenario(tester, (requests) async {
       await checkAnswer(tester, 'aple');
       expect(find.byType(AnswerDiffText), findsOneWidget);
 
-      await tester.tap(find.text('Again'));
+      await tester.tap(find.text('Vague'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AnswerDiffText), findsNothing);

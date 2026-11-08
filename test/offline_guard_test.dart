@@ -103,7 +103,7 @@ void main() {
         await tester.enterText(find.byType(TextField).first, 'aple');
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
-        expect(find.text('Again'), findsOneWidget);
+        expect(find.text('Vague'), findsOneWidget);
 
         offline = true;
         await tester.tap(find.text('Good'));
