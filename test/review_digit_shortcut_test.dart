@@ -213,4 +213,30 @@ void main() {
       expect(tester.takeException(), isNull);
     }, () => _buildClient(requests));
   });
+
+  testWidgets('phim ~ = Khong biet, Enter = qua cau', (tester) async {
+    final requests = <Map<String, dynamic>>[];
+    await http.runWithClient(() async {
+      await _pumpReview(
+        tester,
+        userId: 15,
+        initialMode: AnswerInputMode.choice,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backquote);
+      await tester.pumpAndSettle();
+      expect(find.text('Không biết · tính là Hard'), findsOneWidget);
+      expect(find.text('Tiếp'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      final saved =
+          requests.where((r) => r['action'] == 'updateWordReview').toList();
+      expect(saved, isNotEmpty);
+      expect((saved.last['data'] as Map)['lastRating'], SrsService.qualityHard);
+      expect(find.text('2 / 3'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => _buildClient(requests));
+  });
 }

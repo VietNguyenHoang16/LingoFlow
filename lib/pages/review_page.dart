@@ -937,12 +937,33 @@ class _ReviewPageState extends State<ReviewPage>
   bool _handleHardwareKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     final key = event.logicalKey;
+
+    // Phím ~ / ` (bên trái số 1): "Không biết" — lật thẻ và tính Hard.
+    if (key == LogicalKeyboardKey.backquote ||
+        key == LogicalKeyboardKey.tilde) {
+      if (widget.grammarReview) return false;
+      // Dialog / bottom sheet đang mở: để phím thuộc về họ.
+      final route = ModalRoute.of(context);
+      if (route != null && !route.isCurrent) return false;
+      _answerDontKnow();
+      return true;
+    }
+
     if (key != LogicalKeyboardKey.enter &&
         key != LogicalKeyboardKey.numpadEnter) {
       return false;
     }
-    // Khong mode grammar: Enter thuoc ve o nhap (onSubmitted) - khong chan.
-    if (!widget.grammarReview) return false;
+    // Sau "Không biết": Enter = Tiếp (đã tính Hard), giống bấm nút.
+    if (!widget.grammarReview) {
+      if (_showAnswer && _dontKnow) {
+        final route = ModalRoute.of(context);
+        if (route != null && !route.isCurrent) return false;
+        if (!_isGrading) _rateWord(SrsService.qualityHard);
+        return true;
+      }
+      // Enter thuoc ve o nhap (onSubmitted) - khong chan.
+      return false;
+    }
     // Dang hien dap an roi hoac phien ket thuc: de phim di, khong flip lai.
     if (_showAnswer || _isCompleted) return true;
     // Dialog / bottom sheet dang mo (sua nghia, xoa tu): Enter thuoc ve ho,
