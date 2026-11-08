@@ -973,6 +973,16 @@ class _PracticePageState extends State<PracticePage> {
                               // de toan bo ket qua + nut Tiep nam trong 1 khung.
                               if (!_showResult || !compact) ...[
                                 MasteryBadge(level: masteryLevel),
+                                if ((currentWord['word_type'] ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: WordTypeBadge(
+                                      typeKey: currentWord['word_type'] as String,
+                                      showIcon: false,
+                                    ),
+                                  ),
+                                ],
                                 SizedBox(height: compact ? 8 : 12),
                                 Text(
                                   'Từ tiếng Anh của nghĩa này là gì?',
@@ -1479,6 +1489,13 @@ class _PracticePageState extends State<PracticePage> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
+              if ((word['word_type'] ?? '').isNotEmpty) ...[
+                const SizedBox(height: 4),
+                WordTypeBadge(
+                  typeKey: word['word_type'] as String,
+                  showIcon: false,
+                ),
+              ],
               // Thẻ đáp án rất chặt về chiều cao -> chỉ thêm dòng khi đã có giá
               // trị; từ chưa chọn thì đặt ở thẻ câu hỏi (chọn nghĩa) hoặc Sửa từ.
               if (word['commonness'] != null || word['word_level'] != null) ...[
@@ -1514,7 +1531,7 @@ class _PracticePageState extends State<PracticePage> {
                 ),
               ],
               if (example.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
                 ExampleCard(
                   example: example,
                   pos: pos,

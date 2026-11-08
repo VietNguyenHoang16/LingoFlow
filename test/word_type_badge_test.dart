@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lingoflow/widgets/word_type_badge.dart';
 
 void main() {
-  testWidgets('WordTypeBadge shows full English label and icon by default',
+  testWidgets('WordTypeBadge shows full Vietnamese label and icon by default',
       (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -14,8 +14,8 @@ void main() {
       ),
     );
 
-    // Full English label (not compact short label)
-    expect(find.text('Nouns'), findsOneWidget);
+    // Full Vietnamese label (not compact short label)
+    expect(find.text('Danh từ'), findsOneWidget);
     expect(find.text('N'), findsNothing);
 
     // Icon is shown by default
@@ -32,8 +32,8 @@ void main() {
       ),
     );
 
-    // Full English label still shown
-    expect(find.text('Verbs'), findsOneWidget);
+    // Full Vietnamese label still shown
+    expect(find.text('Động từ'), findsOneWidget);
 
     // No icon rendered
     expect(find.byType(Icon), findsNothing);
@@ -69,7 +69,7 @@ void main() {
     );
 
     // Label still shown
-    expect(find.text('Nouns'), findsOneWidget);
+    expect(find.text('Danh từ'), findsOneWidget);
 
     // Background uses onPrimary (bright) tint, not the word-type color tint
     final container = tester.widgetList(find.byType(Container)).firstWhere((w) {

@@ -28,7 +28,7 @@ void main() {
     expect(find.text('Chỉnh sửa từ'), findsOneWidget);
 
     // Chon chip loai tu (rebuild sheet qua setSheetState).
-    await tester.tap(find.text('V').first);
+    await tester.tap(find.text('Động từ').first);
     await tester.pump();
 
     // Mo Chi tiet.
