@@ -124,11 +124,8 @@ void main() {
       );
 
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
-      // Chua mo lua chon: phim 1-4 chi mo lua chon, chua chon dap an.
-      expect(find.byType(MeaningChoiceCard), findsNothing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
-      await tester.pumpAndSettle();
-      expect(find.text('How well did you know it?'), findsNothing);
+      // 4 lua chon hien ngay, khong can mo.
+      expect(find.byType(MeaningChoiceCard), findsOneWidget);
       final options = _shownOptions(tester);
       expect(options.length, 4);
 
@@ -136,7 +133,7 @@ void main() {
       final currentWord = ['apple', 'banana', 'cherry']
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);
 
-      // Bam "2" lan nua -> chon dung lua chon thu 2 (index 1).
+      // Bam "2" -> chon lua chon thu 2 (index 1).
       await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
 
@@ -164,9 +161,7 @@ void main() {
         initialMode: AnswerInputMode.choice,
       );
 
-      // Mo lua chon truoc khi cham diem bang phim.
-      await tester.tap(find.text('Xem lựa chọn'));
-      await tester.pumpAndSettle();
+      // 4 lua chon hien san; phim 2 chon dap an thu 2.
       await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
       expect(find.text('How well did you know it?'), findsOneWidget);

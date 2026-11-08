@@ -91,10 +91,6 @@ class _ReviewPageState extends State<ReviewPage>
   int _currentIndex = 0;
   bool _showAnswer = false;
 
-  /// Chế độ chọn nghĩa: đã mở 4 lựa chọn chưa? Mỗi câu mới đều bắt đầu ở bước
-  /// "nhìn từ và tự nghĩ nghĩa", chưa hiện lựa chọn để không lộ đáp án.
-  bool _choiceRevealed = false;
-
   /// Bấm "Không biết" ở chế độ chọn nghĩa: lật thẻ ngay, lượt này tính Hard.
   bool _dontKnow = false;
   int _hintLevel = 0;
@@ -208,10 +204,15 @@ class _ReviewPageState extends State<ReviewPage>
       }
       words.shuffle();
 
+      // Nạp sẵn nghĩa toàn bộ từ vựng trước khi vẽ câu đầu để 4 đáp án hiện
+      // ngay, không phải chờ wordIndex về muộn.
+      if (!widget.grammarReview && _inputMode == AnswerInputMode.choice) {
+        await _ensureChoicePool();
+      }
+
       setState(() {
         // Chuan hoa kieu du lieu ngay tu dau - cac cast phia sau luon an toan.
         _dueWords = words.map(normalizeWord).toList();
-        _choiceRevealed = false;
         _currentIndex = 0;
         _isLoading = false;
         _loadError = null;
@@ -669,7 +670,6 @@ class _ReviewPageState extends State<ReviewPage>
   /// Xoa trang thai tra loi cua the hien tai (goi trong setState).
   void _resetCardAnswerState() {
     _showAnswer = false;
-    _choiceRevealed = false;
     _dontKnow = false;
     _isAnswerCorrect = null;
     _answerDiff = null;
@@ -843,13 +843,6 @@ class _ReviewPageState extends State<ReviewPage>
       _fallbackMeanings = const [];
     }
     _fallbackLoading = false;
-    if (mounted) {
-      setState(() {
-        // Chưa mở lựa chọn -> cho phép nâng cấp bộ đáp án của câu hiện tại
-        // bằng pool đầy đủ. Đã mở thì giữ nguyên, không đổi đáp án trước mắt.
-        if (!_choiceRevealed) _optionsCacheKey = '';
-      });
-    }
   }
 
   /// Câu hiện tại có thể ra đề chọn nghĩa không (cần >= 1 nghĩa nhiễu).
@@ -859,27 +852,15 @@ class _ReviewPageState extends State<ReviewPage>
 
   void _setInputMode(AnswerInputMode mode) {
     if (_inputMode == mode) return;
-    // Đổi kiểu hỏi trên cùng câu: quay lại bước "nhìn và nghĩ" trước khi mở
-    // lựa chọn, không hiện sẵn đáp án.
-    setState(() {
-      _inputMode = mode;
-      _choiceRevealed = false;
-    });
+    setState(() => _inputMode = mode);
     // Typing -> focus o go; Choice -> focus node trang de phim 1-4 chay.
     _requestInputFocus();
-  }
-
-  /// Mở 4 lựa chọn cho câu hiện tại (sau khi người học đã tự nghĩ nghĩa).
-  void _revealChoice() {
-    if (_choiceRevealed || _showAnswer || _isCompleted) return;
-    setState(() => _choiceRevealed = true);
   }
 
   /// Trả lời chế độ chọn nghĩa: lật thẻ + hiện đáp án + chờ chấm SRS, giống
   /// _showAnswerCard nhưng không có diff ký tự (không gõ).
   void _answerChoice(int selectedIndex) {
     if (_wordOptionsOpen || _isCompleted || _isGrading || _showAnswer) return;
-    if (!_choiceRevealed) return;
     final word = _currentWordSafe;
     if (word == null) return;
     final options = _optionsForWord(word);
@@ -944,11 +925,6 @@ class _ReviewPageState extends State<ReviewPage>
       return true;
     }
     if (_inputMode == AnswerInputMode.choice && _choicePossible) {
-      // Chưa mở lựa chọn: phím 1-4 chỉ mở lựa chọn, chưa có gì để chọn.
-      if (!_choiceRevealed) {
-        _revealChoice();
-        return true;
-      }
       _answerChoice(index);
       return true;
     }
@@ -964,17 +940,6 @@ class _ReviewPageState extends State<ReviewPage>
     if (key != LogicalKeyboardKey.enter &&
         key != LogicalKeyboardKey.numpadEnter) {
       return false;
-    }
-    // Chon nghia chua mo lua chon: Enter = mo 4 lua chon (khong cham diem).
-    if (!_showAnswer &&
-        !_isCompleted &&
-        _inputMode == AnswerInputMode.choice &&
-        _choicePossible &&
-        !_choiceRevealed) {
-      final route = ModalRoute.of(context);
-      if (route != null && !route.isCurrent) return false;
-      _revealChoice();
-      return true;
     }
     // Khong mode grammar: Enter thuoc ve o nhap (onSubmitted) - khong chan.
     if (!widget.grammarReview) return false;
@@ -1452,25 +1417,13 @@ class _ReviewPageState extends State<ReviewPage>
                             ? Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Bước 1: chỉ hiện từ để người học tự nghĩ
-                                  // nghĩa. "Không biết" đứng trước (bấm được
-                                  // ngay), rồi mới tới nút mở 4 lựa chọn.
-                                  if (!_choiceRevealed) ...[
-                                    _buildDontKnowButton(theme, compactMode),
-                                    const SizedBox(height: 10),
-                                    ChoiceRevealButton(
-                                      onPressed: _revealChoice,
-                                      compact: compactMode,
-                                    ),
-                                  ] else ...[
-                                    MeaningChoiceCard(
-                                      options: _optionsForWord(currentWord),
-                                      onSelected: _answerChoice,
-                                      compact: compactMode,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildDontKnowButton(theme, compactMode),
-                                  ],
+                                  MeaningChoiceCard(
+                                    options: _optionsForWord(currentWord),
+                                    onSelected: _answerChoice,
+                                    compact: compactMode,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDontKnowButton(theme, compactMode),
                                 ],
                               )
                             : _buildInputSection(theme, compactMode))

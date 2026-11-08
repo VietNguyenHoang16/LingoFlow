@@ -92,10 +92,6 @@ class _PracticePageState extends State<PracticePage> {
   /// Đúng/sai của câu vừa trả lời (cả 2 chế độ) — dùng khi hiện khung kết quả.
   bool? _lastIsCorrect;
 
-  /// Chế độ chọn nghĩa: đã mở 4 lựa chọn chưa? Mỗi câu mới đều bắt đầu ở bước
-  /// "nhìn từ và tự nghĩ nghĩa", chưa hiện lựa chọn để không lộ đáp án.
-  bool _choiceRevealed = false;
-
   /// Bộ options của câu hiện tại (cache theo id + nghĩa để không shuffle lại
   /// khi rebuild).
   String _optionsCacheKey = '';
@@ -168,9 +164,13 @@ class _PracticePageState extends State<PracticePage> {
         words = List<Map<String, dynamic>>.from(wordsResult);
       }
       words.shuffle(Random());
+      // Nạp sẵn nghĩa toàn bộ từ vựng trước khi vẽ câu đầu để 4 đáp án hiện
+      // ngay, không phải chờ wordIndex về muộn.
+      if (_inputMode == AnswerInputMode.choice) {
+        await _ensureChoicePool();
+      }
       setState(() {
         _words = words;
-        _choiceRevealed = false;
         _isLoading = false;
         _loadError = null;
         _questionStartTime = DateTime.now();
@@ -196,7 +196,6 @@ class _PracticePageState extends State<PracticePage> {
   void _nextQuestion() {
     setState(() {
       _showResult = false;
-      _choiceRevealed = false;
       _lastIsCorrect = null;
       _spellController.clear();
       _questionStartTime = DateTime.now();
@@ -336,13 +335,6 @@ class _PracticePageState extends State<PracticePage> {
       _fallbackMeanings = const [];
     }
     _fallbackLoading = false;
-    if (mounted) {
-      setState(() {
-        // Chưa mở lựa chọn -> cho phép nâng cấp bộ đáp án của câu hiện tại
-        // bằng pool đầy đủ. Đã mở thì giữ nguyên, không đổi đáp án trước mắt.
-        if (!_choiceRevealed) _optionsCacheKey = '';
-      });
-    }
   }
 
   /// Câu hiện tại có thể ra đề chọn nghĩa không (cần >= 1 nghĩa nhiễu).
@@ -352,23 +344,12 @@ class _PracticePageState extends State<PracticePage> {
 
   void _setInputMode(AnswerInputMode mode) {
     if (_inputMode == mode) return;
-    // Đổi kiểu hỏi trên cùng câu: quay lại bước "nhìn và nghĩ" trước khi mở
-    // lựa chọn, không hiện sẵn đáp án.
-    setState(() {
-      _inputMode = mode;
-      _choiceRevealed = false;
-    });
+    setState(() => _inputMode = mode);
     if (mode == AnswerInputMode.typing) _focusSpellInputIfNeeded();
   }
 
-  /// Mở 4 lựa chọn cho câu hiện tại (sau khi người học đã tự nghĩ nghĩa).
-  void _revealChoice() {
-    if (_words.isEmpty || _showResult || _choiceRevealed) return;
-    setState(() => _choiceRevealed = true);
-  }
-
   void _checkChoice(int selectedIndex) {
-    if (_words.isEmpty || _showResult || !_choiceRevealed) return;
+    if (_words.isEmpty || _showResult) return;
     final options = _optionsForWord(_words[_currentIndex]);
     if (selectedIndex < 0 || selectedIndex >= options.length) return;
     _revealAnswer(isCorrect: options[selectedIndex].isCorrect);
@@ -478,7 +459,6 @@ class _PracticePageState extends State<PracticePage> {
       _isCompleted = false;
       _showConfetti = false;
       _showResult = false;
-      _choiceRevealed = false;
       _lastIsCorrect = null;
       _spellController.clear();
       _words.shuffle(Random());
@@ -509,9 +489,6 @@ class _PracticePageState extends State<PracticePage> {
       _nextQuestion();
     } else if (_inputMode == AnswerInputMode.typing) {
       _checkSpell();
-    } else if (_choicePossible) {
-      // Chọn nghĩa: Enter mở 4 lựa chọn (trước đó chưa có gì để chọn).
-      _revealChoice();
     }
   }
 
@@ -1252,21 +1229,13 @@ class _PracticePageState extends State<PracticePage> {
             onTapCommonness: () => _editWordMeta('commonness'),
           ),
           SizedBox(height: compact ? 12 : 16),
-          // Bước 1: chỉ hiện từ để người học tự nghĩ nghĩa. "Không biết" đứng
-          // trước (bấm được ngay), rồi mới tới nút mở 4 đáp án.
-          if (!_choiceRevealed) ...[
-            _buildDontKnowButton(theme, compact),
-            const SizedBox(height: 10),
-            ChoiceRevealButton(onPressed: _revealChoice, compact: compact),
-          ] else ...[
-            MeaningChoiceCard(
-              options: _optionsForWord(currentWord),
-              onSelected: _checkChoice,
-              compact: compact,
-            ),
-            const SizedBox(height: 10),
-            _buildDontKnowButton(theme, compact),
-          ],
+          MeaningChoiceCard(
+            options: _optionsForWord(currentWord),
+            onSelected: _checkChoice,
+            compact: compact,
+          ),
+          const SizedBox(height: 10),
+          _buildDontKnowButton(theme, compact),
         ],
       ),
     );

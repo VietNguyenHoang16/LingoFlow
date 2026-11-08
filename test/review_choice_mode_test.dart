@@ -99,14 +99,8 @@ void main() {
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
-      // Buoc "nhin va nghi": chua hien lua chon nao.
-      expect(find.text('Xem lựa chọn'), findsOneWidget);
-      expect(find.text('quả táo'), findsNothing);
-
-      // Mot nhip nua de fallback wordIndex ve xong.
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Xem lựa chọn'));
-      await tester.pumpAndSettle();
+      // 4 lựa chọn hiện ngay, không còn bước "Xem lựa chọn".
+      expect(find.text('Xem lựa chọn'), findsNothing);
 
       String currentWord() => ['apple', 'banana', 'cherry']
           .firstWhere((w) => find.text(w).evaluate().isNotEmpty);
@@ -132,11 +126,8 @@ void main() {
       await tester.tap(find.text('Chọn nghĩa'));
       await tester.pumpAndSettle();
       expect(currentWord(), q1);
-      // Quay lai che do chon nghia -> ve buoc "nhin va nghi" (an lua chon).
-      expect(find.text('Xem lựa chọn'), findsOneWidget);
-
-      await tester.tap(find.text('Xem lựa chọn'));
-      await tester.pumpAndSettle();
+      // Quay lai che do chon nghia -> 4 lua chon hien ngay.
+      expect(find.text('Xem lựa chọn'), findsNothing);
 
       // Chon SAI -> the lat, hien dap an dung + nut cham SRS.
       // Nhiu ngau nhien moi lan -> chon 1 nghia dang hien khac dap an dung.
@@ -211,14 +202,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
 
-      // Chưa trả lời: có nút "Không biết" ngay ở bước nhìn và nghĩ.
+      // Chưa trả lời: 4 lựa chọn + nút "Không biết" hiện ngay.
       expect(find.text('Không biết'), findsOneWidget);
-      expect(find.text('Xem lựa chọn'), findsOneWidget);
-      // "Không biết" phải đứng trước nút mở lựa chọn.
-      expect(
-        tester.getTopLeft(find.text('Không biết')).dy,
-        lessThan(tester.getTopLeft(find.text('Xem lựa chọn')).dy),
-      );
+      expect(find.text('Xem lựa chọn'), findsNothing);
+      expect(find.text('quả táo'), findsOneWidget);
 
       await tester.tap(find.text('Không biết'));
       await tester.pumpAndSettle();
