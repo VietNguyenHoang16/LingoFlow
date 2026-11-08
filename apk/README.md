@@ -16,8 +16,11 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,299,766 bytes` (20.31 MB)
-- SHA256: `8A84F22FA70CA9888BBCF7B05F82B0490688EA6591677CDA67170709B02467FC`
+- SHA256: `DD4B78C54F0DA66CEDD6F516FBE5E8C0D0E429EE75DB487C06DE68A9F0F8AB4E`
 - Ngày build: `08/11/2026` — bản mới nhất:
+  - **Phím ~ = "Không biết" (web)** — trong **Ôn tập**, bấm phím **~** (bên
+    trái số 1) để lật thẻ như nút **Không biết** (tính Hard), rồi bấm **Enter**
+    để qua câu tiếp.
   - **Bỏ bước "Xem lựa chọn"** — vào chế độ **Chọn nghĩa** là 4 đáp án hiện
     ngay, không phải bấm mở nữa; bấm số 1–4 hoặc chạm để chọn. Áp dụng cho cả
     **Ôn tập** lẫn **Luyện tập**.
