@@ -87,6 +87,10 @@ void main() {
       expect(find.text('kiên cường'), findsNothing);
       expect(find.text('bỏ rơi'), findsNothing);
 
+      // Buoc "nhin va nghĩ": tu + cau vi du duoc hien truoc de lien tuong,
+      // chua hien 4 dap an.
+      expect(find.text('Example.'), findsOneWidget);
+
       await tester.tap(find.text('Xem lựa chọn'));
       await tester.pumpAndSettle();
 

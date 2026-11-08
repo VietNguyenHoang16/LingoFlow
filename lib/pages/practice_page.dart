@@ -1252,9 +1252,19 @@ class _PracticePageState extends State<PracticePage> {
             onTapCommonness: () => _editWordMeta('commonness'),
           ),
           SizedBox(height: compact ? 12 : 16),
-          // Bước 1: chỉ hiện từ để người học tự nghĩ nghĩa. "Không biết" đứng
-          // trước (bấm được ngay), rồi mới tới nút mở 4 đáp án.
+          // Bước 1: hiện từ + ví dụ để người học tự nghĩ nghĩa / liên tưởng.
+          // "Không biết" đứng trước (bấm được ngay), rồi mới tới nút mở 4 đáp án.
           if (!_choiceRevealed) ...[
+            if (practiceExample.isNotEmpty) ...[
+              ExampleCard(
+                example: practiceExample,
+                translation: practiceTranslation.isNotEmpty
+                    ? practiceTranslation
+                    : null,
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+            ],
             _buildDontKnowButton(theme, compact),
             const SizedBox(height: 10),
             ChoiceRevealButton(onPressed: _revealChoice, compact: compact),
