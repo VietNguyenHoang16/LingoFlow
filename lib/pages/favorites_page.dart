@@ -192,6 +192,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                             exampleTranslation: (resolved['translation'] ?? '').toString().isEmpty
                                 ? null
                                 : resolved['translation'],
+                            mnemonic: (word['mnemonic'] ?? '').toString(),
                             commonSynonyms: (word['common_synonyms'] ?? '').toString(),
                             collocations: (word['collocations'] ?? '').toString(),
                             accent: theme.colorScheme.primary,

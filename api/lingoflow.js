@@ -4,6 +4,7 @@ const {
   createAiChain,
   exampleErrorMessage,
   generateExample,
+  generateMnemonic,
   normalizeExampleStyle,
   sanitizeAiConfigs,
   templateExample,
@@ -162,6 +163,7 @@ function mapWordRow(row) {
     example_sentence: row.example_sentence || '',
     example_translation: row.example_translation || '',
     example_target: row.example_target || '',
+    mnemonic: row.mnemonic || '',
     common_synonyms: row.common_synonyms || '',
     commonness: (row.commonness === null || row.commonness === undefined) ? null : asInt(row.commonness),
     word_level: row.word_level || null,
@@ -249,7 +251,7 @@ async function getUserAiExampleStyle(userId) {
 }
 
 // Tang len moi khi them migration trong ensureSchema, neu khong se bi gate bo qua.
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 // Cột bắt buộc của mô hình 2 loại từ. Luôn kiểm tra (idempotent) vì DB cũ có
 // thể đã ở version mới nhất TRƯỚC khi 2 cột này tồn tại -> không thể chỉ dựa
@@ -267,6 +269,8 @@ async function ensureRequiredColumns() {
   // v9: do thong dung (1-10) + trinh do CEFR (A1..C2). NULL = chua chon.
   await addColumnIfNotExists('vocabulary_words', 'commonness', 'INTEGER');
   await addColumnIfNotExists('vocabulary_words', 'word_level', 'VARCHAR(2)');
+  // v10: meo nho tieng Viet (nguoi dung tu them / AI goi y).
+  await addColumnIfNotExists('vocabulary_words', 'mnemonic', 'TEXT');
   requiredColumnsReady = true;
 }
 
@@ -344,6 +348,7 @@ async function ensureSchema() {
       await addColumnIfNotExists('vocabulary_words', 'example_sentence', 'TEXT');
       await addColumnIfNotExists('vocabulary_words', 'example_translation', 'TEXT');
       await addColumnIfNotExists('vocabulary_words', 'example_target', 'VARCHAR(255)');
+      await addColumnIfNotExists('vocabulary_words', 'mnemonic', 'TEXT');
       await addColumnIfNotExists('vocabulary_words', 'common_synonyms', 'TEXT');
       await addColumnIfNotExists('vocabulary_words', 'learning_mode', "VARCHAR(10) DEFAULT 'active'");
       await addColumnIfNotExists('vocabulary_words', 'collocations', 'TEXT');
@@ -722,6 +727,49 @@ async function handleAction(action, data) {
       return { sentence, translation, target };
     }
 
+    case 'generateWordMnemonic': {
+      const wordId = asInt(data.wordId);
+      if (!wordId) throw new Error('Thiếu wordId');
+      const rows = await query(
+        `SELECT vw.word, vw.pronunciation, vw.meaning, vw.word_type
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vw.id = $1 AND vl.user_id = $2
+         LIMIT 1`,
+        [wordId, data.userId],
+      );
+      if (rows.length === 0) throw new Error('Không tìm thấy từ này');
+      const row = rows[0];
+      return generateMnemonic(
+        {
+          word: row.word || '',
+          pronunciation: row.pronunciation || '',
+          meaning: row.meaning || '',
+          wordType: row.word_type || '',
+        },
+        { timeoutMs: 20000, aiConfigs: await getUserAiConfigs(data.userId) },
+      );
+    }
+
+    case 'updateWordMnemonic': {
+      const wordId = asInt(data.wordId);
+      if (!wordId) throw new Error('Thiếu wordId');
+      const mnemonic = String(data.mnemonic || '').trim();
+      if (mnemonic.length > 1200) {
+        throw new Error('Mẹo nhớ quá dài (tối đa 1200 ký tự)');
+      }
+      const rows = await query(
+        `UPDATE vocabulary_words
+         SET mnemonic = $1
+         WHERE id = $2
+           AND list_id IN (SELECT id FROM vocabulary_lists WHERE user_id = $3)
+         RETURNING id`,
+        [mnemonic || null, wordId, data.userId],
+      );
+      if (rows.length === 0) throw new Error('Không tìm thấy từ này');
+      return { mnemonic };
+    }
+
     case 'testAiProvider': {
       return testAiProvider({
         name: data.name,
@@ -1083,7 +1131,7 @@ async function handleAction(action, data) {
 
     case 'getVocabularyWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level
@@ -1098,7 +1146,7 @@ async function handleAction(action, data) {
 
     case 'getWordsByCategory': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1116,7 +1164,7 @@ async function handleAction(action, data) {
     case 'getRecentWords': {
       const limit = Math.min(Math.max(asInt(data.limit) || 20, 1), 100);
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1134,7 +1182,7 @@ async function handleAction(action, data) {
 
     case 'getFavoriteWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1151,7 +1199,7 @@ async function handleAction(action, data) {
 
     case 'getHardWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1181,7 +1229,7 @@ async function handleAction(action, data) {
 
     case 'getUntaggedWords': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.topic_tag
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.topic_tag
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
          WHERE vl.user_id = $1 AND (vw.word_type IS NULL OR vw.word_type = '')
@@ -1340,7 +1388,7 @@ async function handleAction(action, data) {
     // ---- Review ----
     case 'getWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level
@@ -1356,7 +1404,7 @@ async function handleAction(action, data) {
 
     case 'getAllWordsDueForReview': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1373,7 +1421,7 @@ async function handleAction(action, data) {
 
     case 'getWordsDueForReviewByCategory': {
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1393,7 +1441,7 @@ async function handleAction(action, data) {
       // ON tap cau truc: lay cac tu co 'grammar' trong word_type (bao gom tu lai loai
       // nhu 'noun,grammar' - nhung tu nay da bi loai khoi on tap tu vung).
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
@@ -1568,7 +1616,7 @@ async function handleAction(action, data) {
       const q = String(data.query || '').trim().toLowerCase();
       if (!q) return [];
       const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,

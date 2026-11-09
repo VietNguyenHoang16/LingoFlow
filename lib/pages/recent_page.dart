@@ -1565,6 +1565,7 @@ class _RecentPageState extends State<RecentPage> {
           ? null
           : resolved['translation'],
       exampleTarget: exampleTarget.isEmpty ? null : exampleTarget,
+      mnemonic: (word['mnemonic'] ?? '').toString(),
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       collocations: (word['collocations'] ?? '').toString(),
       accent: theme.colorScheme.primary,

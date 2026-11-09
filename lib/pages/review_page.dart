@@ -1398,7 +1398,7 @@ class _ReviewPageState extends State<ReviewPage>
 
               // Panel vi du kieu flashcard: chi hien sau khi nhap tu / Show answer.
               // Thieu vi du -> hien hint thay vi an im lang (de biet can bo sung).
-              if (_showAnswer && (((currentWord['example'] ?? '') as String).isNotEmpty || ((currentWord['common_synonyms'] ?? '') as String).isNotEmpty))
+              if (_showAnswer && (((currentWord['example'] ?? '') as String).isNotEmpty || ((currentWord['common_synonyms'] ?? '') as String).isNotEmpty || ((currentWord['mnemonic'] ?? '') as String).isNotEmpty))
                 ReviewExamplePanel(
                   word: (currentWord['word'] ?? '').toString(),
                   example: (currentWord['example'] ?? '').toString(),
@@ -1408,6 +1408,7 @@ class _ReviewPageState extends State<ReviewPage>
                   target: (currentWord['example_target'] ?? '').toString().isEmpty
                       ? null
                       : (currentWord['example_target'] ?? '').toString(),
+                  mnemonic: (currentWord['mnemonic'] ?? '').toString(),
                   commonSynonyms: (currentWord['common_synonyms'] ?? '').toString(),
                   accent: theme.colorScheme.primary,
                   compact: compactMode,

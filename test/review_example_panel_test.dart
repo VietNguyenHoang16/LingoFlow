@@ -26,6 +26,7 @@ Widget _panel({
   bool dark = false,
   String example = _example,
   String? translation = _translation,
+  String mnemonic = '',
 }) =>
     MaterialApp(
       theme: dark ? AppTheme.dark : AppTheme.light,
@@ -36,6 +37,7 @@ Widget _panel({
             example: example,
             translation: translation,
             target: 'ephemeral',
+            mnemonic: mnemonic,
             accent: const Color(0xFF6366F1),
             onSpeak: () {},
           ),
@@ -135,5 +137,25 @@ void main() {
       isFalse,
       reason: 'Ban dich dai phai hien thi du, khong bi ellipsis.',
     );
+  });
+
+  testWidgets('co meo nho thi hien chip va mo duoc sheet', (tester) async {
+    await tester.pumpWidget(
+      _panel(mnemonic: 'Từ ephemeral (phù du) đọc là /ɪˈfemərəl/.'),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Mẹo nhớ'), findsOneWidget);
+
+    await tester.tap(find.text('Mẹo nhớ'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Từ ephemeral'), findsOneWidget);
+  });
+
+  testWidgets('khong co meo nho thi an chip', (tester) async {
+    await tester.pumpWidget(_panel());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Mẹo nhớ'), findsNothing);
   });
 }

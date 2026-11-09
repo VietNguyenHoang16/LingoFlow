@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'mnemonic_sheet.dart';
 import 'synonym_block.dart';
 
 /// Panel ví dụ kiểu mặt sau flashcard cho màn Review.
@@ -11,6 +12,7 @@ class ReviewExamplePanel extends StatelessWidget {
   final String example;
   final String? translation;
   final String? target;
+  final String mnemonic;
   final String commonSynonyms;
   final Color accent;
   final bool compact;
@@ -22,6 +24,7 @@ class ReviewExamplePanel extends StatelessWidget {
     required this.example,
     this.translation,
     this.target,
+    this.mnemonic = '',
     this.commonSynonyms = '',
     required this.accent,
     this.compact = false,
@@ -64,7 +67,9 @@ class ReviewExamplePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (example.isEmpty && commonSynonyms.trim().isEmpty) {
+    if (example.isEmpty &&
+        commonSynonyms.trim().isEmpty &&
+        mnemonic.trim().isEmpty) {
       return const SizedBox.shrink();
     }
     final theme = Theme.of(context);
@@ -175,39 +180,50 @@ class ReviewExamplePanel extends StatelessWidget {
               ),
             ),
           ],
+          if (mnemonic.trim().isNotEmpty) ...[
+            SizedBox(height: compact ? 8 : 10),
+            MnemonicChip(
+              word: word,
+              mnemonic: mnemonic,
+              accent: accent,
+              compact: compact,
+            ),
+          ],
           SynonymBlock(
             common: commonSynonyms,
             accent: accent,
           ),
-          SizedBox(height: compact ? 8 : 12),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: onSpeak,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: accent.withAlpha(25),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.volume_up_rounded, color: accent, size: 22),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Nghe phát âm câu ví dụ',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Be Vietnam Pro',
-                    fontSize: 12,
-                    color: theme.colorScheme.outline,
+          if (example.isNotEmpty) ...[
+            SizedBox(height: compact ? 8 : 12),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: onSpeak,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: accent.withAlpha(25),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.volume_up_rounded, color: accent, size: 22),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Nghe phát âm câu ví dụ',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Be Vietnam Pro',
+                      fontSize: 12,
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

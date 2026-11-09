@@ -443,6 +443,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   topicTag: (word['topic_tag'] ?? '').toString(),
                   example: resolved['sentence'] ?? '',
                   exampleTranslation: resolved['translation'],
+                  mnemonic: (word['mnemonic'] ?? '').toString(),
                   commonSynonyms:
                       (word['common_synonyms'] ?? '').toString(),
                   collocations: (word['collocations'] ?? '').toString(),

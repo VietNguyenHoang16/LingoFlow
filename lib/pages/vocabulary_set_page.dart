@@ -119,6 +119,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required String topicTag,
     String exampleSentence = '',
     String exampleTranslation = '',
+    String mnemonic = '',
   }) async {
     await ExampleManagerSheet.show(
       context: context,
@@ -131,6 +132,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
       topicTag: topicTag,
       exampleSentence: exampleSentence,
       exampleTranslation: exampleTranslation,
+      mnemonic: mnemonic,
     );
     // Tải lại từ để cập nhật giao diện sau khi sửa ví dụ
     await _loadWords();
@@ -148,6 +150,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required bool isDifficult,
     String exampleSentence = '',
     String exampleTranslation = '',
+    String mnemonic = '',
   }) async {
     final theme = Theme.of(context);
     await showModalBottomSheet(
@@ -256,7 +259,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 child: const Icon(Icons.menu_book_rounded, color: Colors.blue, size: 18),
               ),
               title: const Text(
-                'Quản lý ví dụ',
+                'Ví dụ & Mẹo nhớ',
                 style: TextStyle(fontFamily: 'Be Vietnam Pro', fontWeight: FontWeight.w600),
               ),
               onTap: () {
@@ -267,6 +270,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                   wordType: wordType, topicTag: topicTag,
                   exampleSentence: exampleSentence,
                   exampleTranslation: exampleTranslation,
+                  mnemonic: mnemonic,
                 );
               },
             ),
@@ -1555,6 +1559,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         fullDetails: word['full_details'] ?? '',
                         exampleSentence: (word['example_sentence'] ?? '').toString(),
                         exampleTranslation: (word['example_translation'] ?? '').toString(),
+                        mnemonic: (word['mnemonic'] ?? '').toString(),
                         wordType: word['word_type'] ?? '',
                         topicTag: word['topic_tag'] ?? '',
                         isMastered: word['is_mastered'] ?? false,
@@ -1953,6 +1958,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required bool isDark,
     String exampleSentence = '',
     String exampleTranslation = '',
+    String mnemonic = '',
     String commonSynonyms = '',
   }) {
     final theme = Theme.of(context);
@@ -1984,6 +1990,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 isDifficult: isDifficult,
                 exampleSentence: exampleSentence,
                 exampleTranslation: exampleTranslation,
+                mnemonic: mnemonic,
               ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),

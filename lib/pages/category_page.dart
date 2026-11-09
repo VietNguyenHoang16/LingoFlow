@@ -632,6 +632,7 @@ class _CategoryPageState extends State<CategoryPage> {
           ? null
           : resolved['translation'],
       exampleTarget: exampleTarget.isEmpty ? null : exampleTarget,
+      mnemonic: (word['mnemonic'] ?? '').toString(),
       commonSynonyms: (word['common_synonyms'] ?? '').toString(),
       accent: catColor,
       isFavorite: word['is_favorite'] == true,

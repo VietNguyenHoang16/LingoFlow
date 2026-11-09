@@ -13,6 +13,7 @@ class ExampleManagerSheet extends StatefulWidget {
   final String topicTag;
   final String exampleSentence;
   final String exampleTranslation;
+  final String mnemonic;
 
   const ExampleManagerSheet({
     super.key,
@@ -25,6 +26,7 @@ class ExampleManagerSheet extends StatefulWidget {
     required this.topicTag,
     this.exampleSentence = '',
     this.exampleTranslation = '',
+    this.mnemonic = '',
   });
 
   static Future<bool?> show({
@@ -38,6 +40,7 @@ class ExampleManagerSheet extends StatefulWidget {
     required String topicTag,
     String exampleSentence = '',
     String exampleTranslation = '',
+    String mnemonic = '',
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -56,6 +59,7 @@ class ExampleManagerSheet extends StatefulWidget {
         topicTag: topicTag,
         exampleSentence: exampleSentence,
         exampleTranslation: exampleTranslation,
+        mnemonic: mnemonic,
       ),
     );
   }
@@ -68,7 +72,9 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
   final DatabaseService _db = DatabaseService();
   late final TextEditingController _sentenceController;
   late final TextEditingController _translationController;
+  late final TextEditingController _mnemonicController;
   bool _isGenerating = false;
+  bool _isGeneratingMnemonic = false;
   bool _isSaving = false;
   String? _error;
 
@@ -81,6 +87,7 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
     );
     _translationController =
         TextEditingController(text: widget.exampleTranslation);
+    _mnemonicController = TextEditingController(text: widget.mnemonic);
   }
 
   String _cleanError(Object error) =>
@@ -108,15 +115,38 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
     }
   }
 
+  Future<void> _generateMnemonic() async {
+    setState(() {
+      _isGeneratingMnemonic = true;
+      _error = null;
+    });
+    try {
+      final mnemonic = await _db.generateWordMnemonic(widget.wordId);
+      if (!mounted) return;
+      setState(() {
+        _mnemonicController.text = mnemonic;
+        _isGeneratingMnemonic = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingMnemonic = false;
+        _error = _cleanError(error);
+      });
+    }
+  }
+
   Future<void> _save() async {
     final sentence = _sentenceController.text.trim();
     final translation = _translationController.text.trim();
-    if (sentence.isEmpty) {
-      setState(() => _error = 'Nhập câu ví dụ tiếng Anh.');
+    final mnemonic = _mnemonicController.text.trim();
+    final hasExample = sentence.isNotEmpty || translation.isNotEmpty;
+    if (hasExample && (sentence.isEmpty || translation.isEmpty)) {
+      setState(() => _error = 'Câu ví dụ cần cả bản tiếng Anh và bản dịch tiếng Việt.');
       return;
     }
-    if (translation.isEmpty) {
-      setState(() => _error = 'Nhập bản dịch tiếng Việt.');
+    if (!hasExample && mnemonic.isEmpty) {
+      setState(() => _error = 'Nhập câu ví dụ hoặc mẹo nhớ.');
       return;
     }
 
@@ -126,16 +156,19 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
       _error = null;
     });
     try {
-      await _db.updateWordExample(
-        widget.wordId,
-        sentence: sentence,
-        translation: translation,
-        target: widget.word,
-      );
+      if (hasExample) {
+        await _db.updateWordExample(
+          widget.wordId,
+          sentence: sentence,
+          translation: translation,
+          target: widget.word,
+        );
+      }
+      await _db.updateWordMnemonic(widget.wordId, mnemonic: mnemonic);
       if (!mounted) return;
       Navigator.pop(context, true);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Đã lưu ví dụ!')),
+        const SnackBar(content: Text('Đã lưu!')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -201,13 +234,14 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
   void dispose() {
     _sentenceController.dispose();
     _translationController.dispose();
+    _mnemonicController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final busy = _isGenerating || _isSaving;
+    final busy = _isGenerating || _isGeneratingMnemonic || _isSaving;
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -235,7 +269,7 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Ví dụ cho "${widget.word}"',
+                  'Ví dụ & Mẹo nhớ cho "${widget.word}"',
                   style: TextStyle(
                     fontFamily: 'Plus Jakarta Sans',
                     fontSize: 18,
@@ -289,6 +323,51 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _mnemonicController,
+            maxLines: 6,
+            minLines: 3,
+            maxLength: 1200,
+            enabled: !busy,
+            decoration: InputDecoration(
+              labelText: 'Mẹo nhớ',
+              hintText:
+                  'Từ immune (miễn dịch) đọc là /ɪˈmjuːn/ (i-mun). Hãy tưởng tượng: ...',
+              helperText: 'Để trống rồi Lưu để xoá mẹo nhớ.',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              suffixIcon: _mnemonicController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: busy
+                          ? null
+                          : () => setState(_mnemonicController.clear),
+                      icon: const Icon(Icons.clear_rounded),
+                      tooltip: 'Xoá mẹo nhớ',
+                    ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : _generateMnemonic,
+              icon: _isGeneratingMnemonic
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.lightbulb_outline_rounded, size: 18),
+              label: Text(
+                _isGeneratingMnemonic ? 'Đang tạo...' : 'AI gợi ý mẹo nhớ',
+              ),
+            ),
+          ),
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -318,7 +397,7 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
               TextButton(
                 onPressed: busy ? null : _delete,
                 child: Text(
-                  'Xóa',
+                  'Xóa ví dụ',
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),

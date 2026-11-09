@@ -31,6 +31,7 @@ Widget _card({
   String example = _longExample,
   String? exampleTranslation = _longTranslation,
   String meaning = _longMeaning,
+  String mnemonic = '',
 }) =>
     MaterialApp(
       home: Scaffold(
@@ -47,6 +48,7 @@ Widget _card({
             example: example,
             exampleTranslation: exampleTranslation,
             exampleTarget: 'example',
+            mnemonic: mnemonic,
             accent: const Color(0xFF6366F1),
             isFavorite: true,
             onTap: () {},
@@ -203,5 +205,25 @@ void main() {
     await tester.pump();
     expect(levelTaps, 1);
     expect(flippedTaps, 0);
+  });
+
+  testWidgets('mat sau hien nut Meo nho khi tu co meo nho', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_card(
+      flipped: true,
+      mnemonic: 'Từ immune (miễn dịch) đọc là /ɪˈmjuːn/.',
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Mẹo nhớ'), findsOneWidget);
+  });
+
+  testWidgets('mat sau an nut Meo nho khi tu khong co', (tester) async {
+    await tester.pumpWidget(_card(flipped: true));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Mẹo nhớ'), findsNothing);
   });
 }

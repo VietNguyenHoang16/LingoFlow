@@ -553,6 +553,41 @@ function normalizeGeneratedExample(parsed, word) {
   return { sentence, translation, target };
 }
 
+// Meo nho: mot doan tieng Viet noi am/viet cua tu voi nghia de de nho.
+function buildMnemonicPrompt({ word, pronunciation, meaning, wordType }) {
+  const w = String(word || '').trim();
+  const ipa = String(pronunciation || '').trim();
+  const m = firstMeaning(meaning);
+  const readPart = ipa
+    ? ` đọc là /${ipa}/ (<cách đọc gần đúng bằng tiếng Việt>)`
+    : '';
+  return `You write a short Vietnamese memory hook ("Mẹo nhớ") that helps a Vietnamese learner remember ONE English word.
+
+Follow this exact shape:
+Từ ${w} (${m})${readPart}. Hãy tưởng tượng: <một cảnh cụ thể, sinh động, hơi hài hước>.
+
+Rules:
+- Vietnamese only, natural spoken Vietnamese.
+- 2-4 sentences, 40-90 words.
+- The scene must link the sound or spelling of "${w}" to its meaning "${m}" so the learner recalls both.
+- Make it concrete: a person, an action, a place. A little absurd is fine and easier to remember.
+- Do not invent a different meaning. Do not write an English example sentence.
+- No quotes around the whole answer.
+
+Word: ${w}
+Part of speech: ${wordType || 'unknown'}
+Vietnamese meaning: ${m}
+Pronunciation (IPA): ${ipa || 'unknown'}
+
+Reply with JSON only: {"mnemonic":"..."}`;
+}
+
+function normalizeGeneratedMnemonic(parsed) {
+  const mnemonic = clean(parsed?.mnemonic, 1200);
+  if (!mnemonic) throw new Error('AI returned an empty mnemonic');
+  return { mnemonic };
+}
+
 // Tu placeholder trong cum (vd "put someone down", "give something up"): nguoi
 // hoc thay bang nguoi/do cu the khi dat cau nen bo qua khi doi chieu.
 const EXAMPLE_PLACEHOLDERS = new Set([
@@ -859,6 +894,20 @@ function createAiChain(rawConfigs) {
     );
   }
 
+  // Meo nho tieng Viet cho mot tu (nguoi dung bam "AI goi y").
+  async function generateMnemonic(
+    { word, pronunciation, meaning, wordType },
+    { timeoutMs = 15000, deadline } = {},
+  ) {
+    const w = String(word || '').trim();
+    if (!w) throw new Error('Thiếu từ để tạo mẹo nhớ.');
+    return run(
+      buildMnemonicPrompt({ word: w, pronunciation, meaning, wordType }),
+      (parsed) => normalizeGeneratedMnemonic(parsed),
+      { timeoutMs, deadline },
+    );
+  }
+
   // Nghia tieng Viet + loai tu cho tu nguoi dung dan vao (import / sua tu).
   async function generateWordInfo({ word }, { timeoutMs = 10000, deadline, style } = {}) {
     const w = String(word || '').trim();
@@ -881,12 +930,17 @@ function createAiChain(rawConfigs) {
     );
   }
 
-  return { generate, generateWordInfo, classifyWords, configs };
+  return { generate, generateMnemonic, generateWordInfo, classifyWords, configs };
 }
 
 async function generateExample(input, { timeoutMs = 10000, used, aiConfigs, chain } = {}) {
   const activeChain = chain || createAiChain(aiConfigs);
   return activeChain.generate(input, { timeoutMs, used });
+}
+
+async function generateMnemonic(input, { timeoutMs = 15000, aiConfigs, chain } = {}) {
+  const activeChain = chain || createAiChain(aiConfigs);
+  return activeChain.generateMnemonic(input, { timeoutMs });
 }
 
 async function testAiProvider(raw, { timeoutMs = 15000 } = {}) {
@@ -918,6 +972,7 @@ module.exports = {
   EXAMPLE_CONTEXTS,
   MAX_STYLE_CUSTOM,
   buildExamplePrompt,
+  buildMnemonicPrompt,
   buildStylePrompt,
   buildWordInfoPrompt,
   buildClassifyPrompt,
@@ -927,9 +982,11 @@ module.exports = {
   exampleContainsTarget,
   firstMeaning,
   generateExample,
+  generateMnemonic,
   normalizeChatEndpoint,
   normalizeExampleStyle,
   normalizeGeneratedExample,
+  normalizeGeneratedMnemonic,
   normalizeGeneratedWordInfo,
   normalizeClassifyResult,
   normalizeSentenceKey,

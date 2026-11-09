@@ -11,6 +11,7 @@ import '../widgets/mastery_badge.dart';
 import '../widgets/confetti_overlay.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/example_card.dart';
+import '../widgets/mnemonic_sheet.dart';
 import '../widgets/load_error_view.dart';
 import '../widgets/save_blocked_dialog.dart';
 import '../widgets/save_feedback.dart';
@@ -1506,6 +1507,14 @@ class _PracticePageState extends State<PracticePage> {
                   pos: pos,
                   translation: translation.isEmpty ? null : translation,
                   maxLines: compact ? 5 : 6,
+                ),
+              ],
+              if (((word['mnemonic'] ?? '') as String).isNotEmpty) ...[
+                const SizedBox(height: 6),
+                MnemonicChip(
+                  word: wordText,
+                  mnemonic: (word['mnemonic'] ?? '').toString(),
+                  compact: compact,
                 ),
               ],
             ],

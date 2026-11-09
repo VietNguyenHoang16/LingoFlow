@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'favorite_button.dart';
+import 'mnemonic_sheet.dart';
 import 'synonym_block.dart';
 import 'topic_tag_badge.dart';
 import 'word_type_badge.dart';
@@ -23,6 +24,7 @@ class FlipWordCard extends StatefulWidget {
   final String example;
   final String? exampleTranslation;
   final String? exampleTarget;
+  final String mnemonic;
   final String commonSynonyms;
   final String collocations;
   final Color accent;
@@ -51,6 +53,7 @@ class FlipWordCard extends StatefulWidget {
     required this.example,
     this.exampleTranslation,
     this.exampleTarget,
+    this.mnemonic = '',
     this.commonSynonyms = '',
     this.collocations = '',
     required this.accent,
@@ -136,6 +139,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                         example: widget.example,
                         exampleTranslation: widget.exampleTranslation,
                         exampleTarget: widget.exampleTarget,
+                        mnemonic: widget.mnemonic,
                         commonSynonyms: widget.commonSynonyms,
                         collocations: widget.collocations,
                         accent: widget.accent,
@@ -367,6 +371,7 @@ class _CardBack extends StatelessWidget {
   final String example;
   final String? exampleTranslation;
   final String? exampleTarget;
+  final String mnemonic;
   final String commonSynonyms;
   final String collocations;
   final Color accent;
@@ -382,6 +387,7 @@ class _CardBack extends StatelessWidget {
     required this.example,
     this.exampleTranslation,
     this.exampleTarget,
+    this.mnemonic = '',
     this.commonSynonyms = '',
     this.collocations = '',
     required this.accent,
@@ -557,6 +563,10 @@ class _CardBack extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+          if (mnemonic.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            MnemonicChip(word: word, mnemonic: mnemonic, accent: accent),
           ],
           SynonymBlock(
             common: commonSynonyms,

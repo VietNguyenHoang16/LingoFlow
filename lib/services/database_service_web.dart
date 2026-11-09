@@ -475,6 +475,23 @@ class DatabaseService {
     );
   }
 
+  Future<String> generateWordMnemonic(int wordId) async {
+    final result = await _request<Map<String, dynamic>>(
+      'generateWordMnemonic',
+      data: {'wordId': wordId},
+      timeout: const Duration(seconds: 45),
+    );
+    return (result['mnemonic'] ?? '').toString();
+  }
+
+  Future<void> updateWordMnemonic(int wordId, {required String mnemonic}) async {
+    await _request<void>(
+      'updateWordMnemonic',
+      data: {'wordId': wordId, 'mnemonic': mnemonic},
+      timeout: const Duration(seconds: 20),
+    );
+  }
+
   Future<void> bulkDeleteWords(List<int> wordIds) async {
     await _request<void>(
       'bulkDeleteWords',
