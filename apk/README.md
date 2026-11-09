@@ -15,9 +15,14 @@ Link tải nhanh:
 
 ## Thông tin bản phát hành
 
-- Kích thước: `21,299,874 bytes` (20.31 MB)
-- SHA256: `EAEF67924F8F6E541799FFB3C90B5CB3B6BE5D719130F3B4C9C7F5A3FF6D0CE2`
+- Kích thước: `21,299,986 bytes` (20.31 MB)
+- SHA256: `5346FD45F2A4D50909FB9E76BCD040B289609A15251A77240A30C2452F971372`
 - Ngày build: `09/11/2026` — bản mới nhất:
+  - **Mẹo nhớ cho từng từ** — mỗi từ có thể có một đoạn **Mẹo nhớ** tiếng Việt
+    (ví dụ: *Từ immune (miễn dịch) đọc là /ɪˈmjuːn/ (i-mun). Hãy tưởng tượng: ...*).
+    Từ có mẹo nhớ sẽ hiện **nút nhỏ "Mẹo nhớ"** trên thẻ lật, màn **Ôn tập** và
+    **Luyện tập**; bấm vào mở sheet cuộn được để đọc đoạn dài. Thêm/sửa trong
+    **Ví dụ & Mẹo nhớ** (nhấn giữ từ → chọn mục này), có nút **AI gợi ý mẹo nhớ**.
   - **Sao chép toàn bộ Từ khó** — ở trang **Từ khó**, bấm nút **sao chép** trên
     header để copy cả danh sách vào clipboard, **mỗi từ một dòng**; có thông báo
     số từ đã sao chép.
