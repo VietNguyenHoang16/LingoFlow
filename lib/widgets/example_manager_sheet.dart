@@ -333,7 +333,7 @@ class _ExampleManagerSheetState extends State<ExampleManagerSheet> {
             decoration: InputDecoration(
               labelText: 'Mẹo nhớ',
               hintText:
-                  'Từ immune (miễn dịch) đọc là /ɪˈmjuːn/ (i-mun). Hãy tưởng tượng: ...',
+                  'immune ← Latin immunis "được miễn nghĩa vụ": cả xóm cúm, riêng bà Lan vẫn bán rau vì cơ thể đã được miễn.',
               helperText: 'Để trống rồi Lưu để xoá mẹo nhớ.',
               alignLabelWithHint: true,
               border: OutlineInputBorder(

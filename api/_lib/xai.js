@@ -553,27 +553,26 @@ function normalizeGeneratedExample(parsed, word) {
   return { sentence, translation, target };
 }
 
-// Meo nho: mot doan tieng Viet noi am/viet cua tu voi nghia de de nho.
+// Meo nho: mot doan tieng Viet noi am/viet/goc tu voi nghia de de nho.
 function buildMnemonicPrompt({ word, pronunciation, meaning, wordType }) {
   const w = String(word || '').trim();
   const ipa = String(pronunciation || '').trim();
   const m = firstMeaning(meaning);
-  const readPart = ipa
-    ? ` đọc là /${ipa}/ (<cách đọc gần đúng bằng tiếng Việt>)`
-    : '';
   return `You write a short Vietnamese memory hook ("Mẹo nhớ") that helps a Vietnamese learner remember ONE English word.
 
-Follow this exact shape:
-Từ ${w} (${m})${readPart}. Hãy tưởng tượng: <một cảnh cụ thể, sinh động, hơi hài hước>.
+First pick the strongest angle for THIS word. Do not use the same angle every time:
+1. Etymology: if "${w}" has a real, recognizable root, prefix or suffix, name it, give its literal/original meaning, and 1-2 related English words the learner likely knows (example: critically -> critic -> Greek kritikos "able to judge"; related: critic, criticism, criterion). Only do this when you are sure the root is real. Never guess or invent an etymology.
+2. Sound or spelling: a Vietnamese sound-alike that points to the meaning.
+3. A concrete scene.
 
-Rules:
-- Vietnamese only, natural spoken Vietnamese.
-- 2-4 sentences, 40-90 words.
-- The scene must link the sound or spelling of "${w}" to its meaning "${m}" so the learner recalls both.
-- Make it concrete: a person, an action, a place. A little absurd is fine and easier to remember.
+Then write 2-4 sentences (35-90 words) of natural spoken Vietnamese:
+- Put the meaning in ONE specific, physical scene: a named person, a place, an object, an action the learner can picture. Show what someone does or says, not an abstract explanation.
+- If you used etymology, make the root's literal meaning the bridge to that scene.
+- Never reuse a fixed template. Vary the opening and the structure from word to word. Do not start with "Hãy tưởng tượng" or "Từ ..." every time.
+- No headings, labels, bullet points, emoji or quotes.
+- No vague simile ("giống như một ...") unless it paints an actual picture.
 - Do not invent a different meaning. Do not write an English example sentence.
-- No quotes around the whole answer.
-
+${ipa ? `- Pronunciation is /${ipa}/: you may add a close Vietnamese reading if it helps the sound hook.\n` : ''}
 Word: ${w}
 Part of speech: ${wordType || 'unknown'}
 Vietnamese meaning: ${m}

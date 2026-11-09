@@ -13,15 +13,28 @@ test('prompt meo nho co tu, nghia va phien am', () => {
     meaning: 'miễn dịch',
     wordType: 'adjective',
   });
-  assert.match(prompt, /Từ immune/);
+  assert.match(prompt, /Word: immune/);
   assert.match(prompt, /miễn dịch/);
   assert.match(prompt, /\/ɪˈmjuːn\//);
-  assert.match(prompt, /Hãy tưởng tượng/);
+  assert.match(prompt, /Etymology/);
+});
+
+test('prompt meo nho uu tien goc tu that va cam khuon lap lai', () => {
+  const prompt = buildMnemonicPrompt({
+    word: 'critically',
+    pronunciation: 'ˈkrɪt.ɪ.kəl.i',
+    meaning: 'một cách phản biện; trầm trọng',
+    wordType: 'adverb',
+  });
+  assert.match(prompt, /Never guess or invent an etymology/);
+  assert.match(prompt, /Never reuse a fixed template/);
+  assert.match(prompt, /critically -> critic/);
 });
 
 test('prompt bo phan doc khi tu chua co phien am', () => {
   const prompt = buildMnemonicPrompt({ word: 'immune', meaning: 'miễn dịch' });
   assert.doesNotMatch(prompt, /đọc là/);
+  assert.doesNotMatch(prompt, /Pronunciation is/);
   assert.match(prompt, /Pronunciation \(IPA\): unknown/);
 });
 
