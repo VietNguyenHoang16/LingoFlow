@@ -11,6 +11,7 @@ import '../services/word_change_bus.dart';
 import '../services/word_details_parser.dart';
 import '../widgets/confetti_overlay.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/load_error_view.dart';
 
 class FlashcardPracticePage extends StatefulWidget {
@@ -454,6 +455,13 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   showSpeakButton: false,
                   onTap: () {},
                   onLongPress: () {},
+                  onEditMnemonic: () async {
+                    final saved =
+                        await showMnemonicEditorForWord(context, word);
+                    if (saved != null && mounted) {
+                      setState(() => word['mnemonic'] = saved);
+                    }
+                  },
                   onSpeak: () => unawaited(_speak(wordText)),
                 ),
               ),

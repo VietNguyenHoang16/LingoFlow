@@ -27,6 +27,7 @@ Widget _panel({
   String example = _example,
   String? translation = _translation,
   String mnemonic = '',
+  Future<void> Function()? onEditMnemonic,
 }) =>
     MaterialApp(
       theme: dark ? AppTheme.dark : AppTheme.light,
@@ -38,6 +39,7 @@ Widget _panel({
             translation: translation,
             target: 'ephemeral',
             mnemonic: mnemonic,
+            onEditMnemonic: onEditMnemonic,
             accent: const Color(0xFF6366F1),
             onSpeak: () {},
           ),
@@ -157,5 +159,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Mẹo nhớ'), findsNothing);
+  });
+
+  testWidgets('co onEdit thi hien "Thêm mẹo nhớ" dù từ chưa có mẹo nhớ',
+      (tester) async {
+    await tester.pumpWidget(_panel(
+      example: '',
+      translation: null,
+      onEditMnemonic: () async {},
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Thêm mẹo nhớ'), findsOneWidget);
   });
 }

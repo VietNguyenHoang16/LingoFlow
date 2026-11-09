@@ -35,6 +35,7 @@ class FlipWordCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onSpeak;
+  final Future<void> Function()? onEditMnemonic;
 
   /// Slot tuỳ chọn hiện trên hàng badge mặt trước (vd chip Trình độ / Độ thông
   /// dụng ở màn Gần đây). null = không hiện gì (các màn khác giữ nguyên).
@@ -64,6 +65,7 @@ class FlipWordCard extends StatefulWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onSpeak,
+    this.onEditMnemonic,
     this.metaBadges,
   });
 
@@ -147,6 +149,7 @@ class _FlipWordCardState extends State<FlipWordCard>
                         showFlipHint: widget.showFlipHint,
                         showSpeakButton: widget.showSpeakButton,
                         onSpeak: widget.onSpeak,
+                        onEditMnemonic: widget.onEditMnemonic,
                       ),
                     )
                   : _CardFront(
@@ -379,6 +382,7 @@ class _CardBack extends StatelessWidget {
   final bool showFlipHint;
   final bool showSpeakButton;
   final VoidCallback onSpeak;
+  final Future<void> Function()? onEditMnemonic;
 
   const _CardBack({
     required this.word,
@@ -395,6 +399,7 @@ class _CardBack extends StatelessWidget {
     required this.showFlipHint,
     required this.showSpeakButton,
     required this.onSpeak,
+    this.onEditMnemonic,
   });
 
   Widget _buildExampleSentence() {
@@ -564,9 +569,14 @@ class _CardBack extends StatelessWidget {
               ),
             ),
           ],
-          if (mnemonic.trim().isNotEmpty) ...[
+          if (mnemonic.trim().isNotEmpty || onEditMnemonic != null) ...[
             const SizedBox(height: 10),
-            MnemonicChip(word: word, mnemonic: mnemonic, accent: accent),
+            MnemonicChip(
+              word: word,
+              mnemonic: mnemonic,
+              accent: accent,
+              onEdit: onEditMnemonic,
+            ),
           ],
           SynonymBlock(
             common: commonSynonyms,

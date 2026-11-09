@@ -10,6 +10,7 @@ import '../widgets/edit_word_sheet.dart';
 import '../widgets/favorite_button.dart';
 import '../widgets/bulk_import_dialog.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/word_meta_badges.dart';
 import '../widgets/save_feedback.dart';
@@ -1584,6 +1585,7 @@ class _RecentPageState extends State<RecentPage> {
         if (_isSelectionMode) return;
         _showWordOptions(word);
       },
+      onEditMnemonic: () => showMnemonicEditorForWord(context, word),
       onSpeak: () => _speak(wordText),
     );
   }

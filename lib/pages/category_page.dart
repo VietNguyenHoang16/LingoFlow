@@ -7,6 +7,7 @@ import '../services/word_change_bus.dart';
 import '../widgets/word_type_utils.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/save_feedback.dart';
 import '../widgets/practice_mode_sheet.dart';
 import '../services/word_details_parser.dart';
@@ -646,6 +647,7 @@ class _CategoryPageState extends State<CategoryPage> {
         setState(() {});
       },
       onLongPress: () => _showWordOptions(word),
+      onEditMnemonic: () => showMnemonicEditorForWord(context, word),
       onSpeak: () => _speak(wordText),
     );
   }

@@ -17,6 +17,7 @@ class ReviewExamplePanel extends StatelessWidget {
   final Color accent;
   final bool compact;
   final VoidCallback onSpeak;
+  final Future<void> Function()? onEditMnemonic;
 
   const ReviewExamplePanel({
     super.key,
@@ -29,6 +30,7 @@ class ReviewExamplePanel extends StatelessWidget {
     required this.accent,
     this.compact = false,
     required this.onSpeak,
+    this.onEditMnemonic,
   });
 
   Widget _buildSentence(ThemeData theme) {
@@ -69,7 +71,8 @@ class ReviewExamplePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (example.isEmpty &&
         commonSynonyms.trim().isEmpty &&
-        mnemonic.trim().isEmpty) {
+        mnemonic.trim().isEmpty &&
+        onEditMnemonic == null) {
       return const SizedBox.shrink();
     }
     final theme = Theme.of(context);
@@ -180,13 +183,14 @@ class ReviewExamplePanel extends StatelessWidget {
               ),
             ),
           ],
-          if (mnemonic.trim().isNotEmpty) ...[
+          if (mnemonic.trim().isNotEmpty || onEditMnemonic != null) ...[
             SizedBox(height: compact ? 8 : 10),
             MnemonicChip(
               word: word,
               mnemonic: mnemonic,
               accent: accent,
               compact: compact,
+              onEdit: onEditMnemonic,
             ),
           ],
           SynonymBlock(

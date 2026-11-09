@@ -13,6 +13,8 @@ import '../widgets/answer_diff_text.dart';
 import '../widgets/favorite_button.dart';
 import '../widgets/meaning_choice_card.dart';
 import '../widgets/review_example_panel.dart';
+import '../widgets/mnemonic_sheet.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../services/word_enrichment_service.dart';
@@ -1048,9 +1050,14 @@ class _ReviewPageState extends State<ReviewPage>
     }
   }
 
+  Future<void> _editMnemonic(Map<String, dynamic> word) async {
+    final saved = await showMnemonicEditorForWord(context, word);
+    if (saved == null || !mounted) return;
+    setState(() => word['mnemonic'] = saved);
+  }
+
   /// Chinh nhanh Trinh do / Do thong dung ngay tren the (cham chip).
-  Future<void> _editWordMeta(String field) async {
-    final word = _currentWordSafe;
+  Future<void> _editWordMeta(String field) async {    final word = _currentWordSafe;
     if (word == null || _wordOptionsOpen || _isGrading || _isWordBusy) return;
     final wordId = word['id'] as int;
     final prevCommon = word['commonness'] as int?;
@@ -1396,9 +1403,11 @@ class _ReviewPageState extends State<ReviewPage>
                 ),
               ),
 
-              // Panel vi du kieu flashcard: chi hien sau khi nhap tu / Show answer.
-              // Thieu vi du -> hien hint thay vi an im lang (de biet can bo sung).
-              if (_showAnswer && (((currentWord['example'] ?? '') as String).isNotEmpty || ((currentWord['common_synonyms'] ?? '') as String).isNotEmpty || ((currentWord['mnemonic'] ?? '') as String).isNotEmpty))
+              // Panel chi tiết: chỉ hiện khi có ví dụ / từ đồng nghĩa / mẹo nhớ.
+              if (_showAnswer &&
+                  (((currentWord['example'] ?? '') as String).isNotEmpty ||
+                      ((currentWord['common_synonyms'] ?? '') as String).isNotEmpty ||
+                      ((currentWord['mnemonic'] ?? '') as String).isNotEmpty))
                 ReviewExamplePanel(
                   word: (currentWord['word'] ?? '').toString(),
                   example: (currentWord['example'] ?? '').toString(),
@@ -1409,6 +1418,7 @@ class _ReviewPageState extends State<ReviewPage>
                       ? null
                       : (currentWord['example_target'] ?? '').toString(),
                   mnemonic: (currentWord['mnemonic'] ?? '').toString(),
+                  onEditMnemonic: () => _editMnemonic(currentWord),
                   commonSynonyms: (currentWord['common_synonyms'] ?? '').toString(),
                   accent: theme.colorScheme.primary,
                   compact: compactMode,
@@ -1774,7 +1784,18 @@ class _ReviewPageState extends State<ReviewPage>
           ),
           SizedBox(height: compact ? 6 : 10),
         ],
-        _buildAnswerWord(currentWord, theme, compact),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(child: _buildAnswerWord(currentWord, theme, compact)),
+            const SizedBox(width: 2),
+            MnemonicIconButton(
+              word: (currentWord['word'] ?? '').toString(),
+              mnemonic: (currentWord['mnemonic'] ?? '').toString(),
+              onEdit: () => _editMnemonic(currentWord),
+            ),
+          ],
+        ),
         if ((currentWord['pronunciation'] ?? '').isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(

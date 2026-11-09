@@ -12,6 +12,7 @@ import '../widgets/confetti_overlay.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/example_card.dart';
 import '../widgets/mnemonic_sheet.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/load_error_view.dart';
 import '../widgets/save_blocked_dialog.dart';
 import '../widgets/save_feedback.dart';
@@ -564,6 +565,17 @@ class _PracticePageState extends State<PracticePage> {
       // Spell mode: tra focus de go tiep; MC mode thi no-op.
       if (mounted) _focusSpellInputIfNeeded();
     }
+  }
+
+  Future<void> _editMnemonic(Map<String, dynamic> word) async {
+    final saved = await showMnemonicEditorForWord(context, word);
+    if (saved == null || !mounted) return;
+    setState(() {
+      word['mnemonic'] = saved;
+      for (final w in _words) {
+        if (w['id'] == word['id']) w['mnemonic'] = saved;
+      }
+    });
   }
 
   /// Chinh nhanh Trinh do / Do thong dung ngay tren the (cham chip).
@@ -1410,11 +1422,11 @@ class _PracticePageState extends State<PracticePage> {
         color: color.withAlpha(38),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Align(
-        // Canh giữa theo chiều dọc: nội dung ngắn nằm giữa khung thay vì dồn
-        // lên trên rồi để trống cả khoảng phía dưới; dài quá thì tự cuộn.
-        alignment: Alignment.center,
-        child: SingleChildScrollView(
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.center,
+            child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 20 : 26,
             vertical: compact ? 16 : 24,
@@ -1509,17 +1521,20 @@ class _PracticePageState extends State<PracticePage> {
                   maxLines: compact ? 5 : 6,
                 ),
               ],
-              if (((word['mnemonic'] ?? '') as String).isNotEmpty) ...[
-                const SizedBox(height: 6),
-                MnemonicChip(
-                  word: wordText,
-                  mnemonic: (word['mnemonic'] ?? '').toString(),
-                  compact: compact,
-                ),
-              ],
             ],
           ),
         ),
+      ),
+          Positioned(
+            top: compact ? 8 : 12,
+            right: compact ? 8 : 12,
+            child: MnemonicIconButton(
+              word: wordText,
+              mnemonic: (word['mnemonic'] ?? '').toString(),
+              onEdit: () => _editMnemonic(word),
+            ),
+          ),
+        ],
       ),
     );
   }

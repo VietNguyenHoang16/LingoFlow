@@ -7,6 +7,7 @@ import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
 import '../services/word_details_parser.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/load_error_view.dart';
 import '../widgets/practice_mode_sheet.dart';
 import 'flashcard_practice_page.dart';
@@ -206,6 +207,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                               }
                             }),
                             onLongPress: () {},
+                            onEditMnemonic: () => showMnemonicEditorForWord(context, word),
                             onSpeak: () => _speak(text),
                           );
                         },

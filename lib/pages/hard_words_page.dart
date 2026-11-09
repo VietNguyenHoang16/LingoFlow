@@ -8,6 +8,7 @@ import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
 import '../services/word_details_parser.dart';
 import '../widgets/flip_word_card.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/load_error_view.dart';
 
 /// Danh sách các từ có lần chấm gần nhất là "Hard" — chỉ để xem lại và
@@ -198,6 +199,7 @@ class _HardWordsPageState extends State<HardWordsPage> {
                               }
                             }),
                             onLongPress: () {},
+                            onEditMnemonic: () => showMnemonicEditorForWord(context, word),
                             onSpeak: () => _speak(text),
                           );
                         },

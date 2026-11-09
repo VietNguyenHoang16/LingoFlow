@@ -15,6 +15,7 @@ import '../widgets/word_type_utils.dart';
 import '../widgets/word_type_badge.dart';
 import '../widgets/edit_word_sheet.dart';
 import '../widgets/example_manager_sheet.dart';
+import '../widgets/mnemonic_editor_sheet.dart';
 import '../widgets/quick_meaning_edit.dart';
 import '../widgets/save_feedback.dart';
 import '../widgets/topic_tag_badge.dart';
@@ -857,126 +858,6 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
         );
       }
     }
-  }
-
-  void _showAddExampleSheet({
-    required int id,
-    required String word,
-    required String meaning,
-    required String fullDetails,
-    String pronunciation = '',
-    String wordType = '',
-    String topicTag = '',
-  }) {
-    final exampleController = TextEditingController();
-    final theme = Theme.of(context);
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.colorScheme.surfaceContainerLowest,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 12,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Thêm ví dụ cho "$word"',
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: exampleController,
-              maxLines: 3,
-              minLines: 1,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Ví dụ (tiếng Việt)',
-                hintText: 'VD: Anh ấy ăn táo mỗi sáng',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Hủy'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () async {
-                      final example = exampleController.text.trim();
-                      if (example.isEmpty) return;
-                      Navigator.pop(context);
-                      final newFullDetails = addExampleToFullDetails(fullDetails, example);
-                      Map<String, dynamic>? cur;
-                      try {
-                        cur = _words.firstWhere((w) => w['id'] == id);
-                      } catch (_) {
-                        cur = null;
-                      }
-                      try {
-                        await _db.updateVocabularyWordDetails(
-                          wordId: id,
-                          meaning: meaning,
-                          pronunciation: pronunciation,
-                          fullDetails: newFullDetails,
-                          wordType: wordType,
-                          topicTag: topicTag,
-                          commonSynonyms: (cur?['common_synonyms'] ?? '').toString(),
-                        );
-                        await _loadWords(persistProgress: true);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Đã thêm ví dụ')),
-                          );
-                          WordChangeBus().notifyChanged('edit-word');
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Lỗi: $e')),
-                          );
-                        }
-                      }
-                    },
-                    child: const Text('Thêm'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showFilterSheet() {
@@ -2064,6 +1945,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                         fullDetails: fullDetails,
                         exampleSentence: exampleSentence,
                         exampleTranslation: exampleTranslation,
+                        mnemonic: mnemonic,
                         wordType: wordType,
                         topicTag: topicTag,
                         isDifficult: isDifficult,
@@ -2104,14 +1986,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 child: GestureDetector(
                   onTap: _isSelectionMode
                       ? null
-                      : () => _showAddExampleSheet(
-                            id: id,
+                      : () => showMnemonicEditor(
+                            context: context,
+                            wordId: id,
                             word: word,
-                            meaning: meaning,
-                            fullDetails: fullDetails,
                             pronunciation: pronunciation,
-                            wordType: wordType,
-                            topicTag: topicTag,
+                            meaning: meaning,
+                            mnemonic: mnemonic,
                           ),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2122,10 +2003,10 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_circle_outline_rounded, size: 18, color: theme.colorScheme.secondary),
+                        Icon(Icons.lightbulb_outline_rounded, size: 18, color: theme.colorScheme.secondary),
                         const SizedBox(width: 4),
                         Text(
-                          'Thêm ví dụ',
+                          'Mẹo nhớ',
                           style: TextStyle(
                             fontFamily: 'Be Vietnam Pro',
                             fontSize: 12,
@@ -2379,6 +2260,7 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
     required LingoFlowColors colors,
     String exampleSentence = '',
     String exampleTranslation = '',
+    String mnemonic = '',
   }) {
     final typeTokens = wordType
         .split(',')
@@ -2530,14 +2412,13 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
             GestureDetector(
               onTap: _isSelectionMode
                   ? null
-                  : () => _showAddExampleSheet(
-                        id: id,
+                  : () => showMnemonicEditor(
+                        context: context,
+                        wordId: id,
                         word: word,
-                        meaning: meaning,
-                        fullDetails: fullDetails,
                         pronunciation: pronunciation,
-                        wordType: wordType,
-                        topicTag: topicTag,
+                        meaning: meaning,
+                        mnemonic: mnemonic,
                       ),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2548,10 +2429,10 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add_circle_outline_rounded, size: 14, color: theme.colorScheme.secondary),
+                    Icon(Icons.lightbulb_outline_rounded, size: 14, color: theme.colorScheme.secondary),
                     const SizedBox(width: 4),
                     Text(
-                      'Thêm ví dụ',
+                      'Mẹo nhớ',
                       style: TextStyle(
                         fontFamily: 'Be Vietnam Pro',
                         fontSize: 12,
