@@ -16,10 +16,16 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `EAFE42BB4194AD5992C5A2F80E31E72FDB2934D0DBE3EF98742C245279CE128C`
-- Ngày build: `09/11/2026` — bản mới nhất:
+- SHA256: `44A82C9A67273153DC6AC8EA1D6C616D88FECFFD52316BA9B9EE5D3E8B25B935`
+- Ngày build: `10/11/2026` — bản mới nhất:
+  - **Mẹo nhớ dựa trên gốc từ + cảnh cụ thể** — AI không còn lặp một khuôn
+    ("Từ ... Hãy tưởng tượng: ..."). Với từ có gốc thật, mẹo nêu gốc + nghĩa gốc
+    + từ họ hàng (vd *critically ← critic ← Greek kritikos "able to judge"*),
+    rồi gắn vào một cảnh nhìn thấy được; từ không có gốc thì dùng âm/viết hoặc
+    cảnh cụ thể. AI được dặn **không đoán bừa gốc từ**. Mẹo đã lưu giữ nguyên —
+    bấm **AI gợi ý** trong sheet Mẹo nhớ để tạo lại.
   - **Mẹo nhớ cho từng từ** — mỗi từ có thể có một đoạn **Mẹo nhớ** tiếng Việt
-    (ví dụ: *Từ immune (miễn dịch) đọc là /ɪˈmjuːn/ (i-mun). Hãy tưởng tượng: ...*).
+    (ví dụ: *immune ← Latin immunis "được miễn nghĩa vụ": cả xóm cúm, riêng bà Lan vẫn bán rau vì cơ thể đã được miễn.*).
     Trong **danh sách từ**, bấm **"Mẹo nhớ"** ngay trên thẻ (mặt trước hoặc sau)
     để thêm/sửa; ở **Ôn tập / Luyện tập** có **icon bóng đèn** cạnh từ — bấm để
     thêm khi chưa có, hoặc đọc trong sheet cuộn được khi đã có. Sheet có nút
