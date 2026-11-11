@@ -90,7 +90,7 @@ void main() {
     expect(find.text('Sai rồi'), findsNothing);
   });
 
-  testWidgets('go tu: khong co loa truoc khi tra loi, co loa trong khung dap an',
+  testWidgets('go tu: co loa truoc khi tra loi va trong khung dap an',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -114,7 +114,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Nghe phát âm'), findsNothing);
+    expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField, skipOffstage: false), 'deploy');
     await tester.testTextInput.receiveAction(TextInputAction.done);

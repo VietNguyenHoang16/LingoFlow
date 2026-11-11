@@ -1608,6 +1608,8 @@ class _PracticePageState extends State<PracticePage> {
             elevation: 0,
           ),
         ),
+        const Spacer(),
+        _buildSpeakButton(theme, wordStr),
       ],
     );
   }

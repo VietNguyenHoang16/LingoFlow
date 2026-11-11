@@ -124,6 +124,7 @@ void main() {
       await tester.tap(find.text('Gõ từ'));
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsOneWidget);
+      expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
       await tester.tap(find.text('Chọn nghĩa'));
       await tester.pumpAndSettle();
       expect(currentWord(), q1);

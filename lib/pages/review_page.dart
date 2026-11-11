@@ -1485,6 +1485,7 @@ class _ReviewPageState extends State<ReviewPage>
     ThemeData theme,
     bool compact,
   ) {
+    final wordText = (currentWord['word'] ?? '').toString();
     if (!widget.grammarReview &&
         _inputMode == AnswerInputMode.choice &&
         _choicePossible) {
@@ -1555,17 +1556,27 @@ class _ReviewPageState extends State<ReviewPage>
               color: theme.colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              _getMaskedWord(currentWord['word'] ?? '', hintLevel: _hintLevel),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 15 : 18,
-                letterSpacing: 2,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    _getMaskedWord(currentWord['word'] ?? '',
+                        hintLevel: _hintLevel),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: compact ? 15 : 18,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildSpeakButton(theme, wordText),
+              ],
             ),
           ),
         ],
