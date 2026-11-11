@@ -1197,16 +1197,25 @@ class _PracticePageState extends State<PracticePage> {
             style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
-          Text(
-            wordText,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: compact ? 21 : 24,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  wordText,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compact ? 21 : 24,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              _buildSpeakButton(theme, wordText, iconSize: compact ? 22 : 24),
+            ],
           ),
           if (pronunciation.isNotEmpty)
             Text(
@@ -1527,6 +1536,12 @@ class _PracticePageState extends State<PracticePage> {
       ),
           Positioned(
             top: compact ? 8 : 12,
+            left: compact ? 8 : 12,
+            child: _buildSpeakButton(theme, wordText,
+                iconSize: compact ? 24 : 26),
+          ),
+          Positioned(
+            top: compact ? 8 : 12,
             right: compact ? 8 : 12,
             child: MnemonicIconButton(
               word: wordText,
@@ -1535,6 +1550,21 @@ class _PracticePageState extends State<PracticePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Loa nghe từ: hiện ở chế độ chọn nghĩa (trước khi trả lời) và ở khung đáp án.
+  Widget _buildSpeakButton(ThemeData theme, String text, {double iconSize = 24}) {
+    return IconButton(
+      onPressed: () => unawaited(_speak(text)),
+      tooltip: 'Nghe phát âm',
+      icon: Icon(Icons.volume_up_rounded, size: iconSize),
+      style: IconButton.styleFrom(
+        foregroundColor: theme.colorScheme.primary,
+        backgroundColor: theme.colorScheme.primary.withAlpha(20),
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
