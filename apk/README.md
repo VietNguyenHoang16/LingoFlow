@@ -16,12 +16,12 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `583AEA56AF13EDE7258354A0073620BEC9ED51920D5663148C0E48596A2D06F1`
+- SHA256: `160CC8B20E5AED9FFE8ABEA1294CE851F9473EB06CD83B6D9235AC9E296A75F1`
 - Ngày build: `11/11/2026` — bản mới nhất:
-  - **Loa nghe từ ở màn Luyện tập** — chế độ **Chọn nghĩa** có nút loa ngay cạnh
-    từ để nghe trước khi chọn đáp án; sau khi trả lời, khung đáp án có nút loa ở
-    góc trái để nghe lại. Nút 48×48, icon 24–26 nên dễ bấm. Chế độ **Gõ từ**
-    không thêm loa trước khi trả lời (nghe sẽ lộ đáp án).
+  - **Loa nghe từ ở Luyện tập + Ôn tập** — chế độ **Chọn nghĩa** có nút loa
+    (nền xanh đặc, 48×48) ngay cạnh từ để nghe trước khi chọn đáp án; sau khi
+    trả lời, khung đáp án ở Luyện tập có nút loa góc trái để nghe lại. Chế độ
+    **Gõ từ** không thêm loa trước khi trả lời (nghe sẽ lộ đáp án).
   - **Mẹo nhớ dựa trên gốc từ + cảnh cụ thể** — AI không còn lặp một khuôn
     ("Từ ... Hãy tưởng tượng: ..."). Với từ có gốc thật, mẹo nêu gốc + nghĩa gốc
     + từ họ hàng (vd *critically ← critic ← Greek kritikos "able to judge"*),
