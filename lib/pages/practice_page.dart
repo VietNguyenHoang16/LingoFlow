@@ -1561,8 +1561,8 @@ class _PracticePageState extends State<PracticePage> {
       tooltip: 'Nghe phát âm',
       icon: Icon(Icons.volume_up_rounded, size: iconSize),
       style: IconButton.styleFrom(
-        foregroundColor: theme.colorScheme.primary,
-        backgroundColor: theme.colorScheme.primary.withAlpha(20),
+        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: theme.colorScheme.primary,
         minimumSize: const Size(48, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),

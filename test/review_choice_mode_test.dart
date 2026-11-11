@@ -97,6 +97,7 @@ void main() {
 
       // Mac dinh: che do chon nghia (nhin tu -> chon nghia).
       expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
+      expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
       // 4 lựa chọn hiện ngay, không còn bước "Xem lựa chọn".

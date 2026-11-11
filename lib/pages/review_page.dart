@@ -1593,6 +1593,21 @@ class _ReviewPageState extends State<ReviewPage>
     );
   }
 
+  /// Loa nghe từ: hiện ở câu hỏi chọn nghĩa trước khi trả lời.
+  Widget _buildSpeakButton(ThemeData theme, String text) {
+    return IconButton(
+      onPressed: () => unawaited(_speak(text)),
+      tooltip: 'Nghe phát âm',
+      icon: const Icon(Icons.volume_up_rounded, size: 24),
+      style: IconButton.styleFrom(
+        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: theme.colorScheme.primary,
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+  }
+
   /// The cau hoi che do chon nghia: tu + phien am + badges (nghia chi hien
   /// sau khi tra loi, o mat dap an).
   Widget _buildChoiceQuestionCardContent(
@@ -1644,18 +1659,27 @@ class _ReviewPageState extends State<ReviewPage>
           ),
         ),
         SizedBox(height: compact ? 8 : 12),
-        Text(
-          wordText,
-          textAlign: TextAlign.center,
-          maxLines: compact ? 2 : 3,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontSize: compact ? 24 : 30,
-            fontWeight: FontWeight.w800,
-            color: theme.colorScheme.onSurface,
-            letterSpacing: -0.3,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                wordText,
+                textAlign: TextAlign.center,
+                maxLines: compact ? 2 : 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: compact ? 24 : 30,
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            _buildSpeakButton(theme, wordText),
+          ],
         ),
         if (pronunciation.isNotEmpty)
           Padding(
