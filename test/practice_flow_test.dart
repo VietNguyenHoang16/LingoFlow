@@ -90,40 +90,6 @@ void main() {
     expect(find.text('Sai rồi'), findsNothing);
   });
 
-  testWidgets('go tu: co loa truoc khi tra loi va trong khung dap an',
-      (tester) async {
-    tester.view.physicalSize = const Size(430, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('flutter_tts'),
-      (call) async => 1,
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: PracticePage(
-          userId: 1,
-          listName: 'Test',
-          preloadedWords: [_word(1, 'deploy', 'triển khai')],
-          studyMode: true,
-          initialMode: AnswerInputMode.typing,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField, skipOffstage: false), 'deploy');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-
-    expect(find.text('Đúng rồi!'), findsOneWidget);
-    expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
-  });
-
   testWidgets('tick xong: kết quả hiện trước khi lưu SRS xong (không chờ mạng)',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);

@@ -1485,7 +1485,6 @@ class _ReviewPageState extends State<ReviewPage>
     ThemeData theme,
     bool compact,
   ) {
-    final wordText = (currentWord['word'] ?? '').toString();
     if (!widget.grammarReview &&
         _inputMode == AnswerInputMode.choice &&
         _choicePossible) {
@@ -1556,27 +1555,17 @@ class _ReviewPageState extends State<ReviewPage>
               color: theme.colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    _getMaskedWord(currentWord['word'] ?? '',
-                        hintLevel: _hintLevel),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: compact ? 15 : 18,
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildSpeakButton(theme, wordText),
-              ],
+            child: Text(
+              _getMaskedWord(currentWord['word'] ?? '', hintLevel: _hintLevel),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: compact ? 15 : 18,
+                letterSpacing: 2,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
         ],
@@ -1601,21 +1590,6 @@ class _ReviewPageState extends State<ReviewPage>
           ),
         ],
       ],
-    );
-  }
-
-  /// Loa nghe từ: hiện ở câu hỏi chọn nghĩa trước khi trả lời.
-  Widget _buildSpeakButton(ThemeData theme, String text) {
-    return IconButton(
-      onPressed: () => unawaited(_speak(text)),
-      tooltip: 'Nghe phát âm',
-      icon: const Icon(Icons.volume_up_rounded, size: 24),
-      style: IconButton.styleFrom(
-        foregroundColor: theme.colorScheme.onPrimary,
-        backgroundColor: theme.colorScheme.primary,
-        minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
     );
   }
 
@@ -1670,27 +1644,18 @@ class _ReviewPageState extends State<ReviewPage>
           ),
         ),
         SizedBox(height: compact ? 8 : 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                wordText,
-                textAlign: TextAlign.center,
-                maxLines: compact ? 2 : 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: compact ? 24 : 30,
-                  fontWeight: FontWeight.w800,
-                  color: theme.colorScheme.onSurface,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            _buildSpeakButton(theme, wordText),
-          ],
+        Text(
+          wordText,
+          textAlign: TextAlign.center,
+          maxLines: compact ? 2 : 3,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'Plus Jakarta Sans',
+            fontSize: compact ? 24 : 30,
+            fontWeight: FontWeight.w800,
+            color: theme.colorScheme.onSurface,
+            letterSpacing: -0.3,
+          ),
         ),
         if (pronunciation.isNotEmpty)
           Padding(

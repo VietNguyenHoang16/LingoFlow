@@ -181,52 +181,6 @@ void main() {
     }, () => client);
   });
 
-  testWidgets('chon nghia: co loa nghe tu truoc khi tra loi va trong khung dap an',
-      (tester) async {
-    tester.view.physicalSize = const Size(430, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('flutter_tts'),
-      (call) async => 1,
-    );
-
-    final words = [
-      _word(1, 'deploy', 'triển khai'),
-      _word(2, 'resilient', 'kiên cường'),
-      _word(3, 'abandon', 'bỏ rơi'),
-    ];
-
-    final client = MockClient((request) async {
-      return http.Response(jsonEncode({'data': []}), 200,
-          headers: {'content-type': 'application/json; charset=utf-8'});
-    });
-
-    await http.runWithClient(() async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: PracticePage(
-            userId: 1,
-            listName: 'Test',
-            preloadedWords: words,
-            studyMode: true,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
-
-      await tester.tap(find.text('Không biết'));
-      await tester.pumpAndSettle();
-      expect(find.text('Sai rồi'), findsOneWidget);
-      expect(find.byTooltip('Nghe phát âm'), findsOneWidget);
-
-      expect(tester.takeException(), isNull);
-    }, () => client);
-  });
-
   testWidgets('SRS mode: fallback wordIndex bo nhieu nghia + luu updateWordReview',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
