@@ -1296,18 +1296,28 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    mode == PracticeMode.flashcard
-                                        ? FlashcardPracticePage(
-                                            listId: widget.listId,
-                                            listName: widget.listName,
-                                            userId: widget.userId,
-                                          )
-                                        : PracticePage(
-                                            listId: widget.listId,
-                                            listName: widget.listName,
-                                            userId: widget.userId,
-                                          ),
+                                builder: (context) => switch (mode) {
+                                  PracticeMode.flashcard =>
+                                    FlashcardPracticePage(
+                                      listId: widget.listId,
+                                      listName: widget.listName,
+                                      userId: widget.userId,
+                                    ),
+                                  PracticeMode.spelling => PracticePage(
+                                    listId: widget.listId,
+                                    listName: widget.listName,
+                                    userId: widget.userId,
+                                    studyMode: true,
+                                    initialMode: AnswerInputMode.typing,
+                                  ),
+                                  PracticeMode.choice => PracticePage(
+                                    listId: widget.listId,
+                                    listName: widget.listName,
+                                    userId: widget.userId,
+                                    studyMode: true,
+                                    initialMode: AnswerInputMode.choice,
+                                  ),
+                                },
                               ),
                             );
                             if (result == true && mounted) {

@@ -112,17 +112,25 @@ class _FavoritesPageState extends State<FavoritesPage> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => mode == PracticeMode.flashcard
-            ? FlashcardPracticePage(
-                userId: widget.userId,
-                listName: 'Yêu thích (${selected.length})',
-                preloadedWords: selected,
-              )
-            : PracticePage(
-                userId: widget.userId,
-                listName: 'Yêu thích (${selected.length})',
-                preloadedWords: selected,
-              ),
+        builder: (_) => switch (mode) {
+          PracticeMode.flashcard => FlashcardPracticePage(
+            userId: widget.userId,
+            listName: 'Yêu thích (${selected.length})',
+            preloadedWords: selected,
+          ),
+          PracticeMode.spelling => PracticePage(
+            userId: widget.userId,
+            listName: 'Yêu thích (${selected.length})',
+            preloadedWords: selected,
+            initialMode: AnswerInputMode.typing,
+          ),
+          PracticeMode.choice => PracticePage(
+            userId: widget.userId,
+            listName: 'Yêu thích (${selected.length})',
+            preloadedWords: selected,
+            initialMode: AnswerInputMode.choice,
+          ),
+        },
       ),
     );
     if (mounted) await _load(background: true);

@@ -323,19 +323,28 @@ class _CategoryPageState extends State<CategoryPage> {
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        mode == PracticeMode.flashcard
-                                            ? FlashcardPracticePage(
-                                                userId: widget.userId,
-                                                listName: _categoryLabel,
-                                                category: widget.category,
-                                              )
-                                            : PracticePage(
-                                                userId: widget.userId,
-                                                listName: _categoryLabel,
-                                                category: widget.category,
-                                                studyMode: true,
-                                              ),
+                                    builder: (context) => switch (mode) {
+                                      PracticeMode.flashcard =>
+                                        FlashcardPracticePage(
+                                          userId: widget.userId,
+                                          listName: _categoryLabel,
+                                          category: widget.category,
+                                        ),
+                                      PracticeMode.spelling => PracticePage(
+                                        userId: widget.userId,
+                                        listName: _categoryLabel,
+                                        category: widget.category,
+                                        studyMode: true,
+                                        initialMode: AnswerInputMode.typing,
+                                      ),
+                                      PracticeMode.choice => PracticePage(
+                                        userId: widget.userId,
+                                        listName: _categoryLabel,
+                                        category: widget.category,
+                                        studyMode: true,
+                                        initialMode: AnswerInputMode.choice,
+                                      ),
+                                    },
                                   ),
                                 );
                                 if (mounted) _loadWords();

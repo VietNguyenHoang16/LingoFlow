@@ -87,8 +87,7 @@ class _PracticePageState extends State<PracticePage> {
   final TtsSettingsService _ttsSettings = TtsSettingsService();
   int _hintLevel = 0;
 
-  /// Che do tra loi: chon nghia (mac dinh) hoạc gõ từ. Đổi ngay tại chỗ,
-  /// giữ nguyên bộ từ và câu hiện tại.
+  /// Che do tra loi duoc chon truoc khi vao, khong doi duoc trong session.
   late AnswerInputMode _inputMode;
 
   /// Đúng/sai của câu vừa trả lời (cả 2 chế độ) — dùng khi hiện khung kết quả.
@@ -343,12 +342,6 @@ class _PracticePageState extends State<PracticePage> {
   bool get _choicePossible =>
       _words.isNotEmpty &&
       _optionsForWord(_words[_currentIndex]).length >= 2;
-
-  void _setInputMode(AnswerInputMode mode) {
-    if (_inputMode == mode) return;
-    setState(() => _inputMode = mode);
-    if (mode == AnswerInputMode.typing) _focusSpellInputIfNeeded();
-  }
 
   void _checkChoice(int selectedIndex) {
     if (_words.isEmpty || _showResult) return;
@@ -876,18 +869,7 @@ class _PracticePageState extends State<PracticePage> {
                 ),
               ),
             ),
-            // An khi dang hien khung ket qua: khung do phai gon trong 1 man
-            // hinh (khong cuon), doi che do chi co y nghia o cau hoi.
-            if (!_showResult) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: AnswerModeToggle(
-                  mode: _inputMode,
-                  onChanged: _setInputMode,
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
+            const SizedBox(height: 10),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {

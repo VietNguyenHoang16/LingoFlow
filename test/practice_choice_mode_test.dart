@@ -42,7 +42,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('doi che do giua session: giu nguyen bo tu, hien thi dang chon nghia',
+  testWidgets('che do go tu duoc chon truoc khi vao va khong doi duoc',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -58,59 +58,26 @@ void main() {
       _word(3, 'abandon', 'bỏ rơi'),
     ];
 
-    final client = MockClient((request) async {
-      return http.Response(jsonEncode({'data': []}), 200,
-          headers: {'content-type': 'application/json; charset=utf-8'});
-    });
-
-    await http.runWithClient(() async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: PracticePage(
-            userId: 1,
-            listName: 'Test',
-            preloadedWords: words,
-            studyMode: true,
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PracticePage(
+          userId: 1,
+          listName: 'Test',
+          preloadedWords: words,
+          studyMode: true,
+          initialMode: AnswerInputMode.typing,
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Mac dinh: che do chon nghia (nhin tu -> chon nghia).
-      expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-
-      // 4 lua chon hien ngay, khong con buoc "Xem lua chon".
-      expect(find.text('Xem lựa chọn'), findsNothing);
-
-      // Bo tu giu nguyen: chi tu hien tai hien dang cau hoi (cac tu con lai
-      // chi xuat hien nghia cua chung o dang lua chon, khong xuat hien tu).
-      List<String> shownWordsNow() => ['deploy', 'resilient', 'abandon']
-          .where((w) => find.text(w).evaluate().isNotEmpty)
-          .toList();
-      expect(shownWordsNow().length, 1);
-      final q1 = shownWordsNow().single;
-
-      // 3 nghia (1 dung + 2 nhieu cung bo) deu la lua chon.
-      expect(find.text('triển khai'), findsOneWidget);
-      expect(find.text('kiên cường'), findsOneWidget);
-      expect(find.text('bỏ rơi'), findsOneWidget);
-
-      // Doi sang go tu roi quay lai chon nghia: cung mot tu, khong doi bo tu.
-      await tester.tap(find.text('Gõ từ'));
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('Từ tiếng Anh của nghĩa này là gì?'), findsOneWidget);
-      await tester.tap(find.text('Chọn nghĩa'));
-      await tester.pumpAndSettle();
-      expect(find.text('Nghĩa của từ này là gì?'), findsOneWidget);
-      // Quay lai che do chon nghia -> 4 lua chon hien ngay.
-      expect(find.text('Xem lựa chọn'), findsNothing);
-      expect(shownWordsNow().single, q1);
-
-      expect(tester.takeException(), isNull);
-    }, () => client);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Từ tiếng Anh của nghĩa này là gì?'), findsOneWidget);
+    // Khong con toggle doi che do trong session.
+    expect(find.text('Gõ từ'), findsNothing);
+    expect(find.text('Chọn nghĩa'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('chon sai -> Sai roi; chon dung -> Dung roi; tieu tien va cau hoi giu nguyen',

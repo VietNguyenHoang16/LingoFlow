@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum PracticeMode { spelling, flashcard }
+enum PracticeMode { choice, spelling, flashcard }
 
 Future<PracticeMode?> showPracticeModeSheet(BuildContext context) {
   final theme = Theme.of(context);
@@ -40,16 +40,23 @@ Future<PracticeMode?> showPracticeModeSheet(BuildContext context) {
               ),
               const SizedBox(height: 12),
               _ModeTile(
+                icon: Icons.checklist_rounded,
+                title: 'Chọn nghĩa',
+                subtitle: 'Nhìn từ tiếng Anh, chọn nghĩa đúng',
+                onTap: () => Navigator.pop(context, PracticeMode.choice),
+              ),
+              const SizedBox(height: 10),
+              _ModeTile(
                 icon: Icons.keyboard_rounded,
                 title: 'Gõ từ',
-                subtitle: 'Gõ lại từ tiếng Anh, sai sẽ lặp lại',
+                subtitle: 'Nhìn nghĩa, gõ lại từ tiếng Anh',
                 onTap: () => Navigator.pop(context, PracticeMode.spelling),
               ),
               const SizedBox(height: 10),
               _ModeTile(
                 icon: Icons.style_rounded,
                 title: 'Flashcard',
-                subtitle: 'Biết / Chưa biết, lặp đến khi nhớ hết',
+                subtitle: 'Lật thẻ rồi chọn Biết / Chưa biết',
                 onTap: () => Navigator.pop(context, PracticeMode.flashcard),
               ),
             ],

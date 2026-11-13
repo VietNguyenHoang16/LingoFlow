@@ -38,7 +38,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('chưa biết hiện thông tin, tiếp quay lại thẻ, đã biết thì xong',
+  testWidgets('lật thẻ mới chấm được: chưa biết lặp lại, đã biết thì xong',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -61,22 +61,26 @@ void main() {
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
     expect(find.text('Chưa biết'), findsOneWidget);
     expect(find.text('Đã biết'), findsOneWidget);
+    expect(find.text('Lật thẻ (chạm hoặc Enter) để xem đáp án trước khi chọn'),
+        findsOneWidget);
+
+    // Chưa lật: nút chấm bị vô hiệu, bấm không có tác dụng.
+    await tester.tap(find.text('Đã biết'));
+    await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsNothing);
+
+    // Lật thẻ: hiện mặt sau và mở khoá 2 nút.
+    await tester.tap(find.text('deploy'));
+    await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsOneWidget);
+    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
 
     await tester.tap(find.text('Chưa biết'));
     await tester.pumpAndSettle();
-
-    expect(find.text('triển khai'), findsOneWidget);
-    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
-    expect(find.text('Tiếp'), findsOneWidget);
-    expect(find.text('Chưa biết'), findsNothing);
-
-    await tester.tap(find.text('Tiếp'));
-    await tester.pumpAndSettle();
-
     expect(find.text('triển khai'), findsNothing);
-    expect(find.text('Chưa biết'), findsOneWidget);
-    expect(find.text('Tiếp'), findsNothing);
 
+    await tester.tap(find.text('deploy'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Đã biết'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -105,14 +109,14 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
 
-    await tester.tap(find.text('Chưa biết'));
+    await tester.tap(find.text('deploy'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
   });
 
-  testWidgets('phím 1 = chưa biết, 2 = đã biết, 3 = nghe, Enter = tiếp',
+  testWidgets('phím 1 = chưa biết, 2 = đã biết, 3 = nghe, Enter = lật',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -139,14 +143,21 @@ void main() {
     expect(find.text('deploy'), findsOneWidget);
     expect(find.text('triển khai'), findsNothing);
 
+    // Chưa lật thì 1/2 không chấm.
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
-    await tester.pumpAndSettle();
-    expect(find.text('triển khai'), findsOneWidget);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('triển khai'), findsNothing);
 
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+    await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

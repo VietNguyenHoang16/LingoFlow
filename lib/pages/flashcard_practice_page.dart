@@ -66,12 +66,12 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
 
     if (key == LogicalKeyboardKey.digit1 ||
         key == LogicalKeyboardKey.numpad1) {
-      if (!_revealed) _markUnknown();
+      _markUnknown();
       return true;
     }
     if (key == LogicalKeyboardKey.digit2 ||
         key == LogicalKeyboardKey.numpad2) {
-      if (!_revealed) _markKnown();
+      _markKnown();
       return true;
     }
     if (key == LogicalKeyboardKey.digit3 ||
@@ -84,7 +84,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
     }
     if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
-      if (_revealed) _advance();
+      _toggleReveal();
       return true;
     }
     return false;
@@ -163,9 +163,16 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
     });
   }
 
-  void _markKnown() {
+  /// Lật thẻ tự do trước khi chấm; chưa lật thì không chấm được.
+  void _toggleReveal() {
     final queue = _queue;
     if (queue == null || queue.isDone) return;
+    setState(() => _revealed = !_revealed);
+  }
+
+  void _markKnown() {
+    final queue = _queue;
+    if (queue == null || queue.isDone || !_revealed) return;
     setState(() {
       queue.markKnown();
       _revealed = false;
@@ -175,13 +182,8 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
   }
 
   void _markUnknown() {
-    if (_revealed) return;
-    setState(() => _revealed = true);
-  }
-
-  void _advance() {
     final queue = _queue;
-    if (queue == null || !_revealed) return;
+    if (queue == null || queue.isDone || !_revealed) return;
     setState(() {
       queue.markUnknown();
       _revealed = false;
@@ -195,25 +197,6 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
     final navigator = Navigator.of(context);
     if (!navigator.canPop()) return;
     navigator.pop(false);
-  }
-
-  Widget _keyChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withAlpha(20),
-        border: Border.all(color: color.withAlpha(150), width: 1.2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
   }
 
   @override
@@ -451,9 +434,9 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   accent: theme.colorScheme.primary,
                   isFavorite: word['is_favorite'] == true,
                   onToggleFavorite: () => _toggleFavorite(word),
-                  showFlipHint: false,
+                  showFlipHint: true,
                   showSpeakButton: false,
-                  onTap: () {},
+                  onTap: _toggleReveal,
                   onLongPress: () {},
                   onEditMnemonic: () async {
                     final saved =
@@ -522,101 +505,71 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  if (_revealed)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _advance,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Tiếp',
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 54,
+                          child: OutlinedButton.icon(
+                            onPressed: _revealed ? _markUnknown : null,
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            label: const Text(
+                              'Chưa biết',
                               style: TextStyle(
-                                color: theme.colorScheme.onPrimary,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 15,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            _keyChip('Enter', theme.colorScheme.onPrimary),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 54,
-                            child: OutlinedButton.icon(
-                              onPressed: _markUnknown,
-                              icon: const Icon(Icons.close_rounded, size: 20),
-                              label: const Text(
-                                'Chưa biết',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
                               ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(
-                                  color: Colors.red,
-                                  width: 2,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SizedBox(
-                            height: 54,
-                            child: ElevatedButton.icon(
-                              onPressed: _markKnown,
-                              icon: const Icon(Icons.check_rounded, size: 20),
-                              label: const Text(
-                                'Đã biết',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 54,
+                          child: ElevatedButton.icon(
+                            onPressed: _revealed ? _markKnown : null,
+                            icon: const Icon(Icons.check_rounded, size: 20),
+                            label: const Text(
+                              'Đã biết',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  if (!_revealed) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Bấm 1 = Chưa biết, 2 = Đã biết, 3 = Nghe từ',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _revealed
+                        ? 'Bấm 1 = Chưa biết, 2 = Đã biết, 3 = Nghe từ'
+                        : 'Lật thẻ (chạm hoặc Enter) để xem đáp án trước khi chọn',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),

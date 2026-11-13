@@ -658,17 +658,25 @@ class _RecentPageState extends State<RecentPage> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => mode == PracticeMode.flashcard
-            ? FlashcardPracticePage(
-                userId: widget.userId,
-                listName: 'Recent (${selected.length} từ)',
-                preloadedWords: selected,
-              )
-            : PracticePage(
-                userId: widget.userId,
-                listName: 'Recent (${selected.length} từ)',
-                preloadedWords: selected,
-              ),
+        builder: (context) => switch (mode) {
+          PracticeMode.flashcard => FlashcardPracticePage(
+            userId: widget.userId,
+            listName: 'Recent (${selected.length} từ)',
+            preloadedWords: selected,
+          ),
+          PracticeMode.spelling => PracticePage(
+            userId: widget.userId,
+            listName: 'Recent (${selected.length} từ)',
+            preloadedWords: selected,
+            initialMode: AnswerInputMode.typing,
+          ),
+          PracticeMode.choice => PracticePage(
+            userId: widget.userId,
+            listName: 'Recent (${selected.length} từ)',
+            preloadedWords: selected,
+            initialMode: AnswerInputMode.choice,
+          ),
+        },
       ),
     );
     if (!mounted) return;
