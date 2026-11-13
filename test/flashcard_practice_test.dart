@@ -38,7 +38,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('lật thẻ mới chấm được: chưa biết lặp lại, đã biết thì xong',
+  testWidgets('lật thẻ tự do: chưa biết lặp lại, đã biết thì xong',
       (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -61,15 +61,8 @@ void main() {
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
     expect(find.text('Chưa biết'), findsOneWidget);
     expect(find.text('Đã biết'), findsOneWidget);
-    expect(find.text('Lật thẻ (chạm hoặc Enter) để xem đáp án trước khi chọn'),
-        findsOneWidget);
 
-    // Chưa lật: nút chấm bị vô hiệu, bấm không có tác dụng.
-    await tester.tap(find.text('Đã biết'));
-    await tester.pumpAndSettle();
-    expect(find.text('triển khai'), findsNothing);
-
-    // Lật thẻ: hiện mặt sau và mở khoá 2 nút.
+    // Lật thẻ: hiện mặt sau, không bắt buộc mới chấm được.
     await tester.tap(find.text('deploy'));
     await tester.pumpAndSettle();
     expect(find.text('triển khai'), findsOneWidget);
@@ -79,8 +72,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('triển khai'), findsNothing);
 
-    await tester.tap(find.text('deploy'));
-    await tester.pumpAndSettle();
+    // Chưa lật vẫn bấm Đã biết được.
     await tester.tap(find.text('Đã biết'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -143,21 +135,18 @@ void main() {
     expect(find.text('deploy'), findsOneWidget);
     expect(find.text('triển khai'), findsNothing);
 
-    // Chưa lật thì 1/2 không chấm.
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
-    await tester.pumpAndSettle();
-    expect(find.text('triển khai'), findsNothing);
-
+    // Enter lật mặt sau, Enter lần nữa lật lại mặt trước.
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('triển khai'), findsOneWidget);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('triển khai'), findsNothing);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    // Chưa lật vẫn chấm được: 1 = chưa biết (lặp lại), 2 = đã biết (xong).
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.pumpAndSettle();
+    expect(find.text('triển khai'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

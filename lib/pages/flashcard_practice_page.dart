@@ -163,7 +163,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
     });
   }
 
-  /// Lật thẻ tự do trước khi chấm; chưa lật thì không chấm được.
+  /// Lật thẻ tự do; không bắt buộc lật mới được chấm.
   void _toggleReveal() {
     final queue = _queue;
     if (queue == null || queue.isDone) return;
@@ -172,7 +172,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
 
   void _markKnown() {
     final queue = _queue;
-    if (queue == null || queue.isDone || !_revealed) return;
+    if (queue == null || queue.isDone) return;
     setState(() {
       queue.markKnown();
       _revealed = false;
@@ -183,7 +183,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
 
   void _markUnknown() {
     final queue = _queue;
-    if (queue == null || queue.isDone || !_revealed) return;
+    if (queue == null || queue.isDone) return;
     setState(() {
       queue.markUnknown();
       _revealed = false;
@@ -511,7 +511,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                         child: SizedBox(
                           height: 54,
                           child: OutlinedButton.icon(
-                            onPressed: _revealed ? _markUnknown : null,
+                            onPressed: _markUnknown,
                             icon: const Icon(Icons.close_rounded, size: 20),
                             label: const Text(
                               'Chưa biết',
@@ -538,7 +538,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                         child: SizedBox(
                           height: 54,
                           child: ElevatedButton.icon(
-                            onPressed: _revealed ? _markKnown : null,
+                            onPressed: _markKnown,
                             icon: const Icon(Icons.check_rounded, size: 20),
                             label: const Text(
                               'Đã biết',
@@ -561,9 +561,7 @@ class _FlashcardPracticePageState extends State<FlashcardPracticePage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _revealed
-                        ? 'Bấm 1 = Chưa biết, 2 = Đã biết, 3 = Nghe từ'
-                        : 'Lật thẻ (chạm hoặc Enter) để xem đáp án trước khi chọn',
+                    'Chạm thẻ hoặc Enter để lật đáp án · 1 = Chưa biết, 2 = Đã biết, 3 = Nghe từ',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
