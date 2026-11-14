@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'pages/intro_page.dart';
@@ -73,13 +74,22 @@ class MyApp extends StatelessWidget {
         themeMode: ThemeMode.system,
         // Boc toan app de bat lai audio doc sau khi iOS suspend (xem
         // TtsAudioUnlocker): chi can cham bat ky dau la tieng doc hoat dong lai.
-        builder: (context, child) => TtsAudioUnlocker(
-          child: ValueListenableBuilder<double>(
-            valueListenable: DisplaySettingsService.instance.textScale,
-            builder: (context, textScale, _) =>
-                _buildAppShell(context, child, textScale),
-          ),
-        ),
+        builder: (context, child) {
+          final app = TtsAudioUnlocker(
+            child: ValueListenableBuilder<double>(
+              valueListenable: DisplaySettingsService.instance.textScale,
+              builder: (context, textScale, _) =>
+                  _buildAppShell(context, child, textScale),
+            ),
+          );
+          if (!kIsWeb) return app;
+          // Web: cham vao nut khac trong luc o nhap dang focus khong duoc lam
+          // mat focus ngay o pointer-down. iPad Safari dong keyboard -> viewport
+          // doi kich thuoc giua gesture -> cu cham bi huy (phai cham 2 lan,
+          // man hinh nhay). Gom ca app (ke ca dialog) vao 1 tap region cua o
+          // nhap mac dinh; viec dong keyboard do code chu dong goi unfocus.
+          return TextFieldTapRegion(groupId: EditableText, child: app);
+        },
         home: const IntroPage(),
       ),
     );

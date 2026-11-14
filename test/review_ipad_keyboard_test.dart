@@ -62,18 +62,6 @@ void main() {
       final refocused = tester.widget<TextField>(find.byType(TextField));
       expect(refocused.focusNode?.hasFocus, isTrue);
 
-      // Nut Hint phai nam chung tap region voi o dap an, neu khong cham Hint
-      // tren iPad Safari se mat focus giua gesture -> huy cu cham dau tien.
-      final hintRegion = find.ancestor(
-        of: find.textContaining('Hint ('),
-        matching: find.byType(TextFieldTapRegion),
-      );
-      expect(hintRegion, findsOneWidget);
-      expect(
-        tester.widget<TextFieldTapRegion>(hintRegion).groupId,
-        refocused.groupId,
-      );
-
       // Mot lan cham Hint la du de lo ky tu tiep theo (khong can cham lan 2).
       await tester.ensureVisible(find.textContaining('Hint ('));
       await tester.tap(find.textContaining('Hint ('));
@@ -83,6 +71,13 @@ void main() {
         tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
         isTrue,
       );
+
+      // Mot lan cham Check answer la hien dap an + 4 muc cham SRS.
+      // (Tren web, app gom ca trang vao tap region cua o nhap de cu cham khong
+      // bi huy khi keyboard dong giua gesture — xem builder trong main.dart.)
+      await tester.tap(find.text('Check answer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hard'), findsOneWidget);
 
       // Xa het timer cuon 300ms cua focus de ket thuc test sach.
       await tester.pump(const Duration(milliseconds: 500));
