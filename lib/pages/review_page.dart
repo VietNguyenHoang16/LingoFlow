@@ -76,6 +76,9 @@ class _ReviewPageState extends State<ReviewPage>
 
   final TextEditingController _answerController = TextEditingController();
   final FocusNode _answerFocusNode = FocusNode();
+  // Nut Hint nam chung tap region voi o dap an: cham Hint khong lam mat focus,
+  // nen Safari iPad khong dong keyboard giua gesture (cu cham dau bi huy).
+  static const Object _answerTapGroupId = 'review-answer-input';
   final FocusNode _pageFocusNode = FocusNode();
   final GlobalKey _answerFieldKey = GlobalKey();
   final GlobalKey _questionCardKey = GlobalKey();
@@ -2010,6 +2013,7 @@ class _ReviewPageState extends State<ReviewPage>
             key: _answerFieldKey,
             controller: _answerController,
             focusNode: _answerFocusNode,
+            groupId: _answerTapGroupId,
             textAlign: TextAlign.center,
             textInputAction: TextInputAction.done,
             keyboardType: TextInputType.text,
@@ -2077,44 +2081,49 @@ class _ReviewPageState extends State<ReviewPage>
             // Hint button
             if (_dueWords.isNotEmpty)
               Expanded(
-                child: SizedBox(
-                  height: compact ? 48 : 54,
-                  child: OutlinedButton.icon(
-                    onPressed: (_hintLevel < maxHints) ? _tapHint : null,
-                    icon: Icon(
-                      _hintLevel < maxHints
-                          ? Icons.lightbulb
-                          : Icons.lightbulb_outline,
-                      size: 18,
-                    ),
-                    label: Text(
-                      _hintLevel > 0
-                          ? 'Hint ($_hintLevel/$maxHints)'
-                          : 'Hint (0)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: compact ? 14 : 16,
-                        fontFamily: 'Plus Jakarta Sans',
-                        color: _hintLevel < maxHints
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant.withAlpha(100),
+                child: TextFieldTapRegion(
+                  groupId: _answerTapGroupId,
+                  child: SizedBox(
+                    height: compact ? 48 : 54,
+                    child: OutlinedButton.icon(
+                      onPressed: (_hintLevel < maxHints) ? _tapHint : null,
+                      icon: Icon(
+                        _hintLevel < maxHints
+                            ? Icons.lightbulb
+                            : Icons.lightbulb_outline,
+                        size: 18,
                       ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.primary,
-                      backgroundColor: _hintLevel < maxHints
-                          ? theme.colorScheme.primary.withAlpha(15)
-                          : Colors.transparent,
-                      side: BorderSide(
-                        color: _hintLevel < maxHints
-                            ? theme.colorScheme.primary.withAlpha(100)
-                            : theme.colorScheme.onSurfaceVariant.withAlpha(50),
-                        width: 2,
+                      label: Text(
+                        _hintLevel > 0
+                            ? 'Hint ($_hintLevel/$maxHints)'
+                            : 'Hint (0)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: compact ? 14 : 16,
+                          fontFamily: 'Plus Jakarta Sans',
+                          color: _hintLevel < maxHints
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant
+                                  .withAlpha(100),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        backgroundColor: _hintLevel < maxHints
+                            ? theme.colorScheme.primary.withAlpha(15)
+                            : Colors.transparent,
+                        side: BorderSide(
+                          color: _hintLevel < maxHints
+                              ? theme.colorScheme.primary.withAlpha(100)
+                              : theme.colorScheme.onSurfaceVariant
+                                  .withAlpha(50),
+                          width: 2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
                       ),
-                      elevation: 0,
                     ),
                   ),
                 ),

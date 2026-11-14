@@ -80,6 +80,9 @@ class _PracticePageState extends State<PracticePage> {
 
   final TextEditingController _spellController = TextEditingController();
   final FocusNode _spellFocusNode = FocusNode();
+  // Nut Goi y nam chung tap region voi o nhap: cham Goi y khong lam mat focus,
+  // nen Safari iPad khong dong keyboard giua gesture (cu cham dau bi huy).
+  static const Object _spellTapGroupId = 'practice-spell-input';
   final ScrollController _scrollController = ScrollController();
   // Giữ nguyên ô nhập khi chuyển giữa màn nhập và màn đáp án để bàn phím
   // không bị đóng/mở lại (GlobalKey giúp reparent mà không mất focus).
@@ -1270,6 +1273,7 @@ class _PracticePageState extends State<PracticePage> {
       key: _spellFieldKey,
       controller: _spellController,
       focusNode: _spellFocusNode,
+      groupId: _spellTapGroupId,
       decoration: InputDecoration(
         hintText: 'Nhập từ bạn nhớ được...',
         isDense: true,
@@ -1529,35 +1533,38 @@ class _PracticePageState extends State<PracticePage> {
 
     return Row(
       children: [
-        OutlinedButton.icon(
-          onPressed: canHint ? _tapHint : null,
-          icon: Icon(
-            canHint ? Icons.lightbulb : Icons.lightbulb_outline,
-            size: 16,
-          ),
-          label: Text(
-            _hintLevel > 0 ? 'Gợi ý ($_hintLevel/$maxHints)' : 'Gợi ý',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+        TextFieldTapRegion(
+          groupId: _spellTapGroupId,
+          child: OutlinedButton.icon(
+            onPressed: canHint ? _tapHint : null,
+            icon: Icon(
+              canHint ? Icons.lightbulb : Icons.lightbulb_outline,
+              size: 16,
             ),
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: theme.colorScheme.primary,
-            backgroundColor: canHint
-                ? theme.colorScheme.primary.withAlpha(15)
-                : Colors.transparent,
-            side: BorderSide(
-              color: canHint
-                  ? theme.colorScheme.primary.withAlpha(100)
-                  : theme.colorScheme.onSurfaceVariant.withAlpha(50),
-              width: 2,
+            label: Text(
+              _hintLevel > 0 ? 'Gợi ý ($_hintLevel/$maxHints)' : 'Gợi ý',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.primary,
+              backgroundColor: canHint
+                  ? theme.colorScheme.primary.withAlpha(15)
+                  : Colors.transparent,
+              side: BorderSide(
+                color: canHint
+                    ? theme.colorScheme.primary.withAlpha(100)
+                    : theme.colorScheme.onSurfaceVariant.withAlpha(50),
+                width: 2,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              elevation: 0,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            elevation: 0,
           ),
         ),
       ],

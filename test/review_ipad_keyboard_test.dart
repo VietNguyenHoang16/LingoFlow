@@ -61,6 +61,29 @@ void main() {
       // Trong gesture cham, focus phai roi vao o nhap de Safari mo keyboard.
       final refocused = tester.widget<TextField>(find.byType(TextField));
       expect(refocused.focusNode?.hasFocus, isTrue);
+
+      // Nut Hint phai nam chung tap region voi o dap an, neu khong cham Hint
+      // tren iPad Safari se mat focus giua gesture -> huy cu cham dau tien.
+      final hintRegion = find.ancestor(
+        of: find.textContaining('Hint ('),
+        matching: find.byType(TextFieldTapRegion),
+      );
+      expect(hintRegion, findsOneWidget);
+      expect(
+        tester.widget<TextFieldTapRegion>(hintRegion).groupId,
+        refocused.groupId,
+      );
+
+      // Mot lan cham Hint la du de lo ky tu tiep theo (khong can cham lan 2).
+      await tester.ensureVisible(find.textContaining('Hint ('));
+      await tester.tap(find.textContaining('Hint ('));
+      await tester.pump();
+      expect(find.textContaining('Hint (1/'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+        isTrue,
+      );
+
       // Xa het timer cuon 300ms cua focus de ket thuc test sach.
       await tester.pump(const Duration(milliseconds: 500));
     }, () => client);
