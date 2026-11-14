@@ -16,8 +16,12 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `419DFEE35DC6499D19EE7144CBE04F0D7159B12C18B2A159F6E165491A5FB75A`
-- Ngày build: `13/11/2026` — bản mới nhất:
+- SHA256: `AE3BDB953DC9A3ECFDE61465DE8C43F826C6FC29F254F1E823A3A6CBB3A8C37D`
+- Ngày build: `14/11/2026` — bản mới nhất:
+  - **Một lần chạm Hint / Gợi ý là hiện chữ** — trên iPad/iPhone dùng bản web,
+    chạm **Hint** (Ôn tập) hoặc **Gợi ý** (Luyện tập, chế độ gõ từ) một lần là ký tự
+    gợi ý hiện ra ngay, bàn phím không bị đóng giữa lúc chạm nên màn hình không
+    còn nhảy và không phải chạm lần thứ hai.
   - **3 chế độ luyện tập chọn trước khi vào** — **Chọn nghĩa / Gõ từ / Flashcard**;
     vào rồi không đổi chế độ giữa chừng. Luyện tập không ghi SRS, không đổi lịch ôn.
     Flashcard lật mượt mặt trước/sau, **không bắt buộc lật** mới bấm được
