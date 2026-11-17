@@ -101,6 +101,10 @@ class _ReviewPageState extends State<ReviewPage>
   int _totalReviewed = 0;
   int _masteryUps = 0;
   final List<Map<String, dynamic>> _sessionResults = [];
+  /// Số từ còn lại của phiên kế tiếp (null = chưa biết/không áp dụng).
+  int? _remainingSession;
+  /// Tổng số từ mới chưa học, để không gây hiểu nhầm là đã mất từ.
+  int? _remainingNew;
   bool _isPopping = false;
 
   /// Dang ghi SRS cua luot vua cham -> khoa thao tac de khong cham chong.
@@ -202,7 +206,11 @@ class _ReviewPageState extends State<ReviewPage>
       } else if (widget.listId != null) {
         words = await _db.getWordsDueForReview(widget.listId!);
       } else {
-        words = await _db.getAllWordsDueForReview(widget.userId);
+        words = await _db.getAllWordsDueForReview(
+          widget.userId,
+          reviewLimit: SrsService.sessionReviewLimit,
+          newLimit: SrsService.sessionNewLimit,
+        );
       }
       words.shuffle();
 
@@ -218,6 +226,8 @@ class _ReviewPageState extends State<ReviewPage>
         _currentIndex = 0;
         _isLoading = false;
         _loadError = null;
+        _remainingSession = null;
+        _remainingNew = null;
       });
       _requestInputFocus();
     } catch (e) {
@@ -227,6 +237,42 @@ class _ReviewPageState extends State<ReviewPage>
         _loadError = e;
       });
     }
+  }
+
+  /// Sau khi hết phiên bị chặn, lấy số từ còn lại để mời "Ôn tiếp".
+  Future<void> _loadRemaining() async {
+    if (widget.grammarReview || widget.category != null || widget.listId != null) {
+      return;
+    }
+    try {
+      final stats = (await _db.getDashboardStats(widget.userId)).reviewStats;
+      if (!mounted) return;
+      final dueReviews =
+          (stats['dueReviews'] as int?) ?? (stats['dueToday'] as int?) ?? 0;
+      final newWords = (stats['newWords'] as int?) ?? 0;
+      setState(() {
+        _remainingSession = SrsService.sessionSize(dueReviews, newWords);
+        _remainingNew = newWords;
+      });
+    } catch (e) {
+      debugPrint('Remaining due load failed: $e');
+    }
+  }
+
+  /// Phiên kế tiếp: reset thống kê phiên và nạp lại queue (đã bị chặn limit).
+  void _continueSession() {
+    setState(() {
+      _isCompleted = false;
+      _currentIndex = 0;
+      _totalReviewed = 0;
+      _masteryUps = 0;
+      _sessionResults.clear();
+      _dueWords = [];
+      _isLoading = true;
+      _loadError = null;
+      _resetCardAnswerState();
+    });
+    _loadDueWords();
   }
 
   void _retryLoad() {
@@ -746,7 +792,9 @@ class _ReviewPageState extends State<ReviewPage>
       }
     });
 
-    if (!_isCompleted) {
+    if (_isCompleted) {
+      _loadRemaining();
+    } else {
       _requestInputFocus();
     }
   }
@@ -2386,6 +2434,43 @@ class _ReviewPageState extends State<ReviewPage>
                 ],
               ),
             ),
+            if (_remainingSession != null && _remainingSession! > 0) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Còn ${_remainingSession!} từ trong phiên kế tiếp',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              if ((_remainingNew ?? 0) > SrsService.sessionNewLimit) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${_remainingNew!} từ mới đang chờ '
+                  '(${SrsService.sessionNewLimit} từ/ngày)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: _continueSession,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: const Text(
+                    'Ôn tiếp',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             if (_sessionResults.isNotEmpty) ...[
               Align(

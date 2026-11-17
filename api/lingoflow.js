@@ -589,6 +589,10 @@ async function handleAction(action, data) {
         // Dieu kien NOT LIKE phai nam trong tung FILTER de dem tu vung, rieng grammar_due dem rieng.
         `SELECT COUNT(*) FILTER (WHERE (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
                                       AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS due_today,
+                COUNT(*) FILTER (WHERE vw.next_review_date IS NOT NULL AND vw.next_review_date <= $2
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS due_reviews,
+                COUNT(*) FILTER (WHERE vw.next_review_date IS NULL
+                                      AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS new_words,
                 COUNT(*) FILTER (WHERE vw.mastery_level = 3
                                       AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS total_mastered,
                 COUNT(*) FILTER (WHERE COALESCE(vw.word_type, '') NOT LIKE '%grammar%') AS total_words,
@@ -618,6 +622,8 @@ async function handleAction(action, data) {
         categoryStats,
         reviewStats: {
           dueToday: asInt(reviewRows[0].due_today),
+          dueReviews: asInt(reviewRows[0].due_reviews),
+          newWords: asInt(reviewRows[0].new_words),
           totalMastered: asInt(reviewRows[0].total_mastered),
           totalWords: asInt(reviewRows[0].total_words),
           reviewedToday: asInt(reviewRows[0].reviewed_today),
@@ -1403,20 +1409,36 @@ async function handleAction(action, data) {
     }
 
     case 'getAllWordsDueForReview': {
-      const rows = await query(
-        `SELECT vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
+      // Phiên ôn bị chặn: tối đa reviewLimit từ đến hạn + newLimit từ mới.
+      // Từ đến hạn luôn được ưu tiên để backlog cũ không bị từ mới chiếm slot.
+      const reviewLimit = Math.min(Math.max(asInt(data.reviewLimit) || 30, 0), 200);
+      const newLimit = Math.min(Math.max(asInt(data.newLimit) || 10, 0), 200);
+      const columns = `vw.id, vw.word, vw.pronunciation, vw.meaning, vw.full_details, vw.example_sentence, vw.example_translation, vw.example_target, vw.mnemonic, vw.common_synonyms, vw.is_mastered, vw.is_favorite,
                 vw.review_count, vw.correct_streak, vw.ease_factor, vw.interval_days,
                 vw.next_review_date, vw.last_reviewed_at, vw.mastery_level, vw.lapse_count, vw.word_type, vw.topic_tag, vw.collocations,
                 vw.commonness, vw.word_level,
-                vl.id AS list_id
+                vl.id AS list_id`;
+      const dueRows = await query(
+        `SELECT ${columns}
          FROM vocabulary_words vw
          JOIN vocabulary_lists vl ON vw.list_id = vl.id
-         WHERE vl.user_id = $1 AND (vw.next_review_date IS NULL OR vw.next_review_date <= $2)
+         WHERE vl.user_id = $1 AND vw.next_review_date IS NOT NULL AND vw.next_review_date <= $2
                AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
-         ORDER BY COALESCE(vw.next_review_date, CURRENT_TIMESTAMP) ASC`,
-        [data.userId, new Date()],
+         ORDER BY vw.next_review_date ASC
+         LIMIT $3`,
+        [data.userId, new Date(), reviewLimit],
       );
-      return rows.map(mapWordRow);
+      const newRows = await query(
+        `SELECT ${columns}
+         FROM vocabulary_words vw
+         JOIN vocabulary_lists vl ON vw.list_id = vl.id
+         WHERE vl.user_id = $1 AND vw.next_review_date IS NULL
+               AND COALESCE(vw.word_type, '') NOT LIKE '%grammar%'
+         ORDER BY vw.created_at ASC
+         LIMIT $2`,
+        [data.userId, newLimit],
+      );
+      return [...dueRows, ...newRows].map(mapWordRow);
     }
 
     case 'getWordsDueForReviewByCategory': {
