@@ -16,8 +16,14 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `B8494C037FA8942EF9C6004BF79315EF0AFE46B304EE149FF6AA0D04CACED0FB`
-- Ngày build: `14/11/2026` — bản mới nhất:
+- SHA256: `2E83C33D72237270DDF4547524AAB8FB87507744C4CEC2DBF4AA97B81BE05D38`
+- Ngày build: `17/11/2026` — bản mới nhất:
+  - **Phiên ôn có hạn mức** — mỗi phiên tối đa **30 từ đến hạn + 10 từ mới**
+    (trước đây lấy hết, nên import hàng loạt là 400–500 từ "đến hạn" cùng lúc).
+    Từ đến hạn được ưu tiên trước từ mới. Số trên nút Ôn tập ở trang chủ giờ là
+    **số từ của phiên kế tiếp**, không còn là tổng backlog. Hết phiên, màn kết quả
+    ghi **còn bao nhiêu từ** + nút **Ôn tiếp**; nếu còn nhiều từ mới chưa học thì
+    ghi rõ "N từ mới đang chờ (10 từ/ngày)".
   - **Chạm 1 lần là ăn (web/iPad)** — nút **Hint** / **Gợi ý** / **Check answer** và các
     nút cạnh ô nhập không còn bị “nuốt” cú chạm đầu khi bàn phím đang mở: trước đây
     chạm lần 1 làm bàn phím đóng giữa lúc chạm nên màn hình nhảy và phải chạm lần 2,
