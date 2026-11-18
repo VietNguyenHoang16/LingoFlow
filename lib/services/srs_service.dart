@@ -37,15 +37,6 @@ class SrsService {
   static const int vagueInterval = 2;
   static const int vagueNewInterval = 1;
 
-  /// Ngân sách mỗi phiên ôn: từ đến hạn trước, từ mới sau. Chặn cảnh import
-  /// hàng loạt rồi 400-500 từ "đến hạn" cùng lúc.
-  static const int sessionReviewLimit = 30;
-  static const int sessionNewLimit = 10;
-
-  /// Số từ của phiên kế tiếp, dùng chung cho badge trang chủ và phiên ôn.
-  static int sessionSize(int dueReviews, int newWords) =>
-      min(dueReviews, sessionReviewLimit) + min(newWords, sessionNewLimit);
-
   /// Mastery levels
   static const int masteryNew = 0;
   static const int masteryLearning = 1;

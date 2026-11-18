@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/due_widget_service.dart';
-import '../services/srs_service.dart';
 import '../services/tts_settings_service.dart';
 import '../services/word_change_bus.dart';
 import '../widgets/edit_word_sheet.dart';
@@ -193,15 +192,7 @@ class _RecentPageState extends State<RecentPage> {
     }
   }
 
-  /// Badge = số từ của phiên kế tiếp (đã bị chặn limit), không phải tổng
-  /// backlog. Fallback dueToday cho API cũ chưa trả dueReviews/newWords.
-  int get _dueWords {
-    final dueReviews = (_reviewStats['dueReviews'] as int?) ??
-        (_reviewStats['dueToday'] as int?) ??
-        0;
-    final newWords = (_reviewStats['newWords'] as int?) ?? 0;
-    return SrsService.sessionSize(dueReviews, newWords);
-  }
+  int get _dueWords => (_reviewStats['dueToday'] as int?) ?? 0;
   int get _dueGrammar => (_reviewStats['grammarDue'] as int?) ?? 0;
   int get _favoriteCount => (_reviewStats['favoriteCount'] as int?) ?? 0;
   int get _hardCount => (_reviewStats['hardCount'] as int?) ?? 0;

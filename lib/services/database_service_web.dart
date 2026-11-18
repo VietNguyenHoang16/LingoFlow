@@ -648,15 +648,8 @@ class DatabaseService {
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getAllWordsDueForReview(
-    int userId, {
-    int? reviewLimit,
-    int? newLimit,
-  }) async {
-    final data = <String, dynamic>{'userId': userId};
-    if (reviewLimit != null) data['reviewLimit'] = reviewLimit;
-    if (newLimit != null) data['newLimit'] = newLimit;
-    final rows = await _request<List<dynamic>>('getAllWordsDueForReview', data: data);
+  Future<List<Map<String, dynamic>>> getAllWordsDueForReview(int userId) async {
+    final rows = await _request<List<dynamic>>('getAllWordsDueForReview', data: {'userId': userId});
     return rows.map((row) => _mapDates(Map<String, dynamic>.from(row as Map))).toList();
   }
 
