@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'meaning_choice_card.dart' show AnswerInputMode;
+
 enum PracticeMode { choice, spelling, flashcard }
 
-Future<PracticeMode?> showPracticeModeSheet(BuildContext context) {
+Future<PracticeMode?> showPracticeModeSheet(
+  BuildContext context, {
+  String title = 'Chọn chế độ luyện tập',
+  bool includeFlashcard = true,
+}) {
   final theme = Theme.of(context);
   return showModalBottomSheet<PracticeMode>(
     context: context,
@@ -30,7 +36,7 @@ Future<PracticeMode?> showPracticeModeSheet(BuildContext context) {
               ),
               const SizedBox(height: 18),
               Text(
-                'Chọn chế độ luyện tập',
+                title,
                 style: TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontSize: 18,
@@ -53,18 +59,33 @@ Future<PracticeMode?> showPracticeModeSheet(BuildContext context) {
                 onTap: () => Navigator.pop(context, PracticeMode.spelling),
               ),
               const SizedBox(height: 10),
-              _ModeTile(
-                icon: Icons.style_rounded,
-                title: 'Flashcard',
-                subtitle: 'Lật thẻ rồi chọn Biết / Chưa biết',
-                onTap: () => Navigator.pop(context, PracticeMode.flashcard),
-              ),
+              if (includeFlashcard)
+                _ModeTile(
+                  icon: Icons.style_rounded,
+                  title: 'Flashcard',
+                  subtitle: 'Lật thẻ rồi chọn Biết / Chưa biết',
+                  onTap: () => Navigator.pop(context, PracticeMode.flashcard),
+                ),
             ],
           ),
         ),
       );
     },
   );
+}
+
+/// Chọn chế độ ôn tập trước khi vào phiên. Trong phiên không đổi được nữa.
+Future<AnswerInputMode?> showReviewModeSheet(BuildContext context) async {
+  final mode = await showPracticeModeSheet(
+    context,
+    title: 'Chọn chế độ ôn tập',
+    includeFlashcard: false,
+  );
+  return switch (mode) {
+    PracticeMode.spelling => AnswerInputMode.typing,
+    PracticeMode.choice => AnswerInputMode.choice,
+    _ => null,
+  };
 }
 
 class _ModeTile extends StatelessWidget {

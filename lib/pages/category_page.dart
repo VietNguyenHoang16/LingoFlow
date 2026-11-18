@@ -290,15 +290,11 @@ class _CategoryPageState extends State<CategoryPage> {
                             if (_dueCount > 0)
                               GestureDetector(
                                 onTap: () async {
-                                  final result = await Navigator.push(
+                                  final result = await openReviewPage(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ReviewPage(
-                                        userId: widget.userId,
-                                        category: widget.category,
-                                        listName: _categoryLabel,
-                                      ),
-                                    ),
+                                    userId: widget.userId,
+                                    category: widget.category,
+                                    listName: _categoryLabel,
                                   );
                                   if (result == true) _loadWords();
                                 },

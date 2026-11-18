@@ -239,11 +239,10 @@ class _RecentPageState extends State<RecentPage> {
   }
 
   Future<void> _openReview({bool grammar = false}) async {
-    await Navigator.push(
+    await openReviewPage(
       context,
-      MaterialPageRoute(
-        builder: (_) => ReviewPage(userId: widget.userId, grammarReview: grammar),
-      ),
+      userId: widget.userId,
+      grammarReview: grammar,
     );
     if (!mounted) return;
     await _loadRecent(background: true);

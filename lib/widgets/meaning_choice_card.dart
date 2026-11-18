@@ -3,77 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/meaning_choice_options.dart';
 import 'animated_pressable.dart';
 
-/// Che do tra loi trong man hinh on tap / luyen tap: gõ từ (nhìn nghĩa)
-/// hoạc chọn nghĩa (nhìn từ). Đổi được ngay tại chỗ, giữa session.
+/// Cach tra loi khi on tap / luyen tap: go tu hoac chon nghia.
+/// Chon truoc khi vao phien, khong doi trong phien.
 enum AnswerInputMode { typing, choice }
-
-/// Segmented toggle "Gõ từ / Chọn nghĩa" đặt trên đỉnh màn hình ôn tập.
-class AnswerModeToggle extends StatelessWidget {
-  const AnswerModeToggle({
-    super.key,
-    required this.mode,
-    required this.onChanged,
-  });
-
-  final AnswerInputMode mode;
-  final ValueChanged<AnswerInputMode> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    Widget segment(AnswerInputMode m, IconData icon, String label) {
-      final selected = mode == m;
-      final fg = selected
-          ? theme.colorScheme.onPrimary
-          : theme.colorScheme.onSurfaceVariant;
-      return Expanded(
-        child: AnimatedPressable(
-          onTap: () => onChanged(m),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: selected ? theme.colorScheme.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 16, color: fg),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: fg,
-                    fontFamily: 'Be Vietnam Pro',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          segment(AnswerInputMode.typing, Icons.edit_rounded, 'Gõ từ'),
-          const SizedBox(width: 4),
-          segment(AnswerInputMode.choice, Icons.checklist_rounded, 'Chọn nghĩa'),
-        ],
-      ),
-    );
-  }
-}
 
 /// Danh sách nút lựa chọn nghĩa cho chế độ "nhìn từ chọn nghĩa".
 /// Stateless: trang cha giữ trạng thái đã trả lời (hiện đáp án + chấm điểm).

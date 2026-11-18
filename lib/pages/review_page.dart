@@ -12,6 +12,7 @@ import '../services/meaning_choice_options.dart';
 import '../widgets/answer_diff_text.dart';
 import '../widgets/favorite_button.dart';
 import '../widgets/meaning_choice_card.dart';
+import '../widgets/practice_mode_sheet.dart';
 import '../widgets/review_example_panel.dart';
 import '../widgets/mnemonic_sheet.dart';
 import '../widgets/mnemonic_editor_sheet.dart';
@@ -38,6 +39,34 @@ const Color _answerMismatchColor = Color(0xFFDC2626);
 
 /// Hanh dong trong menu an cua the cau hoi (nhan giu the / Shift+F10).
 enum _WordMenuAction { edit, delete, favorite }
+
+/// Mở phiên ôn: chọn chế độ trước khi vào (trừ grammar), sau đó giữ cố định
+/// chế độ suốt phiên.
+Future<bool?> openReviewPage(
+  BuildContext context, {
+  required int userId,
+  int? listId,
+  String? listName,
+  String? category,
+  bool grammarReview = false,
+}) async {
+  final mode =
+      grammarReview ? AnswerInputMode.typing : await showReviewModeSheet(context);
+  if (mode == null || !context.mounted) return null;
+  return Navigator.push<bool>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ReviewPage(
+        userId: userId,
+        listId: listId,
+        listName: listName,
+        category: category,
+        grammarReview: grammarReview,
+        initialMode: mode,
+      ),
+    ),
+  );
+}
 
 class ReviewPage extends StatefulWidget {
   final int userId;
@@ -852,13 +881,6 @@ class _ReviewPageState extends State<ReviewPage>
       _dueWords.isNotEmpty &&
       _optionsForWord(_dueWords[_currentIndex]).length >= 2;
 
-  void _setInputMode(AnswerInputMode mode) {
-    if (_inputMode == mode) return;
-    setState(() => _inputMode = mode);
-    // Typing -> focus o go; Choice -> focus node trang de phim 1-4 chay.
-    _requestInputFocus();
-  }
-
   /// Trả lời chế độ chọn nghĩa: lật thẻ + hiện đáp án + chờ chấm SRS, giống
   /// _showAnswerCard nhưng không có diff ký tự (không gõ).
   void _answerChoice(int selectedIndex) {
@@ -1331,16 +1353,7 @@ class _ReviewPageState extends State<ReviewPage>
               ),
               const SizedBox(height: 8),
 
-              // Toggle doi che do tra loi ngay tai cho (grammar khong doi duoc).
-              if (!widget.grammarReview)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: AnswerModeToggle(
-                    mode: _inputMode,
-                    onChanged: _setInputMode,
-                  ),
-                ),
-
+              // Chế độ đã chọn trước khi vào phiên, không đổi tại chỗ.
               // Mastery badge — an khi go phim de tiet kiem cho hien thi tu.
               if (!compactMode)
                 Padding(

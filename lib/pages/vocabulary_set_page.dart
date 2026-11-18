@@ -1334,15 +1334,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
                           color: colors.reviewBannerDue[0],
                           textColor: Colors.white,
                           onTap: () async {
-                            final result = await Navigator.push(
+                            final result = await openReviewPage(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => ReviewPage(
-                                  userId: widget.userId,
-                                  listId: widget.listId,
-                                  listName: widget.listName,
-                                ),
-                              ),
+                              userId: widget.userId,
+                              listId: widget.listId,
+                              listName: widget.listName,
                             );
                             if (result == true) await _loadWords(persistProgress: true);
                           },
@@ -1627,15 +1623,11 @@ class _VocabularyListPageState extends State<VocabularyListPage> {
   Widget _buildDueBanner(ThemeData theme, LingoFlowColors colors) {
     return GestureDetector(
       onTap: () async {
-        final result = await Navigator.push(
+        final result = await openReviewPage(
           context,
-          MaterialPageRoute(
-            builder: (context) => ReviewPage(
-              userId: widget.userId,
-              listId: widget.listId,
-              listName: widget.listName,
-            ),
-          ),
+          userId: widget.userId,
+          listId: widget.listId,
+          listName: widget.listName,
         );
         if (result == true) await _loadWords(persistProgress: true);
       },

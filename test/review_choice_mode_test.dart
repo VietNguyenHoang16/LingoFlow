@@ -119,14 +119,9 @@ void main() {
           allMeanings.where((m) => find.text(m).evaluate().isNotEmpty).toList();
       expect(shownOptions.length, 4);
 
-      // Doi qua lai giua 2 che do: cau hoi khong doi.
-      await tester.tap(find.text('Gõ từ'));
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsOneWidget);
-      await tester.tap(find.text('Chọn nghĩa'));
-      await tester.pumpAndSettle();
-      expect(currentWord(), q1);
-      // Quay lai che do chon nghia -> 4 lua chon hien ngay.
+      // Chế độ chọn trước khi vào phiên: không còn toggle trong phiên.
+      expect(find.text('Gõ từ'), findsNothing);
+      expect(find.text('Chọn nghĩa'), findsNothing);
       expect(find.text('Xem lựa chọn'), findsNothing);
 
       // Chon SAI -> the lat, hien dap an dung + nut cham SRS.
