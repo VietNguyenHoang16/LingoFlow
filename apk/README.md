@@ -16,14 +16,14 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `2E83C33D72237270DDF4547524AAB8FB87507744C4CEC2DBF4AA97B81BE05D38`
-- Ngày build: `17/11/2026` — bản mới nhất:
-  - **Phiên ôn có hạn mức** — mỗi phiên tối đa **30 từ đến hạn + 10 từ mới**
-    (trước đây lấy hết, nên import hàng loạt là 400–500 từ "đến hạn" cùng lúc).
-    Từ đến hạn được ưu tiên trước từ mới. Số trên nút Ôn tập ở trang chủ giờ là
-    **số từ của phiên kế tiếp**, không còn là tổng backlog. Hết phiên, màn kết quả
-    ghi **còn bao nhiêu từ** + nút **Ôn tiếp**; nếu còn nhiều từ mới chưa học thì
-    ghi rõ "N từ mới đang chờ (10 từ/ngày)".
+- SHA256: `5FB56F9574B216E3A3053CECB387F04EF99154DF03F9DDCC5EE385060AD78F4C`
+- Ngày build: `18/11/2026` — bản mới nhất:
+  - **Nút "Thoát" khi đang ôn tập** — trên thanh trên của màn Ôn tập có nút
+    **Thoát** rõ ràng (cạnh bộ đếm `x / y`). Bấm là ra ngay, không hỏi. Các từ
+    đã chấm vẫn giữ **ngày ôn mới** (mỗi lượt được ghi ngay khi chấm); từ đang
+    làm dở không bị tính.
+  - **Bỏ giới hạn phiên ôn** — trở lại như trước: phiên ôn lấy **toàn bộ** từ
+    đến hạn, số trên nút Ôn tập ở trang chủ là tổng số từ đến hạn.
   - **Chạm 1 lần là ăn (web/iPad)** — nút **Hint** / **Gợi ý** / **Check answer** và các
     nút cạnh ô nhập không còn bị “nuốt” cú chạm đầu khi bàn phím đang mở: trước đây
     chạm lần 1 làm bàn phím đóng giữa lúc chạm nên màn hình nhảy và phải chạm lần 2,
