@@ -16,8 +16,13 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `E57A4FB65B07FB19E3DF048C45DB53AC9BDBCFEFF5E16BAFD65FC9874CE5FEB2`
-- Ngày build: `18/11/2026` — bản mới nhất:
+- SHA256: `E9607A0C9DE2C3967C00E00F53EE6548954949CD62883ADEDD9E8DDF23F4042F`
+- Ngày build: `19/11/2026` — bản mới nhất:
+  - **4 mức ôn luôn tăng dần** — thứ tự nút đổi thành **Vague (1) → Hard (2)
+    → Good (3) → Easy (4)** và số ngày của 4 nút luôn tăng. Trước đây từ đã
+    ôn lâu bị ngược (Hard 4d trong khi Vague 2d) vì Vague cố định 1–2 ngày còn
+    Hard lấy 50% lịch cũ. Nay Hard luôn ≥ Vague+1, Good ≥ Hard+1, Easy ≥
+    Good+1 (trước khi áp trần 4 ngày cho từ khó / 180 ngày).
   - **Chọn chế độ ôn trước khi vào** — bấm **Ôn tập** (trang chủ, danh mục, bộ
     từ) sẽ hiện bảng chọn **Chọn nghĩa / Gõ từ** trước; vào phiên rồi **không
     đổi được** chế độ nữa (bỏ nút gạt trong màn ôn). Ôn ngữ pháp vẫn vào thẳng
