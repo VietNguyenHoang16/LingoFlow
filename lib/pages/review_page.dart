@@ -919,7 +919,7 @@ class _ReviewPageState extends State<ReviewPage>
   }
 
   /// Phím 1-4: chọn đáp án khi chưa trả lời (chế độ chọn nghĩa), chấm điểm
-  /// Hard/Vague/Good/Easy sau khi đã hiện đáp án. Trả về true nếu đã xử lý.
+  /// Vague/Hard/Good/Easy sau khi đã hiện đáp án. Trả về true nếu đã xử lý.
   bool _handleDigitKey(LogicalKeyboardKey key) {
     const digits = [
       LogicalKeyboardKey.digit1,
@@ -941,8 +941,8 @@ class _ReviewPageState extends State<ReviewPage>
       // Sau "Không biết" chỉ còn nút Tiếp (đã tính Hard) -> bỏ qua phím chấm.
       if (_dontKnow) return false;
       _rateWord(const [
-        SrsService.qualityHard,
         SrsService.qualityVague,
+        SrsService.qualityHard,
         SrsService.qualityGood,
         SrsService.qualityEasy,
       ][index]);
@@ -2206,23 +2206,23 @@ class _ReviewPageState extends State<ReviewPage>
           children: [
             Expanded(
               child: _buildRateButton(
-                label: 'Hard',
-                emoji: '\u{1F914}',
+                label: 'Vague',
+                emoji: '\u{1F615}',
                 shortcut: '1',
-                subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '',
-                color: colors.masteryReviewing,
-                onTap: () => _rateWord(SrsService.qualityHard),
+                subtitle: _calculatedIntervals[SrsService.qualityVague] ?? '',
+                color: theme.colorScheme.error,
+                onTap: () => _rateWord(SrsService.qualityVague),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _buildRateButton(
-                label: 'Vague',
-                emoji: '\u{1F615}',
+                label: 'Hard',
+                emoji: '\u{1F914}',
                 shortcut: '2',
-                subtitle: _calculatedIntervals[SrsService.qualityVague] ?? '',
-                color: theme.colorScheme.error,
-                onTap: () => _rateWord(SrsService.qualityVague),
+                subtitle: _calculatedIntervals[SrsService.qualityHard] ?? '',
+                color: colors.masteryReviewing,
+                onTap: () => _rateWord(SrsService.qualityHard),
               ),
             ),
             const SizedBox(width: 8),

@@ -151,7 +151,7 @@ void main() {
     }, () => _buildClient(requests));
   });
 
-  testWidgets('chon nghia: phim 2 sau khi hien dap an = cham Vague',
+  testWidgets('chon nghia: phim 1 sau khi hien dap an = cham Vague',
       (tester) async {
     final requests = <Map<String, dynamic>>[];
     await http.runWithClient(() async {
@@ -166,7 +166,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('How well did you know it?'), findsOneWidget);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
       await tester.pumpAndSettle();
 
       final saved =
@@ -181,7 +181,7 @@ void main() {
     }, () => _buildClient(requests));
   });
 
-  testWidgets('go tu: phim 1 sau khi hien dap an = cham Hard', (tester) async {
+  testWidgets('go tu: phim 2 sau khi hien dap an = cham Hard', (tester) async {
     final requests = <Map<String, dynamic>>[];
     await http.runWithClient(() async {
       await _pumpReview(
@@ -196,7 +196,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('How well did you know it?'), findsOneWidget);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
 
       final saved =
@@ -206,7 +206,7 @@ void main() {
       expect(data['correctStreak'], 0);
       expect((data['lapseCount'] as num).toInt(), 0);
       expect(data['lastRating'], SrsService.qualityHard);
-      expect(data['intervalDays'], 1);
+      expect(data['intervalDays'], 2);
       // Cho timer 300ms cua _handleAnswerFocusChange chay het truoc khi ket thuc
       // (neu khong Flutter bao "Timer is still pending").
       await tester.pump(const Duration(milliseconds: 400));

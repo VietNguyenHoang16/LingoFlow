@@ -47,7 +47,7 @@ void main() {
       expect(r.newCorrectStreak, 5);
     });
 
-    test('Hard 4d -> 2d (khong cap)', () {
+    test('Hard 4d -> 3d (giu Vague 2d < Hard)', () {
       final r = srs.calculateNextReview(
         quality: SrsService.qualityHard,
         currentInterval: 4,
@@ -56,7 +56,7 @@ void main() {
         reviewCount: 10,
       );
 
-      expect(r.newInterval, 2);
+      expect(r.newInterval, 3);
     });
 
     test('Hard 3 lan lien tiep tren tu cu -> roi vao Leech (cap 4d)', () {
@@ -123,6 +123,50 @@ void main() {
       );
 
       expect(r.newInterval, 1);
+    });
+  });
+
+  group('SrsService - 4 muc luon tang dan Vague < Hard < Good < Easy', () {
+    final srs = SrsService();
+
+    int intervalFor(int quality, int currentInterval, {int lapseCount = 0}) =>
+        srs
+            .calculateNextReview(
+              quality: quality,
+              currentInterval: currentInterval,
+              easeFactor: 2.5,
+              correctStreak: 5,
+              reviewCount: 10,
+              lapseCount: lapseCount,
+            )
+            .newInterval;
+
+    for (final current in [0, 1, 2, 4, 8, 30, 180]) {
+      test('interval $current', () {
+        final vague = intervalFor(SrsService.qualityVague, current);
+        final hard = intervalFor(SrsService.qualityHard, current);
+        final good = intervalFor(SrsService.qualityGood, current);
+        final easy = intervalFor(SrsService.qualityEasy, current);
+
+        expect(vague, lessThan(hard));
+        expect(hard, lessThan(good));
+        // Trần 180 ngày nên Good/Easy có thể bằng nhau ở từ rất già.
+        expect(good, lessThanOrEqualTo(easy));
+        expect(easy, lessThanOrEqualTo(180));
+      });
+    }
+
+    test('leech: van khong dao thu tu', () {
+      final vague = intervalFor(SrsService.qualityVague, 30, lapseCount: 3);
+      final hard = intervalFor(SrsService.qualityHard, 30, lapseCount: 3);
+      final good = intervalFor(SrsService.qualityGood, 30, lapseCount: 3);
+      final easy = intervalFor(SrsService.qualityEasy, 30, lapseCount: 3);
+
+      expect(vague, lessThan(hard));
+      expect(hard, lessThan(good));
+      expect(good, lessThanOrEqualTo(easy));
+      // Vague/Hard giu trang thai leech nen bi chan 4 ngay; Good/Easy reset lapse.
+      expect(hard, lessThanOrEqualTo(SrsService.leechMaxInterval));
     });
   });
 }

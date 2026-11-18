@@ -92,8 +92,6 @@ class SrsService {
 
     if (quality <= qualityVague) {
       // Mơ hồ: nhận diện được nhưng chưa gợi nhớ → ôn sớm hơn Good.
-      newInterval =
-          currentInterval == 0 ? vagueNewInterval : vagueInterval;
       newStreak = 0;
       newLapseCount = lapseCount + 1; // Tăng lapse count cho leech tracking
       // Giảm ease factor
@@ -156,13 +154,34 @@ class SrsService {
       newEaseFactor = max(1.3, newEaseFactor);
     }
 
-    // Giới hạn interval tối đa
-    // Nếu từ là Leech → giới hạn tối đa leechMaxInterval (4 ngày)
-    // Nếu bình thường → giới hạn tối đa 180 ngày
-    if (isLeech(newLapseCount)) {
-      newInterval = min(newInterval, leechMaxInterval);
+    // Bốn mức luôn tăng dần: Vague < Hard < Good < Easy. Không có clamp này,
+    // Vague cố định 1-2 ngày còn Hard = 50% interval cũ nên từ đã ôn lâu sẽ
+    // hiện Hard 4d > Vague 2d (đảo thứ tự).
+    final int cap = isLeech(newLapseCount) ? leechMaxInterval : 180;
+    final int vagueI = min(
+      _baseInterval(quality: qualityVague, currentInterval: currentInterval, easeFactor: easeFactor),
+      cap,
+    );
+    final int hardI = min(
+      max(_baseInterval(quality: qualityHard, currentInterval: currentInterval, easeFactor: easeFactor), vagueI + 1),
+      cap,
+    );
+    final int goodI = min(
+      max(_baseInterval(quality: qualityGood, currentInterval: currentInterval, easeFactor: easeFactor), hardI + 1),
+      cap,
+    );
+    final int easyI = min(
+      max(_baseInterval(quality: qualityEasy, currentInterval: currentInterval, easeFactor: easeFactor), goodI + 1),
+      cap,
+    );
+    if (quality <= qualityVague) {
+      newInterval = vagueI;
+    } else if (quality == qualityHard) {
+      newInterval = hardI;
+    } else if (quality == qualityGood) {
+      newInterval = goodI;
     } else {
-      newInterval = min(newInterval, 180);
+      newInterval = easyI;
     }
 
     // Tính mastery level
@@ -180,6 +199,29 @@ class SrsService {
       nextReviewDate: nextReview,
       newLapseCount: newLapseCount,
     );
+  }
+
+  /// Interval gốc của từng mức trước khi ép thứ tự Vague < Hard < Good < Easy.
+  int _baseInterval({
+    required int quality,
+    required int currentInterval,
+    required double easeFactor,
+  }) {
+    int interval;
+    if (quality <= qualityVague) {
+      interval = currentInterval == 0 ? vagueNewInterval : vagueInterval;
+    } else if (currentInterval == 0) {
+      interval = quality == qualityEasy ? 4 : (quality == qualityGood ? 2 : 1);
+    } else if (currentInterval == 1) {
+      interval = quality == qualityEasy ? 6 : (quality == qualityGood ? 3 : 2);
+    } else if (quality == qualityHard) {
+      interval =
+          min(max(1, (currentInterval * hardMultiplier).round()), hardMaxInterval);
+    } else {
+      interval = (currentInterval * easeFactor).round();
+    }
+    if (quality == qualityEasy) interval = (interval * 1.3).round();
+    return interval;
   }
 
   /// Xác định mastery level dựa trên interval và streak

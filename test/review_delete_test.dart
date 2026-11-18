@@ -223,7 +223,7 @@ void main() {
     await scenario(tester, (requests) async {
       await tester.tap(find.text('Show answer'));
       await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
       await tester.pumpAndSettle();
       expect(find.text('Review Complete!'), findsOneWidget);
       expect(
