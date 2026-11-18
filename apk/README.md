@@ -16,8 +16,12 @@ Link tải nhanh:
 ## Thông tin bản phát hành
 
 - Kích thước: `21,300,106 bytes` (20.31 MB)
-- SHA256: `5FB56F9574B216E3A3053CECB387F04EF99154DF03F9DDCC5EE385060AD78F4C`
+- SHA256: `E57A4FB65B07FB19E3DF048C45DB53AC9BDBCFEFF5E16BAFD65FC9874CE5FEB2`
 - Ngày build: `18/11/2026` — bản mới nhất:
+  - **Chọn chế độ ôn trước khi vào** — bấm **Ôn tập** (trang chủ, danh mục, bộ
+    từ) sẽ hiện bảng chọn **Chọn nghĩa / Gõ từ** trước; vào phiên rồi **không
+    đổi được** chế độ nữa (bỏ nút gạt trong màn ôn). Ôn ngữ pháp vẫn vào thẳng
+    chế độ gõ từ.
   - **Nút "Thoát" khi đang ôn tập** — trên thanh trên của màn Ôn tập có nút
     **Thoát** rõ ràng (cạnh bộ đếm `x / y`). Bấm là ra ngay, không hỏi. Các từ
     đã chấm vẫn giữ **ngày ôn mới** (mỗi lượt được ghi ngay khi chấm); từ đang
