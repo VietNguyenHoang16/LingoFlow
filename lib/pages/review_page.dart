@@ -1264,7 +1264,7 @@ class _ReviewPageState extends State<ReviewPage>
           ),
           actions: [
             Padding(
-              padding: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.only(right: 8),
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1280,6 +1280,24 @@ class _ReviewPageState extends State<ReviewPage>
                       fontSize: 13,
                     ),
                   ),
+                ),
+              ),
+            ),
+            // Thoát giữa phiên: các lượt đã chấm đã ghi SRS ngay nên vẫn giữ
+            // ngày ôn mới; lượt đang làm dở thì không tính.
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton(
+                onPressed: () => _popWithFlush(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Thoát',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
               ),
             ),
